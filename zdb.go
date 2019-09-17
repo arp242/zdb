@@ -96,16 +96,21 @@ func Connect(connect string, pgSQL bool, schema []byte, migrations map[string][]
 		}
 	}
 
+	return db, checkmig(db, migrations)
+
+}
+
+func checkmig(db *sqlx.DB, migrations map[string][]byte) error {
 	// Check migrations.
 	var haveMig []string
-	if _, err := os.Stat("./db/migrate"); err == os.ErrNotExist {
+	if _, err := os.Stat("./db/migrate"); os.IsNotExist(err) {
 		for k := range migrations {
 			haveMig = append(haveMig, k)
 		}
 	} else {
 		haveMig, err = filepath.Glob("./db/migrate/*.sql")
 		if err != nil {
-			return nil, errors.Wrap(err, "glob")
+			return errors.Wrap(err, "glob")
 		}
 	}
 	for i := range haveMig {
@@ -116,17 +121,16 @@ func Connect(connect string, pgSQL bool, schema []byte, migrations map[string][]
 	var ranMig []string
 	err := db.Select(&ranMig, `select name from version order by name asc`)
 	if err != nil {
-		return nil, errors.Wrap(err, "select version")
+		return errors.Wrap(err, "select version")
 	}
 
 	if d := diff(haveMig, ranMig); len(d) > 0 {
-		zlog.Errorf("there are migrations which have not yet been run: %q", d)
+		zlog.Errorf("pending migrations: %q", d)
 	}
 	if d := diff(ranMig, haveMig); len(d) > 0 {
-		zlog.Errorf("there are migrations in the DB that don't exist: %q", d)
+		zlog.Errorf("migrations in the DB that don't exist: %q", d)
 	}
-
-	return db, nil
+	return nil
 }
 
 // diff returns a new slice with elements that are in "set" but not in "others".
