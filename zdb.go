@@ -12,7 +12,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
-	"github.com/teamwork/utils/sliceutil"
+	"zgo.at/utils/sliceutil"
 	"zgo.at/zlog"
 )
 
