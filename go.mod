@@ -9,6 +9,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.11.0
 	github.com/pkg/errors v0.8.1
 	google.golang.org/appengine v1.6.2 // indirect
-	zgo.at/utils v0.0.0-20191016023453-e85142c68ba7
+	zgo.at/utils v0.0.0-20191016025157-52ea15392a16
 	zgo.at/zlog v1.0.2
 )

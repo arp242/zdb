@@ -67,7 +67,7 @@ func UniqueErr(err error) bool {
 }
 
 // Connect to database.
-func Connect(connect string, pgSQL bool, schema []byte, migrations map[string][]byte) (*sqlx.DB, error) {
+func Connect(connect string, pgSQL bool, schema []byte, migrations map[string][]byte, migpath string) (*sqlx.DB, error) {
 	var db *sqlx.DB
 	if pgSQL {
 		var err error
@@ -96,19 +96,19 @@ func Connect(connect string, pgSQL bool, schema []byte, migrations map[string][]
 		}
 	}
 
-	return db, checkmig(db, migrations)
+	return db, checkmig(db, migrations, migpath)
 
 }
 
-func checkmig(db *sqlx.DB, migrations map[string][]byte) error {
+func checkmig(db *sqlx.DB, migrations map[string][]byte, migpath string) error {
 	// Check migrations.
 	var haveMig []string
-	if _, err := os.Stat("./db/migrate"); os.IsNotExist(err) {
+	if _, err := os.Stat(migpath); os.IsNotExist(err) {
 		for k := range migrations {
 			haveMig = append(haveMig, k)
 		}
 	} else {
-		haveMig, err = filepath.Glob("./db/migrate/*.sql")
+		haveMig, err = filepath.Glob(migpath + "/*.sql")
 		if err != nil {
 			return errors.Wrap(err, "glob")
 		}
