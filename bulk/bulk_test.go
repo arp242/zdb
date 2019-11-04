@@ -46,6 +46,31 @@ func TestInsert(t *testing.T) {
 	}
 }
 
+func TestError(t *testing.T) {
+	ctx, clean := startTest(t)
+	defer clean()
+
+	db := zdb.MustGet(ctx).(*sqlx.DB)
+	_, err := db.Exec(`create table TBL (aa text, bb text, cc text);`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	insert := NewInsert(ctx, db, "TBL", []string{"aa", "bb", "cc"})
+	insert.Values("one", "two")
+	insert.Values("a", "b")
+
+	err = insert.Finish()
+	if err == nil {
+		t.Fatal("error is nil")
+	}
+
+	want := `1 errors: 2 values for 3 columns (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (args=["one" "two" "a" "b"])`
+	if err.Error() != want {
+		t.Fatal(err)
+	}
+}
+
 // startTest a new database test.
 func startTest(t *testing.T) (context.Context, func()) {
 	t.Helper()

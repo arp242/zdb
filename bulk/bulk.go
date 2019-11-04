@@ -62,7 +62,7 @@ type Insert struct {
 	table   string
 	columns []string
 	insert  builder
-	errors  []error
+	errors  []string
 }
 
 // NewInsert makes a new Insert builder.
@@ -98,14 +98,14 @@ func (m *Insert) Finish() error {
 		return nil
 	}
 
-	return fmt.Errorf("%d errors: %v", len(m.errors), m.errors)
+	return fmt.Errorf("%d errors: %s", len(m.errors), strings.Join(m.errors, "\n"))
 }
 
 func (m *Insert) doInsert() {
 	query, args := m.insert.SQL()
 	_, err := m.db.ExecContext(m.ctx, query, args...)
 	if err != nil {
-		m.errors = append(m.errors, err)
+		m.errors = append(m.errors, fmt.Sprintf("%v (query=%q) (args=%q)", err, query, args))
 	}
 
 	m.insert = newBuilder(m.table, m.columns...)
