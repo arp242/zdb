@@ -3,6 +3,8 @@ package zdb
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -93,16 +95,44 @@ func Connect(connect string, pgSQL bool, schema []byte, migrations map[string][]
 
 		if !exists {
 			db.MustExec(string(schema))
+			err := runmig(db, migrations, migpath, "all")
+			if err != nil {
+				return nil, errors.Wrap(err, "migration")
+			}
 		}
 	}
 
 	return db, checkmig(db, migrations, migpath)
-
 }
 
-func checkmig(db *sqlx.DB, migrations map[string][]byte, migpath string) error {
+func runmig(db *sqlx.DB, migrations map[string][]byte, migpath string, which string) error {
+	torun := []string{which}
+	if which == "all" {
+		haveMig, ranMig, err := lsmig(db, migrations, migpath)
+		if err != nil {
+			return err
+		}
+
+		torun = sliceutil.DifferenceString(haveMig, ranMig)
+	}
+
+	for _, run := range torun {
+		f, err := ioutil.ReadFile(fmt.Sprintf("%s/%s.sql", migpath, run))
+		if err != nil {
+			return err
+		}
+
+		_, err = db.Exec(string(f))
+		if err != nil {
+			return errors.Wrapf(err, "migrate %s", run)
+		}
+	}
+
+	return nil
+}
+
+func lsmig(db *sqlx.DB, migrations map[string][]byte, migpath string) (haveMig, ranMig []string, err error) {
 	// Check migrations.
-	var haveMig []string
 	if _, err := os.Stat(migpath); os.IsNotExist(err) {
 		for k := range migrations {
 			haveMig = append(haveMig, k)
@@ -110,7 +140,7 @@ func checkmig(db *sqlx.DB, migrations map[string][]byte, migpath string) error {
 	} else {
 		haveMig, err = filepath.Glob(migpath + "/*.sql")
 		if err != nil {
-			return errors.Wrap(err, "glob")
+			return nil, nil, errors.Wrap(err, "glob")
 		}
 	}
 	for i := range haveMig {
@@ -118,10 +148,15 @@ func checkmig(db *sqlx.DB, migrations map[string][]byte, migpath string) error {
 	}
 	sort.Strings(haveMig)
 
-	var ranMig []string
-	err := db.Select(&ranMig, `select name from version order by name asc`)
+	err = db.Select(&ranMig, `select name from version order by name asc`)
+	return haveMig, ranMig, errors.Wrap(err, "select version")
+}
+
+// Check if there are pending migrations and zlog.Error() if there are.
+func checkmig(db *sqlx.DB, migrations map[string][]byte, migpath string) error {
+	haveMig, ranMig, err := lsmig(db, migrations, migpath)
 	if err != nil {
-		return errors.Wrap(err, "select version")
+		return err
 	}
 
 	if d := diff(haveMig, ranMig); len(d) > 0 {

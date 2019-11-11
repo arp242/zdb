@@ -31,6 +31,8 @@ google.golang.org/appengine v1.6.2 h1:j8RI1yW0SkI+paT6uGwMlrMI/6zwYA6/CFil8rxOzG
 google.golang.org/appengine v1.6.2/go.mod h1:i06prIuMbXzDqacNJfV5OdTW448YApPu5ww/cMBSeb0=
 zgo.at/utils v0.0.0-20191016025157-52ea15392a16 h1:+wY2KBlxI32OF4XwirSm4kDRniNL/dooD8Efg3xxJ64=
 zgo.at/utils v0.0.0-20191016025157-52ea15392a16/go.mod h1:PET0dez1GVYYmyI5x/+eJGbyOOF9s2YW8U+gRv7Looo=
+zgo.at/utils v0.0.0-20191111042735-db96561b7fab h1:phUhuEpqqHOXVC0G4lZhFedyJJxCD66ic5f7ocoBBjo=
+zgo.at/utils v0.0.0-20191111042735-db96561b7fab/go.mod h1:PET0dez1GVYYmyI5x/+eJGbyOOF9s2YW8U+gRv7Looo=
 zgo.at/zlog v1.0.3 h1:VARDTSzp2tP0S0xYuITAlU/occFWEAbli7LM3ol/c+s=
 zgo.at/zlog v1.0.3/go.mod h1:V3ytbwhdFfmcUglEwnvlJ0VKoFocxpfhRUAISEERmZ8=
 zgo.at/ztest v0.0.0-20191016022435-f3e360521191 h1:OWHdZobQysBEpa01t+/xOeMO0ZrsI6viJa+4nLILJGI=
