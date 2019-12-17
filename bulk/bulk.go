@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
+	"zgo.at/zdb"
 )
 
 type builder struct {
@@ -58,7 +58,7 @@ type Insert struct {
 	rows    uint16
 	limit   uint16
 	ctx     context.Context
-	db      *sqlx.DB
+	db      zdb.DB
 	table   string
 	columns []string
 	insert  builder
@@ -66,7 +66,7 @@ type Insert struct {
 }
 
 // NewInsert makes a new Insert builder.
-func NewInsert(ctx context.Context, db *sqlx.DB, table string, columns []string) Insert {
+func NewInsert(ctx context.Context, db zdb.DB, table string, columns []string) Insert {
 	return Insert{
 		ctx: ctx,
 		db:  db,

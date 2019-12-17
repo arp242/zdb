@@ -30,8 +30,8 @@ func TestInsert(t *testing.T) {
 	ctx, clean := startTest(t)
 	defer clean()
 
-	db := zdb.MustGet(ctx).(*sqlx.DB)
-	_, err := db.Exec(`create table TBL (aa text, bb text, cc text);`)
+	db := zdb.MustGet(ctx)
+	_, err := db.ExecContext(ctx, `create table TBL (aa text, bb text, cc text);`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,8 +50,8 @@ func TestError(t *testing.T) {
 	ctx, clean := startTest(t)
 	defer clean()
 
-	db := zdb.MustGet(ctx).(*sqlx.DB)
-	_, err := db.Exec(`create table TBL (aa text, bb text, cc text);`)
+	db := zdb.MustGet(ctx)
+	_, err := db.ExecContext(ctx, `create table TBL (aa text, bb text, cc text);`)
 	if err != nil {
 		t.Fatal(err)
 	}
