@@ -154,6 +154,10 @@ func lsmig(db *sqlx.DB, migrations map[string][]byte, migpath string) (haveMig, 
 
 // Check if there are pending migrations and zlog.Error() if there are.
 func checkmig(db *sqlx.DB, migrations map[string][]byte, migpath string) error {
+	if migrations == nil && migpath == "" {
+		return nil
+	}
+
 	haveMig, ranMig, err := lsmig(db, migrations, migpath)
 	if err != nil {
 		return err
