@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"zgo.at/utils/sliceutil"
 	"zgo.at/zlog"
@@ -56,16 +54,6 @@ func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
 
 	tx, err := db.(*sqlx.DB).BeginTxx(ctx, nil)
 	return context.WithValue(ctx, ctxkey, tx), tx, err
-}
-
-func UniqueErr(err error) bool {
-	if sqlErr, ok := err.(sqlite3.Error); ok && sqlErr.ExtendedCode == sqlite3.ErrConstraintUnique {
-		return true
-	}
-	if pqErr, ok := err.(pq.Error); ok && pqErr.Code == "23505" {
-		return true
-	}
-	return false
 }
 
 // Connect to database.
