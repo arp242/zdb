@@ -63,7 +63,7 @@ func Connect(connect string, pgSQL bool, schema []byte, migrations map[string][]
 		var err error
 		db, err = sqlx.Connect("postgres", connect)
 		if err != nil {
-			return nil, errors.Wrap(err, "sqlx.Connect pgsql")
+			return nil, errors.Wrap(err, "sqlx.Connect postgres")
 		}
 
 		// db.SetConnMaxLifetime()
@@ -73,12 +73,16 @@ func Connect(connect string, pgSQL bool, schema []byte, migrations map[string][]
 		exists := true
 		if _, err := os.Stat(connect); os.IsNotExist(err) {
 			zlog.Printf("database %q doesn't exist; loading new schema", connect)
+			err = os.MkdirAll(filepath.Dir(connect), 0755)
+			if err != nil {
+				return nil, errors.Wrap(err, "create DB dir")
+			}
 			exists = false
 		}
 		var err error
 		db, err = sqlx.Connect("sqlite3", connect)
 		if err != nil {
-			return nil, errors.Wrap(err, "sqlx.Connect pgsql")
+			return nil, errors.Wrap(err, "sqlx.Connect sqlite")
 		}
 
 		if !exists {
