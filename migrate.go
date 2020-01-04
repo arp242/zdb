@@ -31,7 +31,7 @@ func NewMigrate(db DB, flag string, mig map[string][]byte, path string) *Migrate
 	return &Migrate{db, flag, mig, path}
 }
 
-// Run a migration, or all of then if which is "all".
+// Run a migration, or all of then if which is "all" or "auto".
 func (m Migrate) Run(which string) error {
 	haveMig, ranMig, err := m.List()
 	if err != nil {
@@ -39,7 +39,7 @@ func (m Migrate) Run(which string) error {
 	}
 
 	torun := []string{which}
-	if which == "all" {
+	if which == "all" || which == "auto" {
 		torun = sliceutil.DifferenceString(haveMig, ranMig)
 	}
 
