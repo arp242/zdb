@@ -41,6 +41,25 @@ func MustGet(ctx context.Context) DB {
 	return db
 }
 
+// TX runs the given function in a transaction.
+//
+// The DB on the passed context is a copy with a transaction, which is is
+// committed if the error is nil, or rolled back if it's not.
+func TX(ctx context.Context, fn func(context.Context, DB) error) error {
+	txctx, tx, err := Begin(ctx)
+	if err != nil {
+		return errors.Wrap(err, "zdb.TX")
+	}
+
+	defer tx.Rollback()
+
+	err = fn(txctx, tx)
+	if err != nil {
+		return errors.Wrap(err, "zdb.TX fn")
+	}
+	return errors.Wrap(tx.Commit(), "zdb.TX commit")
+}
+
 // Begin a new transaction.
 //
 // The returned context is a copy of the original with the DB replaced with a
@@ -54,7 +73,7 @@ func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
 	}
 
 	tx, err := db.(*sqlx.DB).BeginTxx(ctx, nil)
-	return context.WithValue(ctx, ctxkey, tx), tx, err
+	return context.WithValue(ctx, ctxkey, tx), tx, errors.Wrap(err, "zdb.Begin")
 }
 
 type ConnectOptions struct {

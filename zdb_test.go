@@ -35,6 +35,28 @@ func TestBegin(t *testing.T) {
 	})
 }
 
+func TestTX(t *testing.T) {
+	ctx, clean := startTest(t)
+	defer clean()
+
+	err := TX(ctx, func(ctx context.Context, tx DB) error {
+		_, ok := tx.(*sqlx.Tx)
+		if !ok {
+			t.Errorf("not a tx: %T", tx)
+		}
+
+		_, ok = MustGet(ctx).(*sqlx.Tx)
+		if !ok {
+			t.Errorf("not a tx: %T", tx)
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // startTest a new database test.
 func startTest(t *testing.T) (context.Context, func()) {
 	t.Helper()
