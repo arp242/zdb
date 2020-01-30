@@ -22,28 +22,27 @@ import (
 
 type Migrate struct {
 	DB          DB
-	Flag        string            // Value of -migrate flag.
+	Which       []string          // List of migrations to run.
 	Migrations  map[string][]byte // List of all migrations, for production.
 	MigratePath string            // Path to migrations, for dev.
 }
 
-func NewMigrate(db DB, flag string, mig map[string][]byte, path string) *Migrate {
-	return &Migrate{db, flag, mig, path}
+func NewMigrate(db DB, which []string, mig map[string][]byte, path string) *Migrate {
+	return &Migrate{db, which, mig, path}
 }
 
 // Run a migration, or all of then if which is "all" or "auto".
-func (m Migrate) Run(which string) error {
+func (m Migrate) Run(which ...string) error {
 	haveMig, ranMig, err := m.List()
 	if err != nil {
 		return err
 	}
 
-	torun := []string{which}
-	if which == "all" || which == "auto" {
-		torun = sliceutil.DifferenceString(haveMig, ranMig)
+	if sliceutil.InStringSlice(which, "all") {
+		which = sliceutil.DifferenceString(haveMig, ranMig)
 	}
 
-	for _, run := range torun {
+	for _, run := range which {
 		version := strings.TrimSuffix(filepath.Base(run), ".sql")
 		if sliceutil.InStringSlice(ranMig, version) {
 			return fmt.Errorf("migration already run: %q (version entry: %q)", run, version)
@@ -128,8 +127,8 @@ func (m Migrate) Check() error {
 		return nil
 	}
 
-	if m.Flag != "" {
-		err := m.Run(m.Flag)
+	if len(m.Which) > 0 {
+		err := m.Run(m.Which...)
 		if err != nil {
 			return err
 		}

@@ -3,8 +3,10 @@ package zdb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
@@ -77,10 +79,9 @@ func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
 }
 
 type ConnectOptions struct {
-	Connect    string // Connect string.
-	PostgreSQL bool   // Use PostgreSQL?
-	Schema     []byte // Database schema to create on startup.
-	Migrate    *Migrate
+	Connect string // Connect string.
+	Schema  []byte // Database schema to create on startup.
+	Migrate *Migrate
 }
 
 // Connect to database.
@@ -90,10 +91,12 @@ func Connect(opts ConnectOptions) (*sqlx.DB, error) {
 		exists bool
 		err    error
 	)
-	if opts.PostgreSQL {
-		db, exists, err = connectPostgreSQL(opts.Connect)
+	if strings.HasPrefix(opts.Connect, "postgresql://") {
+		db, exists, err = connectPostgreSQL(opts.Connect[13:])
+	} else if strings.HasPrefix(opts.Connect, "sqlite://") {
+		db, exists, err = connectSQLite(opts.Connect[9:])
 	} else {
-		db, exists, err = connectSQLite(opts.Connect)
+		err = fmt.Errorf("zdb.Connect: unrecognized database engine in connect string %q", opts.Connect)
 	}
 	if err != nil {
 		return nil, err
