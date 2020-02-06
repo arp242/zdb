@@ -43,6 +43,9 @@ func (m Migrate) Run(which ...string) error {
 	}
 
 	for _, run := range which {
+		if run == "show" {
+			continue
+		}
 		version := strings.TrimSuffix(filepath.Base(run), ".sql")
 		if sliceutil.InStringSlice(ranMig, version) {
 			return fmt.Errorf("migration already run: %q (version entry: %q)", run, version)
@@ -124,6 +127,9 @@ func (m Migrate) Schema(n string) (string, error) {
 // Check if there are pending migrations and zlog.Error() if there are.
 func (m Migrate) Check() error {
 	if m.Migrations == nil && m.MigratePath == "" {
+		return nil
+	}
+	if sliceutil.InStringSlice(m.Which, "show") {
 		return nil
 	}
 
