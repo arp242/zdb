@@ -94,12 +94,12 @@ func Connect(opts ConnectOptions) (*sqlx.DB, error) {
 	if strings.HasPrefix(opts.Connect, "postgresql://") {
 		db, exists, err = connectPostgreSQL(opts.Connect[13:])
 	} else if strings.HasPrefix(opts.Connect, "sqlite://") {
-		db, exists, err = connectSQLite(opts.Connect[9:])
+		db, exists, err = connectSQLite(opts.Connect[9:], opts.Schema != nil)
 	} else {
 		err = fmt.Errorf("zdb.Connect: unrecognized database engine in connect string %q", opts.Connect)
 	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "zdb.Connect")
 	}
 
 	if opts.Migrate != nil {
@@ -132,16 +132,21 @@ func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
 	db.SetMaxIdleConns(25) // Default 2
 	db.SetMaxOpenConns(25) // Default 0
 
-	return db, true, err // TODO: report if DB exists.
+	// TODO: report if DB exists.
+	return db, true, nil
 }
 
-func connectSQLite(connect string) (*sqlx.DB, bool, error) {
+func connectSQLite(connect string, create bool) (*sqlx.DB, bool, error) {
 	exists := true
 	if _, err := os.Stat(connect); os.IsNotExist(err) {
 		exists = false
+		if !create {
+			return nil, false, fmt.Errorf("connectSQLite: database %q doesn't exist", connect)
+		}
+
 		err = os.MkdirAll(filepath.Dir(connect), 0755)
 		if err != nil {
-			return nil, false, errors.Wrap(err, "create DB dir")
+			return nil, false, errors.Wrap(err, "connectSQLite: create DB dir")
 		}
 	}
 	db, err := sqlx.Connect("sqlite3", connect)
