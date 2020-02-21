@@ -91,8 +91,22 @@ func Connect(opts ConnectOptions) (*sqlx.DB, error) {
 		exists bool
 		err    error
 	)
-	if strings.HasPrefix(opts.Connect, "postgresql://") {
-		db, exists, err = connectPostgreSQL(opts.Connect[13:])
+	if strings.HasPrefix(opts.Connect, "postgresql://") || strings.HasPrefix(opts.Connect, "postgres://") {
+		trim := opts.Connect[strings.IndexRune(opts.Connect, '/')+2:]
+		if strings.ContainsRune(trim, '/') {
+			fmt.Println(opts.Connect)
+			// "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"
+			db, exists, err = connectPostgreSQL(opts.Connect)
+		} else {
+			fmt.Println(trim)
+			// "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"
+			db, exists, err = connectPostgreSQL(trim)
+		}
+	} else if strings.HasPrefix(opts.Connect, "postgres://") {
+		if !strings.ContainsRune(opts.Connect[11:], '/') {
+			opts.Connect = opts.Connect[11:]
+		}
+		db, exists, err = connectPostgreSQL(opts.Connect)
 	} else if strings.HasPrefix(opts.Connect, "sqlite://") {
 		db, exists, err = connectSQLite(opts.Connect[9:], opts.Schema != nil)
 	} else {
