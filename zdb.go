@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
@@ -22,6 +24,7 @@ type DB interface {
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	Rebind(query string) string
 	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error)
 }
 
 var (
@@ -135,6 +138,44 @@ func Connect(opts ConnectOptions) (*sqlx.DB, error) {
 		err = opts.Migrate.Check()
 	}
 	return db, err
+}
+
+// Dump the results of a query to a writer in an aligned table. This is a
+// convenience function intended just for testing/debugging.
+//
+// Combined with ztest.Diff() it can be an easy way to test the database state.
+func Dump(ctx context.Context, out io.Writer, query string, args ...interface{}) {
+	rows, err := MustGet(ctx).QueryxContext(ctx, query, args...)
+	if err != nil {
+		panic(err)
+	}
+	cols, err := rows.Columns()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Fprintln(out, "=>", query)
+	if len(args) > 0 {
+		fmt.Fprintf(out, "%#v\n", args)
+	}
+
+	t := tabwriter.NewWriter(out, 8, 8, 2, ' ', 0)
+	for _, c := range cols {
+		t.Write([]byte(fmt.Sprintf("%v\t", c)))
+	}
+	t.Write([]byte("\n"))
+
+	for rows.Next() {
+		row, err := rows.SliceScan()
+		if err != nil {
+			panic(err)
+		}
+		for _, c := range row {
+			t.Write([]byte(fmt.Sprintf("%v\t", c)))
+		}
+		t.Write([]byte("\n"))
+	}
+	t.Flush()
 }
 
 func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
