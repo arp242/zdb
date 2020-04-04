@@ -1,6 +1,7 @@
 package zdb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -176,6 +177,13 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 		t.Write([]byte("\n"))
 	}
 	t.Flush()
+}
+
+// DumpString is like Dump(), but returns the result as a string.
+func DumpString(ctx context.Context, query string, args ...interface{}) string {
+	b := new(bytes.Buffer)
+	Dump(ctx, b, query, args...)
+	return b.String()
 }
 
 func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
