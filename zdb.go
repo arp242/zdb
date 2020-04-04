@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,7 +13,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
 	"zgo.at/zlog"
 )
 
@@ -54,16 +54,21 @@ func MustGet(ctx context.Context) DB {
 func TX(ctx context.Context, fn func(context.Context, DB) error) error {
 	txctx, tx, err := Begin(ctx)
 	if err != nil {
-		return errors.Wrap(err, "zdb.TX")
+		return fmt.Errorf("zdb.TX: %w", err)
 	}
 
 	defer tx.Rollback()
 
 	err = fn(txctx, tx)
 	if err != nil {
-		return errors.Wrap(err, "zdb.TX fn")
+		return fmt.Errorf("zdb.TX fn: %w", err)
 	}
-	return errors.Wrap(tx.Commit(), "zdb.TX commit")
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("zdb.TX commit: %w", err)
+	}
+	return nil
 }
 
 // Begin a new transaction.
@@ -79,7 +84,11 @@ func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
 	}
 
 	tx, err := db.(*sqlx.DB).BeginTxx(ctx, nil)
-	return context.WithValue(ctx, ctxkey, tx), tx, errors.Wrap(err, "zdb.Begin")
+	if err != nil {
+		return nil, nil, fmt.Errorf("zdb.Begin: %w", err)
+	}
+
+	return context.WithValue(ctx, ctxkey, tx), tx, nil
 }
 
 type ConnectOptions struct {
@@ -117,7 +126,7 @@ func Connect(opts ConnectOptions) (*sqlx.DB, error) {
 		err = fmt.Errorf("zdb.Connect: unrecognized database engine in connect string %q", opts.Connect)
 	}
 	if err != nil {
-		return nil, errors.Wrap(err, "zdb.Connect")
+		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
 
 	if opts.Migrate != nil {
@@ -130,7 +139,7 @@ func Connect(opts ConnectOptions) (*sqlx.DB, error) {
 		if opts.Migrate != nil {
 			err := opts.Migrate.Run("all")
 			if err != nil {
-				return nil, errors.Wrap(err, "migration")
+				return nil, fmt.Errorf("migration: %w", err)
 			}
 		}
 	}
@@ -186,10 +195,15 @@ func DumpString(ctx context.Context, query string, args ...interface{}) string {
 	return b.String()
 }
 
+// ErrNoRows reports if this error is sql.ErrNoRows.
+func ErrNoRows(err error) bool {
+	return errors.Is(err, sql.ErrNoRows)
+}
+
 func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
 	db, err := sqlx.Connect("postgres", connect)
 	if err != nil {
-		return nil, false, errors.Wrap(err, "connectPostgreSQL")
+		return nil, false, fmt.Errorf("connectPostgreSQL: %w", err)
 	}
 
 	db.SetMaxIdleConns(25) // Default 2
@@ -209,9 +223,13 @@ func connectSQLite(connect string, create bool) (*sqlx.DB, bool, error) {
 
 		err = os.MkdirAll(filepath.Dir(connect), 0755)
 		if err != nil {
-			return nil, false, errors.Wrap(err, "connectSQLite: create DB dir")
+			return nil, false, fmt.Errorf("connectSQLite: create DB dir: %w", err)
 		}
 	}
 	db, err := sqlx.Connect("sqlite3", connect)
-	return db, exists, errors.Wrap(err, "connectSQLite")
+	if err != nil {
+		return nil, false, fmt.Errorf("connectSQLite: %w", err)
+	}
+
+	return db, exists, nil
 }

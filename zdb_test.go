@@ -2,9 +2,13 @@ package zdb
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 var (
@@ -54,6 +58,32 @@ func TestTX(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestError(t *testing.T) {
+	tests := []struct {
+		err   error
+		check func(error) bool
+		want  bool
+	}{
+		{sql.ErrNoRows, ErrNoRows, true},
+		{fmt.Errorf("x: %w", sql.ErrNoRows), ErrNoRows, true},
+		{errors.New("X"), ErrNoRows, false},
+
+		{pq.Error{}, ErrUnique, false},
+		{pq.Error{Code: "123"}, ErrUnique, false},
+		{pq.Error{Code: "23505"}, ErrUnique, true},
+		{fmt.Errorf("X: %w", pq.Error{Code: "23505"}), ErrUnique, true},
+	}
+
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			out := tt.check(tt.err)
+			if out != tt.want {
+				t.Errorf("out: %t; want: %t", out, tt.want)
+			}
+		})
 	}
 }
 

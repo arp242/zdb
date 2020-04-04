@@ -16,7 +16,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pkg/errors"
 	"zgo.at/utils/sliceutil"
 )
 
@@ -35,7 +34,7 @@ func NewMigrate(db DB, which []string, mig map[string][]byte, path string) *Migr
 func (m Migrate) Run(which ...string) error {
 	haveMig, ranMig, err := m.List()
 	if err != nil {
-		return err
+		return fmt.Errorf("zdb.Migrate.Run: %w", err)
 	}
 
 	if sliceutil.InStringSlice(which, "all") {
@@ -48,18 +47,18 @@ func (m Migrate) Run(which ...string) error {
 		}
 		version := strings.TrimSuffix(filepath.Base(run), ".sql")
 		if sliceutil.InStringSlice(ranMig, version) {
-			return fmt.Errorf("migration already run: %q (version entry: %q)", run, version)
+			return fmt.Errorf("zdb.Migrate.Run: migration already run: %q (version entry: %q)", run, version)
 		}
 
 		s, err := m.Schema(run)
 		if err != nil {
-			return err
+			return fmt.Errorf("zdb.Migrate.Run: %w", err)
 		}
 
 		l.Field("name", run).Print("SQL migration")
 		_, err = m.DB.ExecContext(context.Background(), s)
 		if err != nil {
-			return errors.Wrapf(err, "migrate %s", run)
+			return fmt.Errorf("zdb.Migrate.Run %q: %w", run, err)
 		}
 	}
 
@@ -78,7 +77,7 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 		// Load from filesystem.
 		haveMig, err = filepath.Glob(m.MigratePath + "/*.sql")
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "glob")
+			return nil, nil, fmt.Errorf("glob: %w", err)
 		}
 	}
 	for i := range haveMig {
@@ -88,7 +87,10 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 
 	err = m.DB.SelectContext(context.Background(), &ranMig,
 		`select name from version order by name asc`)
-	return haveMig, ranMig, errors.Wrap(err, "select version")
+	if err != nil {
+		return nil, nil, fmt.Errorf("select version: %w", err)
+	}
+	return haveMig, ranMig, nil
 }
 
 // Schema of a migration by name.
@@ -120,8 +122,11 @@ func (m Migrate) Schema(n string) (string, error) {
 		// Load from filesystem.
 		b, err = ioutil.ReadFile(path)
 	}
+	if err != nil {
+		return "", fmt.Errorf("Migrate.Schema: %w", err)
+	}
 
-	return string(b), errors.Wrap(err, "Migrate.Schema")
+	return string(b), nil
 }
 
 // Check if there are pending migrations and zlog.Error() if there are.
@@ -136,13 +141,13 @@ func (m Migrate) Check() error {
 	if len(m.Which) > 0 {
 		err := m.Run(m.Which...)
 		if err != nil {
-			return err
+			return fmt.Errorf("zdb.Migrate.Check: %w", err)
 		}
 	}
 
 	haveMig, ranMig, err := m.List()
 	if err != nil {
-		return err
+		return fmt.Errorf("zdb.Migrate.Check: %w", err)
 	}
 
 	if d := sliceutil.DifferenceString(haveMig, ranMig); len(d) > 0 {
