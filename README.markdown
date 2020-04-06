@@ -27,7 +27,8 @@ report a use case that's hard to solve otherwise.
 
 Use `zdb.Connect()` to connect to a database; It's not *required* to use this
 (`sqlx.Connect()` will work fine as well), but it has some handy stuff like
-automatic schema creation and migrations. See godoc for the full details.
+automatic schema creation and migrations. See godoc for the full details on
+that.
 
 ---
 
@@ -41,10 +42,7 @@ func Example(ctx context.Context) {
             return err
         }
 
-        _, err := db.ExecContext(..)
-        if err != nil {
-            return err
-        }
+        // ... more queries
     })
     if err != nil {
         return fmt.Errorf("zdb.Example: %w", err)
@@ -52,8 +50,8 @@ func Example(ctx context.Context) {
 }
 ```
 
-The transaction will be committed if the function doesn't return an error, or
-rolled back if it does.
+The transaction will be rolled back if an error is returned, or commited if it
+doesn't.
 
 It's assumed that the context has a database value:
 
@@ -69,7 +67,7 @@ but I don't really see the problem. You don't *need* to store it on the context;
 you'll just have to add a call to `zdb.With()`:
 
 ```go
-func Example(ctx context.Context) {
+func Example(db zdb.DB) {  // or *sqlx.DB
     err := zdb.TX(zdb.With(ctx, db), func(...) {
         ...
     })
@@ -92,6 +90,13 @@ if err != nil {
     return err
 }
 ```
+
+Because it just passes around `zdb.DB` you can pass this to functions that
+accept `zdb.DB`, so they will operate on the transaction.
+
+Because `zdb.DB` satisfies both the `sqlx.DB` and `sqlx.Tx` structs, you can
+pass this around to your functions if they accept `zdb.DB` instead of
+`*sqlx.DB`.
 
 ---
 
