@@ -58,7 +58,6 @@ type Insert struct {
 	rows    uint16
 	limit   uint16
 	ctx     context.Context
-	db      zdb.DB
 	table   string
 	columns []string
 	insert  builder
@@ -66,10 +65,9 @@ type Insert struct {
 }
 
 // NewInsert makes a new Insert builder.
-func NewInsert(ctx context.Context, db zdb.DB, table string, columns []string) Insert {
+func NewInsert(ctx context.Context, table string, columns []string) Insert {
 	return Insert{
 		ctx: ctx,
-		db:  db,
 		// SQLITE_MAX_VARIABLE_NUMBER: https://www.sqlite.org/limits.html
 		limit:   uint16(999/len(columns) - 1),
 		table:   table,
@@ -103,7 +101,7 @@ func (m *Insert) Finish() error {
 
 func (m *Insert) doInsert() {
 	query, args := m.insert.SQL()
-	_, err := m.db.ExecContext(m.ctx, query, args...)
+	_, err := zdb.MustGet(m.ctx).ExecContext(m.ctx, query, args...)
 	if err != nil {
 		m.errors = append(m.errors, fmt.Sprintf("%v (query=%q) (args=%q)", err, query, args))
 	}

@@ -30,13 +30,12 @@ func TestInsert(t *testing.T) {
 	ctx, clean := startTest(t)
 	defer clean()
 
-	db := zdb.MustGet(ctx)
-	_, err := db.ExecContext(ctx, `create table TBL (aa text, bb text, cc text);`)
+	_, err := zdb.MustGet(ctx).ExecContext(ctx, `create table TBL (aa text, bb text, cc text);`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	insert := NewInsert(ctx, db, "TBL", []string{"aa", "bb", "cc"})
+	insert := NewInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
 	insert.Values("one", "two", "three")
 	insert.Values("a", "b", "c")
 
@@ -50,13 +49,12 @@ func TestError(t *testing.T) {
 	ctx, clean := startTest(t)
 	defer clean()
 
-	db := zdb.MustGet(ctx)
-	_, err := db.ExecContext(ctx, `create table TBL (aa text, bb text, cc text);`)
+	_, err := zdb.MustGet(ctx).ExecContext(ctx, `create table TBL (aa text, bb text, cc text);`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	insert := NewInsert(ctx, db, "TBL", []string{"aa", "bb", "cc"})
+	insert := NewInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
 	insert.Values("one", "two")
 	insert.Values("a", "b")
 

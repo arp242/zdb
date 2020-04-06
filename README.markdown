@@ -118,3 +118,26 @@ if d := ztest.Diff(out, want); d != "" {
 
 This will `panic()` on errors. Again, it's only intended for debugging and
 tests, and omitting error returns makes it a bit smoother to use.
+
+---
+
+Finally, the `zdb/bulk` package makes it easier to bulk insert values:
+
+
+```go
+ins := bulk.NewInsert(ctx, "table", []string{"col1", "col2", "col3"})
+
+for _, v := range listOfValues {
+    ins.Values(v.Col1, v.Col2, v.Col3)
+}
+
+err := ins.Finish()
+```
+
+This won't naïvely group everything in one query; after more than 998 parameters
+it will construct an SQL query and send it to the server. 998 was chosen because
+that's the [default SQLite limit](https://www.sqlite.org/limits.html#max_variable_number).
+You get the error(s) back with `Finish()`.
+
+Note this isn't run in a transaction by default; start a transaction yourself if
+you want it.
