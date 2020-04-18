@@ -12,7 +12,7 @@ import (
 //
 // This is the non-cgo version which works only for PostgreSQL.
 func ErrUnique(err error) bool {
-	var pqErr pq.Error
+	var pqErr *pq.Error
 	if errors.As(err, &pqErr) && pqErr.Code == "23505" {
 		return true
 	}

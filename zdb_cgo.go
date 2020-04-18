@@ -13,11 +13,11 @@ import (
 //
 // This is the cgo version which works for PostgreSQL and SQLite.
 func ErrUnique(err error) bool {
-	var sqlErr sqlite3.Error
+	var sqlErr *sqlite3.Error
 	if errors.As(err, &sqlErr) && sqlErr.ExtendedCode == sqlite3.ErrConstraintUnique {
 		return true
 	}
-	var pqErr pq.Error
+	var pqErr *pq.Error
 	if errors.As(err, &pqErr) && pqErr.Code == "23505" {
 		return true
 	}
