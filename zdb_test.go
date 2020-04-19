@@ -71,10 +71,10 @@ func TestError(t *testing.T) {
 		{fmt.Errorf("x: %w", sql.ErrNoRows), ErrNoRows, true},
 		{errors.New("X"), ErrNoRows, false},
 
-		{pq.Error{}, ErrUnique, false},
-		{pq.Error{Code: "123"}, ErrUnique, false},
-		{pq.Error{Code: "23505"}, ErrUnique, true},
-		{fmt.Errorf("X: %w", pq.Error{Code: "23505"}), ErrUnique, true},
+		{&pq.Error{}, ErrUnique, false},
+		{&pq.Error{Code: "123"}, ErrUnique, false},
+		{&pq.Error{Code: "23505"}, ErrUnique, true},
+		{fmt.Errorf("X: %w", &pq.Error{Code: "23505"}), ErrUnique, true},
 	}
 
 	for i, tt := range tests {

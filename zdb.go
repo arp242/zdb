@@ -13,6 +13,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/jmoiron/sqlx"
+	"zgo.at/utils/osutil"
 	"zgo.at/zlog"
 )
 
@@ -215,7 +216,8 @@ func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
 
 func connectSQLite(connect string, create bool) (*sqlx.DB, bool, error) {
 	exists := true
-	if _, err := os.Stat(connect); os.IsNotExist(err) {
+	stat, err := os.Stat(connect)
+	if os.IsNotExist(err) {
 		exists = false
 		if !create {
 			return nil, false, fmt.Errorf("connectSQLite: database %q doesn't exist", connect)
@@ -226,6 +228,11 @@ func connectSQLite(connect string, create bool) (*sqlx.DB, bool, error) {
 			return nil, false, fmt.Errorf("connectSQLite: create DB dir: %w", err)
 		}
 	}
+
+	if !osutil.ReadPermissions(stat.Mode()).User.Write {
+		return nil, false, fmt.Errorf("connectSQLite: %q is not writable", connect)
+	}
+
 	db, err := sqlx.Connect("sqlite3", connect)
 	if err != nil {
 		return nil, false, fmt.Errorf("connectSQLite: %w", err)
