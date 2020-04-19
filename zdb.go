@@ -229,7 +229,11 @@ func connectSQLite(connect string, create bool) (*sqlx.DB, bool, error) {
 		}
 	}
 
-	if !osutil.ReadPermissions(stat.Mode()).User.Write {
+	ok, err := osutil.Writable(stat)
+	if err != nil {
+		return nil, false, fmt.Errorf("connectSQLite: %w", err)
+	}
+	if !ok {
 		return nil, false, fmt.Errorf("connectSQLite: %q is not writable", connect)
 	}
 
