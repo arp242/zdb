@@ -2,7 +2,7 @@
 [sqlx](https://github.com/jmoiron/sqlx), but makes certain things a bit easier.
 
 Right now only PostgreSQL and SQLite are supported. Adding MariaDB etc. wouldn't
-be hard, but I don't need it myself so didn't bother adding (and testing!) it.
+be hard, but I don't use it myself so didn't bother adding (and testing!) it.
 Just need someone to write a patch 😅
 
 ---
@@ -15,9 +15,11 @@ like:
 type DB interface {
     ExecContext() (
     GetContext()
-    Rebind()
     SelectContext()
     QueryxContext()
+
+    Rebind() string
+    DriverName() string
 }
 ```
 
@@ -121,7 +123,7 @@ tests, and omitting error returns makes it a bit smoother to use.
 
 ---
 
-Finally, the `zdb/bulk` package makes it easier to bulk insert values:
+The `zdb/bulk` package makes it easier to bulk insert values:
 
 
 ```go

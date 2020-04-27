@@ -7,13 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
+	"regexp"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/jmoiron/sqlx"
-	"zgo.at/utils/osutil"
+	"zgo.at/utils/byteutil"
 	"zgo.at/zlog"
 )
 
@@ -24,13 +24,15 @@ const Date = "2006-01-02 15:04:05"
 type DB interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	Rebind(query string) string
 	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error)
+
+	Rebind(query string) string
+	DriverName() string
 }
 
 var (
-	ctxkey = &struct{ n string }{"d"}
+	ctxkey = &struct{ n string }{"zdb"}
 	l      = zlog.Module("zdb")
 )
 
@@ -39,19 +41,48 @@ func With(ctx context.Context, db DB) context.Context {
 	return context.WithValue(ctx, ctxkey, db)
 }
 
-// MustGet gets the DB from the context, panicking if this fails.
-func MustGet(ctx context.Context) DB {
+// Get the DB from the context.
+func Get(ctx context.Context) (DB, bool) {
 	db, ok := ctx.Value(ctxkey).(DB)
+	return db, ok
+}
+
+// MustGet gets the DB from the context, panicking if there is none.
+func MustGet(ctx context.Context) DB {
+	db, ok := Get(ctx)
 	if !ok {
-		panic("zdb.MustGet: no ctxkey value")
+		panic("zdb.MustGet: no DB on this context")
 	}
 	return db
 }
 
+// Begin a new transaction.
+//
+// The returned context is a copy of the original with the DB replaced with a
+// transaction. The same transaction is also returned directly.
+func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
+	// TODO: to supported nested transactions we need to wrap it.
+	// Also see: https://github.com/heetch/sqalx/blob/master/sqalx.go
+	db := MustGet(ctx)
+	if tx, ok := db.(*sqlx.Tx); ok {
+		return ctx, tx, nil
+	}
+
+	tx, err := db.(*sqlx.DB).BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("zdb.Begin: %w", err)
+	}
+	return context.WithValue(ctx, ctxkey, tx), tx, nil
+}
+
 // TX runs the given function in a transaction.
 //
-// The DB on the passed context is a copy with a transaction, which is is
-// committed if the error is nil, or rolled back if it's not.
+// The context passed to the callback has the DB replaced with a transaction.
+//
+// The transaction is comitted if the fn returns nil, or will be rolled back if
+// it's not.
+//
+// This is just a more convenient wrapper for Begin().
 func TX(ctx context.Context, fn func(context.Context, DB) error) error {
 	txctx, tx, err := Begin(ctx)
 	if err != nil {
@@ -70,85 +101,6 @@ func TX(ctx context.Context, fn func(context.Context, DB) error) error {
 		return fmt.Errorf("zdb.TX commit: %w", err)
 	}
 	return nil
-}
-
-// Begin a new transaction.
-//
-// The returned context is a copy of the original with the DB replaced with a
-// transaction. This transaction is also returned directly.
-func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
-	// TODO: to supported nested transactions we need to wrap it.
-	// Also see: https://github.com/heetch/sqalx/blob/master/sqalx.go
-	db := MustGet(ctx)
-	if tx, ok := db.(*sqlx.Tx); ok {
-		return ctx, tx, nil
-	}
-
-	tx, err := db.(*sqlx.DB).BeginTxx(ctx, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("zdb.Begin: %w", err)
-	}
-
-	return context.WithValue(ctx, ctxkey, tx), tx, nil
-}
-
-type ConnectOptions struct {
-	Connect string // Connect string.
-	Schema  []byte // Database schema to create on startup.
-	Migrate *Migrate
-}
-
-// Connect to database.
-func Connect(opts ConnectOptions) (*sqlx.DB, error) {
-	var (
-		db     *sqlx.DB
-		exists bool
-		err    error
-	)
-	if strings.HasPrefix(opts.Connect, "postgresql://") || strings.HasPrefix(opts.Connect, "postgres://") {
-		trim := opts.Connect[strings.IndexRune(opts.Connect, '/')+2:]
-		if strings.ContainsRune(trim, '/') {
-			fmt.Println(opts.Connect)
-			// "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"
-			db, exists, err = connectPostgreSQL(opts.Connect)
-		} else {
-			fmt.Println(trim)
-			// "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"
-			db, exists, err = connectPostgreSQL(trim)
-		}
-	} else if strings.HasPrefix(opts.Connect, "postgres://") {
-		if !strings.ContainsRune(opts.Connect[11:], '/') {
-			opts.Connect = opts.Connect[11:]
-		}
-		db, exists, err = connectPostgreSQL(opts.Connect)
-	} else if strings.HasPrefix(opts.Connect, "sqlite://") {
-		db, exists, err = connectSQLite(opts.Connect[9:], opts.Schema != nil)
-	} else {
-		err = fmt.Errorf("zdb.Connect: unrecognized database engine in connect string %q", opts.Connect)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("zdb.Connect: %w", err)
-	}
-
-	if opts.Migrate != nil {
-		opts.Migrate.DB = db
-	}
-
-	if !exists {
-		l.Printf("database %q doesn't exist; loading new schema", opts.Connect)
-		db.MustExec(string(opts.Schema))
-		if opts.Migrate != nil {
-			err := opts.Migrate.Run("all")
-			if err != nil {
-				return nil, fmt.Errorf("migration: %w", err)
-			}
-		}
-	}
-
-	if opts.Migrate != nil {
-		err = opts.Migrate.Check()
-	}
-	return db, err
 }
 
 // Dump the results of a query to a writer in an aligned table. This is a
@@ -182,11 +134,73 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 			panic(err)
 		}
 		for _, c := range row {
+			switch v := c.(type) {
+			case []byte:
+				if byteutil.Binary(v) {
+					c = fmt.Sprintf("%x", v)
+				} else {
+					c = string(v)
+				}
+			case time.Time:
+				// TODO: be a bit smarter about the precision.
+				c = v.Format(Date)
+			}
 			t.Write([]byte(fmt.Sprintf("%v\t", c)))
 		}
 		t.Write([]byte("\n"))
 	}
 	t.Flush()
+}
+
+// ApplyPlaceholders replaces parameter placeholders in query with the values.
+//
+// This is ONLY for printf-debugging, and NOT for actual usage. Security was NOT
+// a consideration when writing this. Parameters in SQL are sent separately over
+// the write and are not interpolated, so it's very different.
+//
+// This supports ? placeholders and $1 placeholders *in order* ($\d is simply
+// replace with ?).
+func ApplyPlaceholders(query string, args ...interface{}) string {
+	query = regexp.MustCompile(`\$\d`).ReplaceAllString(query, "?")
+
+	for _, a := range args {
+		var val string
+		switch v := a.(type) {
+		case time.Time:
+			val = fmt.Sprintf("'%v'", v.Format(Date))
+			return ""
+		case int, int64:
+			val = fmt.Sprintf("%v", v)
+		case []byte:
+			if byteutil.Binary(v) {
+				val = fmt.Sprintf("%x", v)
+			} else {
+				val = string(v)
+			}
+		default:
+			val = fmt.Sprintf("'%v'", v)
+		}
+		query = strings.Replace(query, "?", val, 1)
+	}
+
+	return deIndent(query)
+}
+
+func deIndent(in string) string {
+	indent := 0
+	for _, c := range strings.TrimLeft(in, "\n") {
+		if c != '\t' {
+			break
+		}
+		indent++
+	}
+
+	r := ""
+	for _, line := range strings.Split(in, "\n") {
+		r += strings.Replace(line, "\t", "", indent) + "\n"
+	}
+
+	return strings.TrimSpace(r)
 }
 
 // DumpString is like Dump(), but returns the result as a string.
@@ -201,46 +215,7 @@ func ErrNoRows(err error) bool {
 	return errors.Is(err, sql.ErrNoRows)
 }
 
-func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
-	db, err := sqlx.Connect("postgres", connect)
-	if err != nil {
-		return nil, false, fmt.Errorf("connectPostgreSQL: %w", err)
-	}
-
-	db.SetMaxIdleConns(25) // Default 2
-	db.SetMaxOpenConns(25) // Default 0
-
-	// TODO: report if DB exists.
-	return db, true, nil
-}
-
-func connectSQLite(connect string, create bool) (*sqlx.DB, bool, error) {
-	exists := true
-	stat, err := os.Stat(connect)
-	if os.IsNotExist(err) {
-		exists = false
-		if !create {
-			return nil, false, fmt.Errorf("connectSQLite: database %q doesn't exist", connect)
-		}
-
-		err = os.MkdirAll(filepath.Dir(connect), 0755)
-		if err != nil {
-			return nil, false, fmt.Errorf("connectSQLite: create DB dir: %w", err)
-		}
-	}
-
-	ok, err := osutil.Writable(stat)
-	if err != nil {
-		return nil, false, fmt.Errorf("connectSQLite: %w", err)
-	}
-	if !ok {
-		return nil, false, fmt.Errorf("connectSQLite: %q is not writable", connect)
-	}
-
-	db, err := sqlx.Connect("sqlite3", connect)
-	if err != nil {
-		return nil, false, fmt.Errorf("connectSQLite: %w", err)
-	}
-
-	return db, exists, nil
+// PgSQL reports if this database connection is to PostgreSQL.
+func PgSQL(db DB) bool {
+	return db.DriverName() == "postgres"
 }
