@@ -168,7 +168,6 @@ func ApplyPlaceholders(query string, args ...interface{}) string {
 		switch v := a.(type) {
 		case time.Time:
 			val = fmt.Sprintf("'%v'", v.Format(Date))
-			return ""
 		case int, int64:
 			val = fmt.Sprintf("%v", v)
 		case []byte:
