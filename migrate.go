@@ -153,8 +153,5 @@ func (m Migrate) Check() error {
 	if d := sliceutil.DifferenceString(haveMig, ranMig); len(d) > 0 {
 		l.Field("migrations", d).Errorf("pending migrations")
 	}
-	if d := sliceutil.DifferenceString(ranMig, haveMig); len(d) > 0 {
-		l.Field("migrations", d).Errorf("migrations in the DB that don't exist")
-	}
 	return nil
 }

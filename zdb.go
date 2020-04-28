@@ -20,12 +20,14 @@ import (
 // Date format for SQL.
 const Date = "2006-01-02 15:04:05"
 
-// DB wraps sqlx.DB so we can add transactions and logging.
+// DB wraps sqlx.DB so we can add transactions.
 type DB interface {
+	// ExecContext runs the SQL query.
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	QueryRowxContext(ctx context.Context, query string, args ...interface{}) *sqlx.Row
 	QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error)
+	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 
 	Rebind(query string) string
 	DriverName() string
