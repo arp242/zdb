@@ -17,10 +17,10 @@ func TestInts(t *testing.T) {
 		}{
 			{Ints{}, ""},
 			{Ints{}, ""},
-			{Ints{4, 5}, "4, 5"},
-			{Ints{1, 1}, "1, 1"},
+			{Ints{4, 5}, "4,5"},
+			{Ints{1, 1}, "1,1"},
 			{Ints{1}, "1"},
-			{Ints{1, 0, 2}, "1, 0, 2"},
+			{Ints{1, 0, 2}, "1,0,2"},
 		}
 
 		for _, tc := range cases {
@@ -79,10 +79,10 @@ func TestFloats(t *testing.T) {
 		}{
 			{Floats{}, ""},
 			{Floats{}, ""},
-			{Floats{4, 5}, "4, 5"},
-			{Floats{1, 1}, "1, 1"},
+			{Floats{4, 5}, "4,5"},
+			{Floats{1, 1}, "1,1"},
 			{Floats{1}, "1"},
-			{Floats{1, 0, 2}, "1, 0, 2"},
+			{Floats{1, 0, 2}, "1,0,2"},
 		}
 
 		for _, tc := range cases {

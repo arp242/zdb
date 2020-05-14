@@ -16,7 +16,7 @@ import (
 	"sort"
 	"strings"
 
-	"zgo.at/utils/sliceutil"
+	"zgo.at/utils/stringutil"
 )
 
 type Migrate struct {
@@ -37,8 +37,8 @@ func (m Migrate) Run(which ...string) error {
 		return fmt.Errorf("zdb.Migrate.Run: %w", err)
 	}
 
-	if sliceutil.InStringSlice(which, "all") {
-		which = sliceutil.DifferenceString(haveMig, ranMig)
+	if stringutil.Contains(which, "all") {
+		which = stringutil.Difference(haveMig, ranMig)
 	}
 
 	for _, run := range which {
@@ -46,7 +46,7 @@ func (m Migrate) Run(which ...string) error {
 			continue
 		}
 		version := strings.TrimSuffix(filepath.Base(run), ".sql")
-		if sliceutil.InStringSlice(ranMig, version) {
+		if stringutil.Contains(ranMig, version) {
 			return fmt.Errorf("zdb.Migrate.Run: migration already run: %q (version entry: %q)", run, version)
 		}
 
@@ -134,7 +134,7 @@ func (m Migrate) Check() error {
 	if m.Migrations == nil && m.MigratePath == "" {
 		return nil
 	}
-	if sliceutil.InStringSlice(m.Which, "show") {
+	if stringutil.Contains(m.Which, "show") {
 		return nil
 	}
 
@@ -150,7 +150,7 @@ func (m Migrate) Check() error {
 		return fmt.Errorf("zdb.Migrate.Check: %w", err)
 	}
 
-	if d := sliceutil.DifferenceString(haveMig, ranMig); len(d) > 0 {
+	if d := stringutil.Difference(haveMig, ranMig); len(d) > 0 {
 		l.Field("migrations", d).Errorf("pending migrations")
 	}
 	return nil

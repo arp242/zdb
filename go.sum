@@ -13,6 +13,8 @@ zgo.at/utils v0.0.0-20200426174547-f932b4226e60 h1:X9cQ2wWNxXFbvkKBotW5aLiuy/qmY
 zgo.at/utils v0.0.0-20200426174547-f932b4226e60/go.mod h1:+PbZTy2300b/A3oAh7/vJY58X5okaK67qKnAzNKJt3k=
 zgo.at/utils v0.0.0-20200514040211-829f63c9a740 h1:3I/Q1O47nGLHmIvUxKX7KzGiZB14rqt+8FeWfCLdF8A=
 zgo.at/utils v0.0.0-20200514040211-829f63c9a740/go.mod h1:+PbZTy2300b/A3oAh7/vJY58X5okaK67qKnAzNKJt3k=
+zgo.at/utils v0.0.0-20200514044306-bf7c1ff8aa0c h1:GWACHp07xLc1JwEISDzITuw1U4x6+r3BdbdYifbHz9E=
+zgo.at/utils v0.0.0-20200514044306-bf7c1ff8aa0c/go.mod h1:+PbZTy2300b/A3oAh7/vJY58X5okaK67qKnAzNKJt3k=
 zgo.at/zlog v0.0.0-20200404052423-adffcc8acd57 h1:sIuh9IpccNlzMsmAvF7EPT87/Ab2XdUJHizsMxbQgM4=
 zgo.at/zlog v0.0.0-20200404052423-adffcc8acd57/go.mod h1:YkLAQZjLsp1RqWHn8SJokHzXyYU+6FZjM4GNY64IKME=
 zgo.at/ztest v0.0.0-20200316134318-cfad86d80b41 h1:2vR+4hRs2YI2Lcm68AjHLSOHxQy/3XJ/b2nCV/dCrxs=

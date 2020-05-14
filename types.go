@@ -5,19 +5,21 @@ import (
 	"fmt"
 	"strings"
 
-	"zgo.at/utils/sliceutil"
+	"zgo.at/utils/floatutil"
+	"zgo.at/utils/intutil"
+	"zgo.at/utils/stringutil"
 )
 
 // Ints stores a slice of []int64 as a comma-separated string.
 type Ints []int64
 
 func (l Ints) String() string {
-	return sliceutil.JoinInt(l)
+	return intutil.Join(l, ", ")
 }
 
 // Value determines what to store in the DB.
 func (l Ints) Value() (driver.Value, error) {
-	return sliceutil.JoinInt(l), nil
+	return intutil.Join(l, ","), nil
 }
 
 // Scan converts the data from the DB.
@@ -27,7 +29,7 @@ func (l *Ints) Scan(v interface{}) error {
 	}
 
 	var err error
-	*l, err = sliceutil.SplitInt(fmt.Sprintf("%s", v))
+	*l, err = intutil.Split(fmt.Sprintf("%s", v), ",")
 	return err
 }
 
@@ -46,12 +48,12 @@ func (l *Ints) UnmarshalText(v []byte) error {
 type Floats []float64
 
 func (l Floats) String() string {
-	return sliceutil.JoinFloat(l)
+	return floatutil.Join(l, ", ")
 }
 
 // Value determines what to store in the DB.
 func (l Floats) Value() (driver.Value, error) {
-	return sliceutil.JoinFloat(l), nil
+	return floatutil.Join(l, ","), nil
 }
 
 // Scan converts the data from the DB.
@@ -61,7 +63,7 @@ func (l *Floats) Scan(v interface{}) error {
 	}
 
 	var err error
-	*l, err = sliceutil.SplitFloat(fmt.Sprintf("%s", v))
+	*l, err = floatutil.Split(fmt.Sprintf("%s", v), ",")
 	return err
 }
 
@@ -91,7 +93,7 @@ func (l Strings) String() string {
 
 // Value determines what to store in the DB.
 func (l Strings) Value() (driver.Value, error) {
-	return strings.Join(sliceutil.FilterString(l, sliceutil.FilterStringEmpty), ","), nil
+	return strings.Join(stringutil.Filter(l, stringutil.FilterEmpty), ","), nil
 }
 
 // Scan converts the data from the DB.
@@ -138,12 +140,12 @@ type Bool bool
 // Scan converts the data from the DB.
 func (b *Bool) Scan(src interface{}) error {
 	if b == nil {
-		return fmt.Errorf("boolean not initialized")
+		return fmt.Errorf("zdb.Bool: not initialized")
 	}
 
 	switch v := src.(type) {
 	default:
-		return fmt.Errorf("unsupported type %T", src)
+		return fmt.Errorf("zdb.Bool: unsupported type %T", src)
 	case nil:
 		*b = false
 	case bool:
@@ -192,7 +194,7 @@ func (b *Bool) Scan(src interface{}) error {
 		case "false", "0", "off":
 			*b = false
 		default:
-			return fmt.Errorf("invalid value %q", text)
+			return fmt.Errorf("zdb.Bool: invalid value %q", text)
 		}
 	}
 
@@ -222,7 +224,7 @@ func (b *Bool) UnmarshalJSON(text []byte) error {
 		*b = false
 		return nil
 	default:
-		return fmt.Errorf("sqlutil.Bool: unknown value: %s", text)
+		return fmt.Errorf("zdb.Bool: unknown value: %s", text)
 	}
 }
 
@@ -234,7 +236,7 @@ func (b Bool) MarshalText() ([]byte, error) {
 // UnmarshalText parses text in to the Go data structure.
 func (b *Bool) UnmarshalText(text []byte) error {
 	if b == nil {
-		return fmt.Errorf("boolean not initialized")
+		return fmt.Errorf("zdb.Bool: not initialized")
 	}
 
 	switch strings.TrimSpace(strings.ToLower(string(text))) {
@@ -243,7 +245,7 @@ func (b *Bool) UnmarshalText(text []byte) error {
 	case "false", "0", `"false"`:
 		*b = false
 	default:
-		return fmt.Errorf("invalid value %q", text)
+		return fmt.Errorf("zdb.Bool: invalid value %q", text)
 	}
 
 	return nil
