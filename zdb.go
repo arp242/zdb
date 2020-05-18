@@ -119,10 +119,7 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 		panic(err)
 	}
 
-	fmt.Fprintln(out, "=>", query)
-	if len(args) > 0 {
-		fmt.Fprintf(out, "%#v\n", args)
-	}
+	fmt.Fprintln(out, "=>", ApplyPlaceholders(query, args...))
 
 	t := tabwriter.NewWriter(out, 8, 8, 2, ' ', 0)
 	for _, c := range cols {
@@ -164,27 +161,27 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 // replace with ?).
 func ApplyPlaceholders(query string, args ...interface{}) string {
 	query = regexp.MustCompile(`\$\d`).ReplaceAllString(query, "?")
-
 	for _, a := range args {
-		var val string
-		switch v := a.(type) {
-		case time.Time:
-			val = fmt.Sprintf("'%v'", v.Format(Date))
-		case int, int64:
-			val = fmt.Sprintf("%v", v)
-		case []byte:
-			if byteutil.Binary(v) {
-				val = fmt.Sprintf("%x", v)
-			} else {
-				val = string(v)
-			}
-		default:
-			val = fmt.Sprintf("'%v'", v)
-		}
-		query = strings.Replace(query, "?", val, 1)
+		query = strings.Replace(query, "?", formatArg(a), 1)
 	}
-
 	return deIndent(query)
+}
+
+func formatArg(a interface{}) string {
+	switch aa := a.(type) {
+	case time.Time:
+		return fmt.Sprintf("'%v'", aa.Format(Date))
+	case int, int64:
+		return fmt.Sprintf("%v", aa)
+	case []byte:
+		if byteutil.Binary(aa) {
+			return fmt.Sprintf("%x", aa)
+		} else {
+			return string(aa)
+		}
+	default:
+		return fmt.Sprintf("'%v'", aa)
+	}
 }
 
 func deIndent(in string) string {
