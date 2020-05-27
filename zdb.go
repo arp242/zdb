@@ -174,7 +174,11 @@ func ApplyPlaceholders(query string, args ...interface{}) string {
 	for _, a := range args {
 		query = strings.Replace(query, "?", formatArg(a), 1)
 	}
-	return deIndent(query)
+	query = deIndent(query)
+	if !strings.HasSuffix(query, ";") {
+		return query + ";"
+	}
+	return query
 }
 
 func formatArg(a interface{}) string {
@@ -195,8 +199,18 @@ func formatArg(a interface{}) string {
 }
 
 func deIndent(in string) string {
+	// Ignore comment at the start for indentation as I often write:
+	//     SelectContext(`/* Comment for PostgreSQL logs */
+	//             select [..]
+	//     `)
+	in = strings.TrimLeft(in, "\n\t ")
+	comment := 0
+	if strings.HasPrefix(in, "/*") {
+		comment = strings.Index(in, "*/")
+	}
+
 	indent := 0
-	for _, c := range strings.TrimLeft(in, "\n") {
+	for _, c := range strings.TrimLeft(in[comment+2:], "\n") {
 		if c != '\t' {
 			break
 		}
