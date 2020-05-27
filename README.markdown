@@ -5,6 +5,9 @@ Right now only PostgreSQL and SQLite are supported. Adding MariaDB etc. wouldn't
 be hard, but I don't use it myself so didn't bother adding (and testing!) it.
 Just need someone to write a patch 😅
 
+Note: compile with `CGO_ENABLED=0` if you're not using `cgo`, otherwise it will
+depend on the go-sqlite3 (which uses cgo).
+
 ---
 
 It exposes a `DB` interface which can be used for both database connections and
@@ -13,13 +16,14 @@ like:
 
 ```go
 type DB interface {
-    ExecContext() (
+    ExecContext()
     GetContext()
-    SelectContext()
+    QueryRowxContext()
     QueryxContext()
+    SelectContext()
 
-    Rebind() string
-    DriverName() string
+    Rebind()
+    DriverName()
 }
 ```
 
@@ -34,7 +38,7 @@ that.
 
 ---
 
-To start a transaction you can use `zdb.TX()`:
+To run queries in a transaction you can use `zdb.TX()`:
 
 ```go
 func Example(ctx context.Context) {
@@ -77,7 +81,7 @@ func Example(db zdb.DB) {  // or *sqlx.DB
 ```
 
 You can also start a transaction with `zdb.Begin()`, but I find the `TX()`
-wrapper more useful:
+wrapper more useful in most cases:
 
 ```go
 txctx, tx, err := zdb.Begin(ctx)
@@ -86,7 +90,8 @@ if err != nil {
 }
 defer tx.Rollback()
 
-[ .. do stuff with tx ..]
+// Do stuff with tx...
+
 err := tx.Commit()
 if err != nil {
     return err
@@ -121,6 +126,19 @@ if d := ztest.Diff(out, want); d != "" {
 This will `panic()` on errors. Again, it's only intended for debugging and
 tests, and omitting error returns makes it a bit smoother to use.
 
+The `zdb.ApplyPlaceholders()` function will replace `?` and `$1` with the actual
+values. This is intended to make copying long-ish queries to the psql CLI for
+additional debugging/testing easier. This is **not** intended for any serious
+use and is *not* safe against malicious input.
+
+```go
+fmt.Println(zdb.ApplyPlaceholders(
+    `select * from users where site=$1 and state=$2`,
+    1, "active"))
+
+// Output: select * from users where site=1 and state='active'
+```
+
 ---
 
 The `zdb/bulk` package makes it easier to bulk insert values:
@@ -128,7 +146,6 @@ The `zdb/bulk` package makes it easier to bulk insert values:
 
 ```go
 ins := bulk.NewInsert(ctx, "table", []string{"col1", "col2", "col3"})
-
 for _, v := range listOfValues {
     ins.Values(v.Col1, v.Col2, v.Col3)
 }
@@ -143,3 +160,18 @@ You get the error(s) back with `Finish()`.
 
 Note this isn't run in a transaction by default; start a transaction yourself if
 you want it.
+
+---
+
+There's a few types as well:
+
+`Bool` to store text such as "true", "on", "1" as boolean true. This is always
+stored as an `int` for best SQL compatibility.
+
+`Ints`, `Floats`, and `Strings` all store a slice as a comma-separated varchar.
+If you use just a single database engine which supports arrays or JSON (like
+PostgreSQL) then that's probably a better option, but for simpler cases this
+makes some things easier.
+
+Note `Strings` does *not* escape commas in existing strings; don't use it for
+arbitrary text.

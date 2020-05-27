@@ -22,7 +22,6 @@ const Date = "2006-01-02 15:04:05"
 
 // DB wraps sqlx.DB so we can add transactions.
 type DB interface {
-	// ExecContext runs the SQL query.
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	QueryRowxContext(ctx context.Context, query string, args ...interface{}) *sqlx.Row
@@ -121,7 +120,7 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 
 	fmt.Fprintln(out, "=>", ApplyPlaceholders(query, args...))
 
-	t := tabwriter.NewWriter(out, 8, 8, 2, ' ', 0)
+	t := tabwriter.NewWriter(out, 8, 8, 1, ' ', 0)
 	for _, c := range cols {
 		t.Write([]byte(fmt.Sprintf("%v\t", c)))
 	}
@@ -134,16 +133,27 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 		}
 		for _, c := range row {
 			switch v := c.(type) {
+			case string:
+				if len(v) == 0 {
+					c = "''"
+				}
 			case []byte:
 				if byteutil.Binary(v) {
 					c = fmt.Sprintf("%x", v)
+				} else if len(v) == 0 {
+					c = "''"
 				} else {
 					c = string(v)
 				}
 			case time.Time:
-				// TODO: be a bit smarter about the precision.
+				// TODO: be a bit smarter about the precision, e.g. a date or
+				// time column doesn't need the full date.
 				c = v.Format(Date)
 			}
+			if c == nil {
+				c = string("NULL")
+			}
+
 			t.Write([]byte(fmt.Sprintf("%v\t", c)))
 		}
 		t.Write([]byte("\n"))
