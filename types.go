@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"strings"
 
-	"zgo.at/utils/floatutil"
-	"zgo.at/utils/intutil"
-	"zgo.at/utils/stringutil"
+	"zgo.at/zstd/zfloat"
+	"zgo.at/zstd/zint"
+	"zgo.at/zstd/zstring"
 )
 
 // Ints stores a slice of []int64 as a comma-separated string.
 type Ints []int64
 
 func (l Ints) String() string {
-	return intutil.Join(l, ", ")
+	return zint.Join(l, ", ")
 }
 
 // Value determines what to store in the DB.
 func (l Ints) Value() (driver.Value, error) {
-	return intutil.Join(l, ","), nil
+	return zint.Join(l, ","), nil
 }
 
 // Scan converts the data from the DB.
@@ -29,7 +29,7 @@ func (l *Ints) Scan(v interface{}) error {
 	}
 
 	var err error
-	*l, err = intutil.Split(fmt.Sprintf("%s", v), ",")
+	*l, err = zint.Split(fmt.Sprintf("%s", v), ",")
 	return err
 }
 
@@ -48,12 +48,12 @@ func (l *Ints) UnmarshalText(v []byte) error {
 type Floats []float64
 
 func (l Floats) String() string {
-	return floatutil.Join(l, ", ")
+	return zfloat.Join(l, ", ")
 }
 
 // Value determines what to store in the DB.
 func (l Floats) Value() (driver.Value, error) {
-	return floatutil.Join(l, ","), nil
+	return zfloat.Join(l, ","), nil
 }
 
 // Scan converts the data from the DB.
@@ -63,7 +63,7 @@ func (l *Floats) Scan(v interface{}) error {
 	}
 
 	var err error
-	*l, err = floatutil.Split(fmt.Sprintf("%s", v), ",")
+	*l, err = zfloat.Split(fmt.Sprintf("%s", v), ",")
 	return err
 }
 
@@ -93,7 +93,7 @@ func (l Strings) String() string {
 
 // Value determines what to store in the DB.
 func (l Strings) Value() (driver.Value, error) {
-	return strings.Join(stringutil.Filter(l, stringutil.FilterEmpty), ","), nil
+	return strings.Join(zstring.Filter(l, zstring.FilterEmpty), ","), nil
 }
 
 // Scan converts the data from the DB.

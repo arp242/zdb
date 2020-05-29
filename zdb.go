@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"zgo.at/utils/byteutil"
 	"zgo.at/zlog"
+	"zgo.at/zstd/zbyte"
 )
 
 // Date format for SQL.
@@ -138,7 +138,7 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 					c = "''"
 				}
 			case []byte:
-				if byteutil.Binary(v) {
+				if zbyte.Binary(v) {
 					c = fmt.Sprintf("%x", v)
 				} else if len(v) == 0 {
 					c = "''"
@@ -188,7 +188,7 @@ func formatArg(a interface{}) string {
 	case int, int64:
 		return fmt.Sprintf("%v", aa)
 	case []byte:
-		if byteutil.Binary(aa) {
+		if zbyte.Binary(aa) {
 			return fmt.Sprintf("%x", aa)
 		} else {
 			return string(aa)

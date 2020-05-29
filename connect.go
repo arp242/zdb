@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
-	"zgo.at/utils/osutil"
+	"zgo.at/zstd/zos"
 )
 
 type ConnectOptions struct {
@@ -95,7 +95,7 @@ func connectSQLite(connect string, create bool) (*sqlx.DB, bool, error) {
 		}
 	}
 
-	ok, err := osutil.Writable(stat)
+	ok, err := zos.Writable(stat)
 	if err != nil {
 		return nil, false, fmt.Errorf("connectSQLite: %w", err)
 	}
