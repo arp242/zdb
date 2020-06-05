@@ -1,12 +1,14 @@
 package zdb
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/mattn/go-sqlite3"
 	"zgo.at/zstd/zos"
 )
 
@@ -14,6 +16,18 @@ type ConnectOptions struct {
 	Connect string // Connect string.
 	Schema  []byte // Database schema to create on startup.
 	Migrate *Migrate
+
+	// ConnectHook for sqlite3.SQLiteDriver; mainly useful to add your own
+	// functions:
+	//
+	//    opts.SQLiteHook = func(c *sqlite3.SQLiteConn) error {
+	//        return c.RegisterFunc("percent_diff", func(start, final float64) float64 {
+	//            return (final - start) / start * 100
+	//        }, true)
+	//    }
+	//
+	// It'll automatically register and connect to a new "sqlite3_zdb" driver.
+	SQLiteHook func(*sqlite3.SQLiteConn) error
 }
 
 // Connect to database.
@@ -38,7 +52,7 @@ func Connect(opts ConnectOptions) (*sqlx.DB, error) {
 		}
 		db, exists, err = connectPostgreSQL(opts.Connect)
 	} else if strings.HasPrefix(opts.Connect, "sqlite://") {
-		db, exists, err = connectSQLite(opts.Connect[9:], opts.Schema != nil)
+		db, exists, err = connectSQLite(opts.Connect[9:], opts.Schema != nil, opts.SQLiteHook)
 	} else {
 		err = fmt.Errorf("zdb.Connect: unrecognized database engine in connect string %q", opts.Connect)
 	}
@@ -80,7 +94,7 @@ func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
 	return db, true, nil
 }
 
-func connectSQLite(connect string, create bool) (*sqlx.DB, bool, error) {
+func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn) error) (*sqlx.DB, bool, error) {
 	exists := true
 	stat, err := os.Stat(connect)
 	if os.IsNotExist(err) {
@@ -103,7 +117,22 @@ func connectSQLite(connect string, create bool) (*sqlx.DB, bool, error) {
 		return nil, false, fmt.Errorf("connectSQLite: %q is not writable", connect)
 	}
 
-	db, err := sqlx.Connect("sqlite3", connect)
+	c := "sqlite3"
+	if hook != nil {
+		found := false
+		for _, d := range sql.Drivers() {
+			if d == "sqlite3_zdb" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			sql.Register("sqlite3_zdb", &sqlite3.SQLiteDriver{ConnectHook: hook})
+		}
+		c += "_zdb"
+	}
+
+	db, err := sqlx.Connect(c, connect)
 	if err != nil {
 		return nil, false, fmt.Errorf("connectSQLite: %w", err)
 	}
