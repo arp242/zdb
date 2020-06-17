@@ -9,7 +9,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/mattn/go-sqlite3"
-	"zgo.at/zstd/zos"
 )
 
 type ConnectOptions struct {
@@ -96,7 +95,7 @@ func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
 
 func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn) error) (*sqlx.DB, bool, error) {
 	exists := true
-	stat, err := os.Stat(connect)
+	_, err := os.Stat(connect)
 	if os.IsNotExist(err) {
 		exists = false
 		if !create {
@@ -109,13 +108,15 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 		}
 	}
 
-	ok, err := zos.Writable(stat)
-	if err != nil {
-		return nil, false, fmt.Errorf("connectSQLite: %w", err)
-	}
-	if !ok {
-		return nil, false, fmt.Errorf("connectSQLite: %q is not writable", connect)
-	}
+	// TODO: if the file doesn't exist yet stat is nil, need to change this to
+	// take a file path so we can check permission of the directory.
+	// ok, err := zos.Writable(stat)
+	// if err != nil {
+	// 	return nil, false, fmt.Errorf("connectSQLite: %w", err)
+	// }
+	// if !ok {
+	// 	return nil, false, fmt.Errorf("connectSQLite: %q is not writable", connect)
+	// }
 
 	c := "sqlite3"
 	if hook != nil {
