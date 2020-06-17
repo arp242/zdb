@@ -74,6 +74,8 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 			haveMig = append(haveMig, k)
 		}
 	} else {
+		l.Printf("WARNING: using migrations from filesystem; make sure the version of your source code matches the binary")
+
 		// Load from filesystem.
 		haveMig, err = filepath.Glob(m.MigratePath + "/*.sql")
 		if err != nil {
