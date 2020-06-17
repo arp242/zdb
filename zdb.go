@@ -22,13 +22,38 @@ const Date = "2006-01-02 15:04:05"
 
 // DB wraps sqlx.DB so we can add transactions.
 type DB interface {
+	// Execute a query without returning any result.
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+
+	// Get a simple single-column value. dest needs to be a pointer to a
+	// primitive.
+	//
+	// Returns sql.ErrNoRows if there are no rows.
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	QueryRowxContext(ctx context.Context, query string, args ...interface{}) *sqlx.Row
-	QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error)
+
+	// Select multiple rows, dest needs to be a pointer to a slice.
+	//
+	// Returns nil if there are no rows.
 	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 
+	// Query one row.
+	//
+	// Returning row is never nil; use .Err() to check for errors. Row.Scan()
+	// will return sql.ErrNoRows if there are no rows.
+	QueryRowxContext(ctx context.Context, query string, args ...interface{}) *sqlx.Row
+
+	// Query one or more rows.
+	//
+	// Returning rows is never nil; use .Err() to check for errors. Row
+	QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error)
+
+	// Rebind :named to placeholders appropriate for this SQL connection.
+	BindNamed(query string, arg interface{}) (newquery string, args []interface{}, err error)
+
+	// Rebind ? to placeholders appropriate for this SQL connection.
 	Rebind(query string) string
+
+	// SQL driver name for this connection.
 	DriverName() string
 }
 
