@@ -206,6 +206,32 @@ func ApplyPlaceholders(query string, args ...interface{}) string {
 	return query
 }
 
+// ListTables lists all tables
+func ListTables(ctx context.Context) ([]string, error) {
+	db := MustGet(ctx)
+
+	query := `select name from sqlite_master where type='table' order by name`
+	if PgSQL(db) {
+		query = `select c.relname as name
+			from pg_catalog.pg_class c
+			left join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+			where
+				c.relkind = 'r' and
+				n.nspname <> 'pg_catalog' and
+				n.nspname <> 'information_schema' and
+				n.nspname !~ '^pg_toast' and
+				pg_catalog.pg_table_is_visible(c.oid)
+			order by name`
+	}
+
+	var tables []string
+	err := db.SelectContext(ctx, &tables, query)
+	if err != nil {
+		return nil, fmt.Errorf("zdb.ListTables: %w", err)
+	}
+	return tables, nil
+}
+
 func formatArg(a interface{}) string {
 	switch aa := a.(type) {
 	case time.Time:

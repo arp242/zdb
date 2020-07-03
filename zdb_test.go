@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -84,6 +85,34 @@ func TestError(t *testing.T) {
 				t.Errorf("out: %t; want: %t", out, tt.want)
 			}
 		})
+	}
+}
+
+func TestListTables(t *testing.T) {
+	ctx, clean := startTest(t)
+	defer clean()
+
+	db := MustGet(ctx).(*sqlx.DB)
+
+	tables, err := ListTables(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want []string
+	if !reflect.DeepEqual(want, tables) {
+		t.Errorf("\nwant: %v\ngot:  %v", want, tables)
+	}
+
+	db.MustExec(`create table test2 (col int)`)
+	db.MustExec(`create table test1 (col varchar)`)
+
+	tables, err = ListTables(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = []string{"test1", "test2"}
+	if !reflect.DeepEqual(want, tables) {
+		t.Errorf("\nwant: %v\ngot:  %v", want, tables)
 	}
 }
 
