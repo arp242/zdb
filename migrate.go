@@ -65,6 +65,8 @@ func (m Migrate) Run(which ...string) error {
 	return nil
 }
 
+var printedWarning bool
+
 // Get a list of all migrations we know about, and all migrations that have
 // already been run.
 func (m Migrate) List() (haveMig, ranMig []string, err error) {
@@ -74,7 +76,10 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 			haveMig = append(haveMig, k)
 		}
 	} else {
-		l.Printf("WARNING: using migrations from filesystem; make sure the version of your source code matches the binary")
+		if !printedWarning {
+			l.Printf("WARNING: using migrations from filesystem; make sure the version of your source code matches the binary")
+			printedWarning = true
+		}
 
 		// Load from filesystem.
 		haveMig, err = filepath.Glob(m.MigratePath + "/*.sql")

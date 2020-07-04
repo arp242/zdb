@@ -3,6 +3,7 @@ package zdb
 import (
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,14 +96,44 @@ func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
 
 func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn) error) (*sqlx.DB, bool, error) {
 	exists := true
-	_, err := os.Stat(connect)
+
+	file := connect
+	if strings.HasPrefix(file, "file:") {
+		file = file[5:]
+	}
+
+	var (
+		i   = strings.IndexRune(connect, '?')
+		q   = make(url.Values)
+		err error
+	)
+	if i > -1 {
+		file = connect[:i]
+		q, err = url.ParseQuery(connect[i+1:])
+		if err != nil {
+			return nil, false, fmt.Errorf("connectSQLite: parse connection string: %w", err)
+		}
+	}
+
+	//if _, ok := q["cache"]; !ok {
+	//	q.Set("cache", "shared")
+	//}
+	//if _, ok := q["_busy_timeout"]; !ok {
+	//	q.Set("_busy_timeout", "200")
+	//}
+	if _, ok := q["_journal_mode"]; !ok {
+		q.Set("_journal_mode", "wal")
+	}
+	connect = fmt.Sprintf("file:%s?%s", file, q.Encode())
+
+	_, err = os.Stat(file)
 	if os.IsNotExist(err) {
 		exists = false
 		if !create {
-			return nil, false, fmt.Errorf("connectSQLite: database %q doesn't exist", connect)
+			return nil, false, fmt.Errorf("connectSQLite: database %q doesn't exist", file)
 		}
 
-		err = os.MkdirAll(filepath.Dir(connect), 0755)
+		err = os.MkdirAll(filepath.Dir(file), 0755)
 		if err != nil {
 			return nil, false, fmt.Errorf("connectSQLite: create DB dir: %w", err)
 		}
@@ -137,6 +168,9 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 	if err != nil {
 		return nil, false, fmt.Errorf("connectSQLite: %w", err)
 	}
+
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(-1)
 
 	return db, exists, nil
 }
