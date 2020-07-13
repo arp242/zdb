@@ -233,6 +233,33 @@ func ListTables(ctx context.Context) ([]string, error) {
 }
 
 func formatArg(a interface{}) string {
+	if a == nil {
+		return "NULL"
+	}
+
+	switch aa := a.(type) {
+	case *string:
+		if aa == nil {
+			return "NULL"
+		}
+		a = *aa
+	case *int:
+		if aa == nil {
+			return "NULL"
+		}
+		a = *aa
+	case *int64:
+		if aa == nil {
+			return "NULL"
+		}
+		a = *aa
+	case *time.Time:
+		if aa == nil {
+			return "NULL"
+		}
+		a = *aa
+	}
+
 	switch aa := a.(type) {
 	case time.Time:
 		return fmt.Sprintf("'%v'", aa.Format(Date))
