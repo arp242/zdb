@@ -194,18 +194,17 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 			t.Write([]byte("\n"))
 		}
 	} else {
-		for _, c := range cols {
-			t.Write([]byte(fmt.Sprintf("%v\v", c)))
-		}
-		t.Write([]byte("\n"))
-
+		t.Write([]byte(strings.Join(cols, "\t") + "\n"))
 		for rows.Next() {
 			row, err := rows.SliceScan()
 			if err != nil {
 				panic(err)
 			}
-			for _, c := range row {
-				t.Write([]byte(fmt.Sprintf("%v\t", formatArg(c, false))))
+			for i, c := range row {
+				t.Write([]byte(fmt.Sprintf("%v", formatArg(c, false))))
+				if i < len(row)-1 {
+					t.Write([]byte("\t"))
+				}
 			}
 			t.Write([]byte("\n"))
 		}
