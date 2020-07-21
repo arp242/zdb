@@ -129,11 +129,45 @@ func TX(ctx context.Context, fn func(context.Context, DB) error) error {
 	return nil
 }
 
+type DumpArg int
+
+const (
+	DumpVertical DumpArg = iota
+	DumpQuery
+	DumpExplain
+)
+
 // Dump the results of a query to a writer in an aligned table. This is a
-// convenience function intended just for testing/debugging.
+// convenience function intended mostly for testing/debugging.
 //
 // Combined with ztest.Diff() it can be an easy way to test the database state.
+//
+// You can add some special sentinel values in the args to control the output
+// (they're not sent as parameters to the DB):
+//
+//   DumpVertical   Show vertical output instead of horizontal columns.
+//   DumpQuery      Show the query with placeholders substituted.
+//   DumpExplain    Show the results of EXPLAIN (or EXPLAIN ANALYZE for PostgreSQL).
 func Dump(ctx context.Context, out io.Writer, query string, args ...interface{}) {
+	var showQuery, vertical, explain bool
+	argsb := args[:0]
+	for _, a := range args {
+		b, ok := a.(DumpArg)
+		if !ok {
+			argsb = append(argsb, a)
+			continue
+		}
+		switch b {
+		case DumpQuery:
+			showQuery = true
+		case DumpVertical:
+			vertical = true
+		case DumpExplain:
+			explain = true
+		}
+	}
+	args = argsb
+
 	rows, err := MustGet(ctx).QueryxContext(ctx, query, args...)
 	if err != nil {
 		panic(err)
@@ -143,47 +177,50 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 		panic(err)
 	}
 
-	fmt.Fprintln(out, "=>", ApplyPlaceholders(query, args...))
-
-	t := tabwriter.NewWriter(out, 8, 8, 1, ' ', 0)
-	for _, c := range cols {
-		t.Write([]byte(fmt.Sprintf("%v\t", c)))
+	if showQuery {
+		fmt.Fprintln(out, "Query:", ApplyPlaceholders(query, args...))
 	}
-	t.Write([]byte("\n"))
 
-	for rows.Next() {
-		row, err := rows.SliceScan()
-		if err != nil {
-			panic(err)
+	t := tabwriter.NewWriter(out, 4, 4, 2, ' ', 0)
+	if vertical {
+		for rows.Next() {
+			row, err := rows.SliceScan()
+			if err != nil {
+				panic(err)
+			}
+			for i, c := range row {
+				t.Write([]byte(fmt.Sprintf("%s\t%v\n", cols[i], formatArg(c, false))))
+			}
+			t.Write([]byte("\n"))
 		}
-		for _, c := range row {
-			switch v := c.(type) {
-			case string:
-				if len(v) == 0 {
-					c = "''"
-				}
-			case []byte:
-				if zbyte.Binary(v) {
-					c = fmt.Sprintf("%x", v)
-				} else if len(v) == 0 {
-					c = "''"
-				} else {
-					c = string(v)
-				}
-			case time.Time:
-				// TODO: be a bit smarter about the precision, e.g. a date or
-				// time column doesn't need the full date.
-				c = v.Format(Date)
-			}
-			if c == nil {
-				c = string("NULL")
-			}
-
-			t.Write([]byte(fmt.Sprintf("%v\t", c)))
+	} else {
+		for _, c := range cols {
+			t.Write([]byte(fmt.Sprintf("%v\v", c)))
 		}
 		t.Write([]byte("\n"))
+
+		for rows.Next() {
+			row, err := rows.SliceScan()
+			if err != nil {
+				panic(err)
+			}
+			for _, c := range row {
+				t.Write([]byte(fmt.Sprintf("%v\t", formatArg(c, false))))
+			}
+			t.Write([]byte("\n"))
+		}
 	}
 	t.Flush()
+
+	if explain {
+		if PgSQL(MustGet(ctx)) {
+			fmt.Fprintln(out, "")
+			Dump(ctx, out, "explain analyze "+query, args...)
+		} else {
+			fmt.Fprintln(out, "\nEXPLAIN:")
+			Dump(ctx, out, "explain "+query, args...)
+		}
+	}
 }
 
 // ApplyPlaceholders replaces parameter placeholders in query with the values.
@@ -197,7 +234,7 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 func ApplyPlaceholders(query string, args ...interface{}) string {
 	query = regexp.MustCompile(`\$\d`).ReplaceAllString(query, "?")
 	for _, a := range args {
-		query = strings.Replace(query, "?", formatArg(a), 1)
+		query = strings.Replace(query, "?", formatArg(a, true), 1)
 	}
 	query = deIndent(query)
 	if !strings.HasSuffix(query, ";") {
@@ -232,11 +269,10 @@ func ListTables(ctx context.Context) ([]string, error) {
 	return tables, nil
 }
 
-func formatArg(a interface{}) string {
+func formatArg(a interface{}, quoted bool) string {
 	if a == nil {
 		return "NULL"
 	}
-
 	switch aa := a.(type) {
 	case *string:
 		if aa == nil {
@@ -262,17 +298,27 @@ func formatArg(a interface{}) string {
 
 	switch aa := a.(type) {
 	case time.Time:
-		return fmt.Sprintf("'%v'", aa.Format(Date))
+		// TODO: be a bit smarter about the precision, e.g. a date or time
+		// column doesn't need the full date.
+		return formatArg(aa.Format(Date), quoted)
 	case int, int64:
 		return fmt.Sprintf("%v", aa)
 	case []byte:
 		if zbyte.Binary(aa) {
 			return fmt.Sprintf("%x", aa)
 		} else {
-			return string(aa)
+			return formatArg(string(aa), quoted)
 		}
+	case string:
+		if quoted {
+			return fmt.Sprintf("'%v'", strings.ReplaceAll(aa, "'", "''"))
+		}
+		return aa
 	default:
-		return fmt.Sprintf("'%v'", aa)
+		if quoted {
+			return fmt.Sprintf("'%v'", aa)
+		}
+		return fmt.Sprintf("%v", aa)
 	}
 }
 
