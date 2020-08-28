@@ -11,6 +11,7 @@ import (
 
 type builder struct {
 	table string
+	post  string
 	cols  []string
 	vals  [][]interface{}
 }
@@ -50,6 +51,11 @@ func (b *builder) SQL(vals ...string) (string, []interface{}) {
 		}
 	}
 
+	if b.post != "" {
+		s.WriteRune(' ')
+		s.WriteString(b.post)
+	}
+
 	return s.String(), args
 }
 
@@ -74,6 +80,12 @@ func NewInsert(ctx context.Context, table string, columns []string) Insert {
 		columns: columns,
 		insert:  newBuilder(table, columns...),
 	}
+}
+
+// OnConflict sets the "on conflict [..]" part of the query. This needs to
+// include the "on conflict" itself.
+func (m *Insert) OnConflict(c string) {
+	m.insert.post = c
 }
 
 // Values adds a set of values.
