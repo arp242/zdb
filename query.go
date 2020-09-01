@@ -3,6 +3,7 @@ package zdb
 import (
 	"fmt"
 
+	"github.com/jmoiron/sqlx"
 	"zgo.at/zstd/zstring"
 )
 
@@ -30,9 +31,14 @@ func Query(db DB, query string, arg interface{}, conds ...bool) (string, []inter
 		}
 	}
 
-	query, args, err := db.BindNamed(query, arg)
+	query, args, err := sqlx.Named(query, arg)
 	if err != nil {
 		return "", nil, fmt.Errorf("zdb.Query: %w", err)
 	}
-	return query, args, nil
+
+	query, args, err = sqlx.In(query, args...)
+	if err != nil {
+		return "", nil, fmt.Errorf("zdb.Query: %w", err)
+	}
+	return db.Rebind(query), args, nil
 }
