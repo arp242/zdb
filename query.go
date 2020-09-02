@@ -2,6 +2,7 @@ package zdb
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -42,4 +43,33 @@ func Query(ctx context.Context, query string, arg interface{}, conds ...bool) (s
 		return "", nil, fmt.Errorf("zdb.Query: %w", err)
 	}
 	return MustGet(ctx).Rebind(query), args, nil
+}
+
+// QuerySelect is like Query(), but will also run SelectContext() and scan in to
+// desc.
+func QuerySelect(ctx context.Context, dest interface{}, query string, arg interface{}, conds ...bool) error {
+	query, args, err := Query(ctx, query, arg, conds...)
+	if err != nil {
+		return err
+	}
+	return MustGet(ctx).SelectContext(ctx, dest, query, args...)
+}
+
+// QueryGet is like Query(), but will also run GetContext() and scan in to
+// desc.
+func QueryGet(ctx context.Context, dest interface{}, query string, arg interface{}, conds ...bool) error {
+	query, args, err := Query(ctx, query, arg, conds...)
+	if err != nil {
+		return err
+	}
+	return MustGet(ctx).GetContext(ctx, dest, query, args...)
+}
+
+// QueryExec is like Query(), but will also run ExecContext().
+func QueryExec(ctx context.Context, dest interface{}, query string, arg interface{}, conds ...bool) (sql.Result, error) {
+	query, args, err := Query(ctx, query, arg, conds...)
+	if err != nil {
+		return nil, err
+	}
+	return MustGet(ctx).ExecContext(ctx, query, args...)
 }
