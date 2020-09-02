@@ -1,6 +1,7 @@
 package zdb
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -13,7 +14,7 @@ import (
 // will only be added if the nth conds parameter is true.
 //
 // SQL parameters can be added as :name; sqlx's BindNamed is used.
-func Query(db DB, query string, arg interface{}, conds ...bool) (string, []interface{}, error) {
+func Query(ctx context.Context, query string, arg interface{}, conds ...bool) (string, []interface{}, error) {
 	pairs := zstring.IndexPairs(query, "{{", "}}")
 	if len(pairs) != len(conds) {
 		return "", nil, fmt.Errorf("zdb.Query: len(pairs)=%d != len(conds)=%d", len(pairs), len(conds))
@@ -40,5 +41,5 @@ func Query(db DB, query string, arg interface{}, conds ...bool) (string, []inter
 	if err != nil {
 		return "", nil, fmt.Errorf("zdb.Query: %w", err)
 	}
-	return db.Rebind(query), args, nil
+	return MustGet(ctx).Rebind(query), args, nil
 }

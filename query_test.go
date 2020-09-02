@@ -1,6 +1,7 @@
 package zdb
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -56,7 +57,7 @@ func TestQuery(t *testing.T) {
 				tt.wantArg = []interface{}{}
 			}
 
-			query, args, err := Query(MustGet(ctx), tt.query, tt.arg, tt.conds...)
+			query, args, err := Query(ctx, tt.query, tt.arg, tt.conds...)
 			if !ztest.ErrorContains(err, tt.wantErr) {
 				t.Fatal(err)
 			}
@@ -92,6 +93,6 @@ func BenchmarkQuery(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		_, _, _ = Query(db, query, arg, true, true, false)
+		_, _, _ = Query(With(context.Background(), db), query, arg, true, true, false)
 	}
 }
