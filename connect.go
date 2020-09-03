@@ -33,27 +33,33 @@ type ConnectOptions struct {
 // Connect to database.
 func Connect(opts ConnectOptions) (*sqlx.DB, error) {
 	var (
+		proto string
+		conn  string
+	)
+	if i := strings.Index(opts.Connect, "://"); i > -1 {
+		proto = opts.Connect[:i]
+		if len(opts.Connect) >= i+3 {
+			conn = opts.Connect[i+3:]
+		}
+	}
+
+	var (
 		db     *sqlx.DB
 		exists bool
 		err    error
 	)
-	if strings.HasPrefix(opts.Connect, "postgresql://") || strings.HasPrefix(opts.Connect, "postgres://") {
-		trim := opts.Connect[strings.IndexRune(opts.Connect, '/')+2:]
-		if strings.ContainsRune(trim, '/') {
-			// "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"
+	switch proto {
+	case "postgresql", "postgres":
+		if strings.ContainsRune(conn, '/') {
+			// "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"
 			db, exists, err = connectPostgreSQL(opts.Connect)
 		} else {
-			// "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"
-			db, exists, err = connectPostgreSQL(trim)
+			// "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"
+			db, exists, err = connectPostgreSQL(conn)
 		}
-	} else if strings.HasPrefix(opts.Connect, "postgres://") {
-		if !strings.ContainsRune(opts.Connect[11:], '/') {
-			opts.Connect = opts.Connect[11:]
-		}
-		db, exists, err = connectPostgreSQL(opts.Connect)
-	} else if strings.HasPrefix(opts.Connect, "sqlite://") {
-		db, exists, err = connectSQLite(opts.Connect[9:], opts.Schema != nil, opts.SQLiteHook)
-	} else {
+	case "sqlite", "sqlite3":
+		db, exists, err = connectSQLite(conn, opts.Schema != nil, opts.SQLiteHook)
+	default:
 		err = fmt.Errorf("zdb.Connect: unrecognized database engine in connect string %q", opts.Connect)
 	}
 	if err != nil {
@@ -96,6 +102,7 @@ func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
 
 func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn) error) (*sqlx.DB, bool, error) {
 	exists := true
+	memory := connect == ":memory:"
 
 	file := connect
 	if strings.HasPrefix(file, "file:") {
@@ -115,27 +122,23 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 		}
 	}
 
-	//if _, ok := q["cache"]; !ok {
-	//	q.Set("cache", "shared")
-	//}
-	//if _, ok := q["_busy_timeout"]; !ok {
-	//	q.Set("_busy_timeout", "200")
-	//}
-	if _, ok := q["_journal_mode"]; !ok {
-		q.Set("_journal_mode", "wal")
-	}
-	connect = fmt.Sprintf("file:%s?%s", file, q.Encode())
-
-	_, err = os.Stat(file)
-	if os.IsNotExist(err) {
-		exists = false
-		if !create {
-			return nil, false, fmt.Errorf("connectSQLite: database %q doesn't exist", file)
+	if !memory {
+		if _, ok := q["_journal_mode"]; !ok {
+			q.Set("_journal_mode", "wal")
 		}
+		connect = fmt.Sprintf("file:%s?%s", file, q.Encode())
 
-		err = os.MkdirAll(filepath.Dir(file), 0755)
-		if err != nil {
-			return nil, false, fmt.Errorf("connectSQLite: create DB dir: %w", err)
+		_, err = os.Stat(file)
+		if os.IsNotExist(err) {
+			exists = false
+			if !create {
+				return nil, false, fmt.Errorf("connectSQLite: database %q doesn't exist", file)
+			}
+
+			err = os.MkdirAll(filepath.Dir(file), 0755)
+			if err != nil {
+				return nil, false, fmt.Errorf("connectSQLite: create DB dir: %w", err)
+			}
 		}
 	}
 
@@ -169,8 +172,10 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 		return nil, false, fmt.Errorf("connectSQLite: %w", err)
 	}
 
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(-1)
+	if !memory { // Seems to break :memory: database? Hmm
+		db.SetMaxOpenConns(1)
+		db.SetMaxIdleConns(-1)
+	}
 
 	return db, exists, nil
 }

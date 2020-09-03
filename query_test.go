@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	"zgo.at/zstd/ztest"
 )
 
@@ -85,7 +84,9 @@ func BenchmarkQuery(b *testing.B) {
 		"end":   "2020-05-05",
 	}
 
-	db, err := sqlx.Connect("sqlite3", ":memory:")
+	db, err := Connect(ConnectOptions{
+		Connect: "sqlite3://:memory:",
+	})
 	if err != nil {
 		b.Fatal(err)
 	}

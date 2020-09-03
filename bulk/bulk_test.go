@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	"zgo.at/zdb"
 )
 
@@ -72,7 +71,9 @@ func TestError(t *testing.T) {
 // startTest a new database test.
 func startTest(t *testing.T) (context.Context, func()) {
 	t.Helper()
-	db, err := sqlx.Connect("sqlite3", ":memory:")
+	db, err := zdb.Connect(zdb.ConnectOptions{
+		Connect: "sqlite3://:memory:",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

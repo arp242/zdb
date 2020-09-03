@@ -119,7 +119,9 @@ func TestListTables(t *testing.T) {
 // startTest a new database test.
 func startTest(t *testing.T) (context.Context, func()) {
 	t.Helper()
-	db, err := sqlx.Connect("sqlite3", ":memory:")
+	db, err := Connect(ConnectOptions{
+		Connect: "sqlite3://:memory:",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
