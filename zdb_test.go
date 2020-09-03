@@ -92,8 +92,6 @@ func TestListTables(t *testing.T) {
 	ctx, clean := startTest(t)
 	defer clean()
 
-	db := MustGet(ctx).(*sqlx.DB)
-
 	tables, err := ListTables(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -103,8 +101,14 @@ func TestListTables(t *testing.T) {
 		t.Errorf("\nwant: %v\ngot:  %v", want, tables)
 	}
 
-	db.MustExec(`create table test2 (col int)`)
-	db.MustExec(`create table test1 (col varchar)`)
+	_, err = MustGet(ctx).ExecContext(ctx, `create table test2 (col int)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = MustGet(ctx).ExecContext(ctx, `create table test1 (col varchar)`)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tables, err = ListTables(ctx)
 	if err != nil {
@@ -125,5 +129,7 @@ func startTest(t *testing.T) (context.Context, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return With(context.Background(), db), func() { db.Close() }
+	return With(context.Background(), db), func() {
+		db.Close()
+	}
 }

@@ -77,7 +77,7 @@ func Get(ctx context.Context) (DB, bool) {
 func MustGet(ctx context.Context) DB {
 	db, ok := Get(ctx)
 	if !ok {
-		panic("zdb.MustGet: no DB on this context")
+		panic(fmt.Sprintf("zdb.MustGet: no DB on this context (value: %#v)", db))
 	}
 	return db
 }
@@ -87,9 +87,10 @@ func MustGet(ctx context.Context) DB {
 // The returned context is a copy of the original with the DB replaced with a
 // transaction. The same transaction is also returned directly.
 func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
+	db := MustGet(ctx)
+
 	// TODO: to supported nested transactions we need to wrap it.
 	// Also see: https://github.com/heetch/sqalx/blob/master/sqalx.go
-	db := MustGet(ctx)
 	if tx, ok := db.(*sqlx.Tx); ok {
 		return ctx, tx, nil
 	}

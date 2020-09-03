@@ -1,6 +1,7 @@
 package zdb
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/url"
@@ -72,7 +73,11 @@ func Connect(opts ConnectOptions) (*sqlx.DB, error) {
 
 	if !exists {
 		l.Printf("database %q doesn't exist; loading new schema", opts.Connect)
-		db.MustExec(string(opts.Schema))
+		_, err := db.ExecContext(context.Background(), string(opts.Schema))
+		if err != nil {
+			return nil, fmt.Errorf("loading schema: %w", err)
+		}
+
 		if opts.Migrate != nil {
 			err := opts.Migrate.Run("all")
 			if err != nil {
