@@ -7,6 +7,7 @@ import (
 	"io"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"zgo.at/zlog"
@@ -27,8 +28,6 @@ type explainDB struct {
 // Because EXPLAIN will actually run the queries this is quite a significant
 // performance impact. Note that data modification statements are *also* run
 // twice!
-//
-// This only works for PostgreSQL for now.
 func NewExplainDB(db DB, out io.Writer, filter string) DB {
 	return &explainDB{db: db, out: out, filter: filter}
 }
@@ -51,20 +50,30 @@ func (d explainDB) explain(ctx context.Context, query string, args []interface{}
 		var (
 			db      = MustGet(ctx)
 			explain []string
-			kw      = "explain "
+			err     error
 		)
-
 		if PgSQL(db) {
-			kw += "analyze "
+			err = db.(*explainDB).db.SelectContext(ctx, &explain, `explain analyze `+query, args...)
+			for i := range explain {
+				explain[i] = "\t" + explain[i]
+			}
+		} else {
+			var sqe []struct {
+				ID, Parent, Notused int
+				Detail              string
+			}
+			s := time.Now()
+			err = db.(*explainDB).db.SelectContext(ctx, &sqe, `explain query plan `+query, args...)
+			if len(sqe) > 0 {
+				explain = make([]string, len(sqe)+1)
+				for i := range sqe {
+					explain[i] = "\t" + sqe[i].Detail
+				}
+				explain[len(sqe)] = "\tTime: " + time.Now().Sub(s).Round(1*time.Millisecond).String()
+			}
 		}
-
-		err := db.(*explainDB).db.SelectContext(ctx, &explain, kw+query, args...)
 		if err != nil {
 			zlog.Error(err)
-		}
-
-		for i := range explain {
-			explain[i] = "\t" + explain[i]
 		}
 
 		fmt.Fprint(d.out, "QUERY:\n\t"+strings.ReplaceAll(q, "\n", "\n\t")+

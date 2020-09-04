@@ -88,6 +88,9 @@ func MustGet(ctx context.Context) DB {
 // transaction. The same transaction is also returned directly.
 func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
 	db := MustGet(ctx)
+	if edb, ok := db.(*explainDB); ok {
+		db = edb.db
+	}
 
 	// TODO: to supported nested transactions we need to wrap it.
 	// Also see: https://github.com/heetch/sqalx/blob/master/sqalx.go

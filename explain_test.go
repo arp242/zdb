@@ -1,26 +1,36 @@
 package zdb
 
 import (
+	"bytes"
+	"context"
 	"testing"
 )
 
 func TestExplain(t *testing.T) {
-	t.Skip("PostgreSQL only for now")
+	db, err := Connect(ConnectOptions{
+		Connect: "sqlite://:memory:",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
 
-	// db, err := Connect(ConnectOptions{
-	// 	Connect:     "sqlite://:memory:",
-	// 	ShowExplain: true,
-	// })
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// //defer db.Close()
+	db.MustExec(`create table x (i int)`)
+	db.MustExec(`insert into x values (1), (2), (3), (4), (5)`)
 
-	// ctx := With(context.Background(), db)
+	buf := new(bytes.Buffer)
+	dbe := NewExplainDB(db, buf, "")
+	ctx := With(context.Background(), dbe)
 
-	// var i int
-	// err = db.GetContext(ctx, &i, `select 1`)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	var i int
+	err = dbe.GetContext(ctx, &i, `select i from x where i<3`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out := buf.String()
+	want := "QUERY:\n\tselect i from x where i<3;\nEXPLAIN:\n\tSCAN TABLE x\n\n"
+	if out != want {
+		t.Errorf("\nout:  %q\nwant: %q", out, want)
+	}
 }
