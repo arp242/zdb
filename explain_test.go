@@ -29,7 +29,7 @@ func TestExplain(t *testing.T) {
 	}
 
 	out := buf.String()
-	want := "QUERY:\n\tselect i from x where i<3;\nEXPLAIN:\n\tSCAN TABLE x\n\n"
+	want := "QUERY:\n\tselect i from x where i<3;\nEXPLAIN:\n\tSCAN TABLE x\n\tTime: 0s\n\n"
 	if out != want {
 		t.Errorf("\nout:  %q\nwant: %q", out, want)
 	}
