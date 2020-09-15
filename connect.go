@@ -51,12 +51,12 @@ func Connect(opts ConnectOptions) (*sqlx.DB, error) {
 	)
 	switch proto {
 	case "postgresql", "postgres":
-		if strings.ContainsRune(conn, '/') {
-			// "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"
-			db, exists, err = connectPostgreSQL(opts.Connect)
-		} else {
+		if strings.ContainsRune(conn, ' ') {
 			// "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"
 			db, exists, err = connectPostgreSQL(conn)
+		} else {
+			// "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"
+			db, exists, err = connectPostgreSQL(opts.Connect)
 		}
 	case "sqlite", "sqlite3":
 		db, exists, err = connectSQLite(conn, opts.Schema != nil, opts.SQLiteHook)
