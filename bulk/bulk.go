@@ -17,7 +17,7 @@ type builder struct {
 }
 
 func newBuilder(table string, cols ...string) builder {
-	return builder{table: table, cols: cols}
+	return builder{table: table, cols: cols, vals: make([][]interface{}, 0, 32)}
 }
 
 func (b *builder) values(vals ...interface{}) {
@@ -118,6 +118,7 @@ func (m *Insert) doInsert() {
 		m.errors = append(m.errors, fmt.Sprintf("%v (query=%q) (args=%q)", err, query, args))
 	}
 
-	m.insert = newBuilder(m.table, m.columns...)
+	//m.insert = newBuilder(m.table, m.columns...)
+	m.insert.vals = make([][]interface{}, 0, 32)
 	m.rows = 0
 }
