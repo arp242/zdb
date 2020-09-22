@@ -127,12 +127,25 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 		}
 	}
 
-	if !memory {
-		if _, ok := q["_journal_mode"]; !ok {
-			q.Set("_journal_mode", "wal")
+	var set = func(value string, keys ...string) {
+		for _, k := range keys {
+			_, ok := q[k]
+			if ok {
+				return
+			}
 		}
-		connect = fmt.Sprintf("file:%s?%s", file, q.Encode())
+		q.Set(keys[0], value)
+	}
 
+	if !memory {
+		set("wal", "_journal_mode", "_journal") // More reliable for concurrent access
+	}
+	set("on", "_foreign_keys", "_fk")             // Check FK constraints
+	set("on", "_defer_foreign_keys", "_defer_fk") // Check FKs after transaction commit
+	set("on", "_case_sensitive_like", "_cslike")  // Same as PostgreSQL
+	connect = fmt.Sprintf("file:%s?%s", file, q.Encode())
+
+	if !memory {
 		_, err = os.Stat(file)
 		if os.IsNotExist(err) {
 			exists = false
