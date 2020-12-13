@@ -115,7 +115,7 @@ func (m *Insert) doInsert() {
 	query, args := m.insert.SQL()
 	_, err := zdb.MustGet(m.ctx).ExecContext(m.ctx, query, args...)
 	if err != nil {
-		m.errors = append(m.errors, fmt.Sprintf("%v (query=%q) (args=%q)", err, query, args))
+		m.errors = append(m.errors, fmt.Sprintf("%v (query=%q) (args=%v)", err, query, args))
 	}
 
 	//m.insert = newBuilder(m.table, m.columns...)
