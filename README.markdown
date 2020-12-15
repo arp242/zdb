@@ -1,9 +1,9 @@
 `zdb` exposes some database helpers; all of this is built on top of
-[sqlx](https://github.com/jmoiron/sqlx), but makes certain things a bit easier.
+[sqlx](https://github.com/jmoiron/sqlx), but makes things a bit easier.
 
-Right now only PostgreSQL and SQLite are supported. Adding MariaDB etc. wouldn't
-be hard, but I don't use it myself so didn't bother adding (and testing!) it.
-Just need someone to write a patch 😅
+Right now only PostgreSQL and SQLite are supported. Adding MariaDB or other
+engines wouldn't be hard, but I don't use it myself so didn't bother adding (and
+testing!) it. Just need someone to write a patch 😅
 
 Note: compile with `CGO_ENABLED=0` if you're not using `cgo`, otherwise it will
 depend on the go-sqlite3 (which uses cgo).
@@ -27,9 +27,9 @@ type DB interface {
 }
 ```
 
-It doesn't expose everything sqlx has because I find that for >95% of the use
-cases, just this is enough. I'm not against adding more methods though, just
-report a use case that's hard to solve otherwise.
+It doesn't expose everything sqlx has because I find that this is enough for
+>95% of the use. I'm not against adding more methods though, just report a use
+case that's hard to solve otherwise.
 
 Use `zdb.Connect()` to connect to a database; It's not *required* to use this
 (`sqlx.Connect()` will work fine as well), but it has some handy stuff like
@@ -57,7 +57,7 @@ func Example(ctx context.Context) {
 ```
 
 The transaction will be rolled back if an error is returned, or commited if it
-doesn't.
+doesn't. This can be nested.
 
 It's assumed that the context has a database value:
 
@@ -104,6 +104,42 @@ accept `zdb.DB`, so they will operate on the transaction.
 Because `zdb.DB` satisfies both the `sqlx.DB` and `sqlx.Tx` structs, you can
 pass this around to your functions if they accept `zdb.DB` instead of
 `*sqlx.DB`.
+
+---
+
+`Query()` is a light-weight query builder; instead of building queries with a
+DSL it just includes or omits some parts based on boolean parameters. 
+
+```go
+func getData(ctx context.Context, siteID int64, order bool) error {
+    query, args, err := zdb.Query(ctx, `
+        select * from tbl
+        where site_id=:site
+        {{order by id}}`,
+        struct {
+            Site int64
+        }{siteID}, order)
+    if err != nil {
+        return err
+    }
+
+    var data someStruct
+    err = zdb.MustGet(ctx).SelectContext(ctx, &data, query, args...)
+    if err != nil {
+        return err
+    }
+    fmt.Println(data)
+}
+```
+
+Parameters are always inserted as named parameters (with `sqlx.Named()`). This
+can be a struct or a map.
+
+Every other parameter corresponds to a `{{...}}` "conditional"; if it's `true`
+this will be included, if it's false it won't.
+
+Overall I find this is a fairly nice middle ground between writing plain SQL
+queries and using a more complex query builder like Squirrel.
 
 ---
 
@@ -160,6 +196,22 @@ You get the error(s) back with `Finish()`.
 
 Note this isn't run in a transaction by default; start a transaction yourself if
 you want it.
+
+---
+
+Wrap the database with `zdb.NewExplainDB()` to automatically dump the `explain`s
+of all queries to a writer:
+
+```go
+db, _ := zdb.Connect(...)
+explainDB = zdb.NewExplainDB(db, os.Stdout, "")
+```
+
+The last parameter is an optional filter:
+
+```go
+explainDB = zdb.NewExplainDB(db, os.Stdout, "only_if_query_matches_this_text")
+```
 
 ---
 

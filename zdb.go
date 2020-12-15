@@ -82,20 +82,28 @@ func MustGet(ctx context.Context) DB {
 	return db
 }
 
+// ErrTransactionStarted is returned when a transaction is already started.
+var ErrTransactionStarted = errors.New("transaction already started")
+
 // Begin a new transaction.
 //
 // The returned context is a copy of the original with the DB replaced with a
 // transaction. The same transaction is also returned directly.
+//
+// Nested transactions return the original transaction together with
+// ErrTransactionStarted (which is not a fatal error).
 func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
 	db := MustGet(ctx)
 	if edb, ok := db.(*explainDB); ok {
 		db = edb.db
 	}
 
-	// TODO: to supported nested transactions we need to wrap it.
-	// Also see: https://github.com/heetch/sqalx/blob/master/sqalx.go
+	// Could use savepoints, but that's probably more confusing than anything
+	// else: almost all of the time you want the outermost transaction to be
+	// completed in full or not at all. If you really want savepoints then you
+	// can do it manually.
 	if tx, ok := db.(*sqlx.Tx); ok {
-		return ctx, tx, nil
+		return ctx, tx, ErrTransactionStarted
 	}
 
 	tx, err := db.(*sqlx.DB).BeginTxx(ctx, nil)
@@ -109,12 +117,21 @@ func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
 //
 // The context passed to the callback has the DB replaced with a transaction.
 //
-// The transaction is comitted if the fn returns nil, or will be rolled back if
+// The transaction is committed if the fn returns nil, or will be rolled back if
 // it's not.
+//
+// Multiple TX() calls can be nested, but they all run the same transaction.
 //
 // This is just a more convenient wrapper for Begin().
 func TX(ctx context.Context, fn func(context.Context, DB) error) error {
 	txctx, tx, err := Begin(ctx)
+	if err == ErrTransactionStarted {
+		err := fn(txctx, tx)
+		if err != nil {
+			return fmt.Errorf("zdb.TX fn: %w", err)
+		}
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("zdb.TX: %w", err)
 	}

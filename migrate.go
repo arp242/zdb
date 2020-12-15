@@ -27,6 +27,7 @@ type Migrate struct {
 	MigratePath  string                    // Path to migrations, for dev.
 }
 
+// TODO: this signature is kind of meh.
 func NewMigrate(db DB, which []string, mig map[string][]byte, gomig map[string]func(DB) error, path string) *Migrate {
 	return &Migrate{db, which, mig, gomig, path}
 }
