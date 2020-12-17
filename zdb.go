@@ -110,7 +110,7 @@ func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("zdb.Begin: %w", err)
 	}
-	return context.WithValue(ctx, ctxkey, tx), tx, nil
+	return With(ctx, tx), tx, nil
 }
 
 // TX runs the given function in a transaction.

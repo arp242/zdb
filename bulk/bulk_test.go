@@ -1,7 +1,6 @@
 package bulk
 
 import (
-	"context"
 	"reflect"
 	"testing"
 
@@ -26,7 +25,7 @@ func TestBuilder(t *testing.T) {
 }
 
 func TestInsert(t *testing.T) {
-	ctx, clean := startTest(t)
+	ctx, clean := zdb.StartTest(t)
 	defer clean()
 
 	_, err := zdb.MustGet(ctx).ExecContext(ctx, `create table TBL (aa text, bb text, cc text);`)
@@ -45,7 +44,7 @@ func TestInsert(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
-	ctx, clean := startTest(t)
+	ctx, clean := zdb.StartTest(t)
 	defer clean()
 
 	_, err := zdb.MustGet(ctx).ExecContext(ctx, `create table TBL (aa text, bb text, cc text);`)
@@ -62,20 +61,11 @@ func TestError(t *testing.T) {
 		t.Fatal("error is nil")
 	}
 
-	want := `1 errors: 2 values for 3 columns (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (args=["one" "two" "a" "b"])`
+	want := `1 errors: 2 values for 3 columns (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (args=[one two a b])`
+	if zdb.PgSQL(zdb.MustGet(ctx)) {
+		want = `1 errors: pq: INSERT has more target columns than expressions (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (args=[one two a b])`
+	}
 	if err.Error() != want {
-		t.Fatal(err)
+		t.Fatalf("wrong error:\n%v", err)
 	}
-}
-
-// startTest a new database test.
-func startTest(t *testing.T) (context.Context, func()) {
-	t.Helper()
-	db, err := zdb.Connect(zdb.ConnectOptions{
-		Connect: "sqlite3://:memory:",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return zdb.With(context.Background(), db), func() { db.Close() }
 }

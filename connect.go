@@ -107,7 +107,7 @@ func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
 
 func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn) error) (*sqlx.DB, bool, error) {
 	exists := true
-	memory := connect == ":memory:"
+	memory := strings.HasPrefix(connect, ":memory:")
 
 	file := connect
 	if strings.HasPrefix(file, "file:") {

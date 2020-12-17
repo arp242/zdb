@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/jmoiron/sqlx"
 	"zgo.at/zstd/ztest"
 )
 
@@ -33,20 +34,20 @@ func TestQuery(t *testing.T) {
 		{`select foo from bar {{x like :foo}} {{y = :bar}}`,
 			map[string]interface{}{"foo": "qwe", "bar": "zxc"},
 			[]bool{true, true},
-			`select foo from bar x like ? y = ?`,
+			`select foo from bar x like $1 y = $2`,
 			[]interface{}{"qwe", "zxc"},
 			""},
 		{`select foo from bar {{x like :foo}} {{y = :bar}}`,
 			map[string]interface{}{"foo": "qwe", "bar": "zxc"},
 			[]bool{false, true},
-			`select foo from bar  y = ?`,
+			`select foo from bar  y = $1`,
 			[]interface{}{"zxc"},
 			""},
 	}
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			ctx, clean := startTest(t)
+			ctx, clean := StartTest(t)
 			defer clean()
 
 			if tt.arg == nil {
@@ -57,6 +58,7 @@ func TestQuery(t *testing.T) {
 			}
 
 			query, args, err := Query(ctx, tt.query, tt.arg, tt.conds...)
+			query = sqlx.Rebind(sqlx.DOLLAR, query) // Always use $-binds for tests
 			if !ztest.ErrorContains(err, tt.wantErr) {
 				t.Fatal(err)
 			}
