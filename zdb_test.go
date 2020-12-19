@@ -205,3 +205,59 @@ func TestListTables(t *testing.T) {
 		t.Errorf("\nwant: %v\ngot:  %v", want, tables)
 	}
 }
+
+func TestInsertID(t *testing.T) {
+	ctx, clean := StartTest(t)
+	defer clean()
+
+	tbl := `create table test (col_id integer primary key autoincrement, v varchar)`
+	if PgSQL(MustGet(ctx)) {
+		tbl = `create table test (col_id serial primary key, v varchar)`
+	}
+	_, err := MustGet(ctx).ExecContext(ctx, tbl)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	{ // One row
+		id, err := InsertID(ctx, `col_id`, `insert into test (v) values ($1)`, "aa")
+		if err != nil {
+			t.Error(err)
+		}
+		if id != 1 {
+			t.Errorf("id is %d, not 1", id)
+		}
+	}
+
+	{ // Multiple rows
+		id, err := InsertID(ctx, `col_id`, `insert into test (v) values ($1), ('bb')`, "aa")
+		if err != nil {
+			t.Error(err)
+		}
+		if id != 3 {
+			t.Errorf("id is %d, not 3", id)
+		}
+	}
+
+	{ // Invalid SQL
+
+		id, err := InsertID(ctx, `col_id`, `insert into test (no_such_col) values ($1)`)
+		if err == nil {
+			t.Error("err is nil")
+		}
+		if id != 0 {
+			t.Errorf("id is not 0: %d", id)
+		}
+	}
+
+	out := "\n" + DumpString(ctx, `select * from test`)
+	want := `
+col_id  v
+1       aa
+2       aa
+3       bb
+`
+	if out != want {
+		t.Errorf("\nwant: %v\ngot:  %v", want, out)
+	}
+}

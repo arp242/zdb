@@ -385,3 +385,26 @@ func ErrNoRows(err error) bool {
 func PgSQL(db DB) bool {
 	return db.DriverName() == "postgres"
 }
+
+// InsertID runs a INSERT query and returns the ID column idColumn.
+//
+// If multiple rows are inserted it will return the ID of the last inserted row.
+//
+// This works for both PostgreSQL and SQLite.
+func InsertID(ctx context.Context, idColumn, query string, args ...interface{}) (int64, error) {
+	if PgSQL(MustGet(ctx)) {
+		// TODO: would be better if we could automatically get the column name.
+		var id []int64
+		err := MustGet(ctx).SelectContext(ctx, &id, query+" returning "+idColumn, args...)
+		if err != nil {
+			return 0, err
+		}
+		return id[len(id)-1], nil
+	}
+
+	r, err := MustGet(ctx).ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	return r.LastInsertId()
+}
