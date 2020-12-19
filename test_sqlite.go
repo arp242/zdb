@@ -7,6 +7,10 @@ import (
 	"testing"
 )
 
+func connectTest() string {
+	return "sqlite://:memory:"
+}
+
 // StartTest starts a new test.
 //
 // There are two versions of this function: one for SQLite and one for

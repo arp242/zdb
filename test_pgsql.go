@@ -14,6 +14,11 @@ import (
 	"zgo.at/zstd/zcrypto"
 )
 
+func connectTest() string {
+	os.Setenv("PGDATABASE", "zdb_test_newdb")
+	return "postgresql://"
+}
+
 func StartTest(t *testing.T) (context.Context, func()) {
 	t.Helper()
 

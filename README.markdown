@@ -8,6 +8,8 @@ testing!) it. Just need someone to write a patch 😅
 Note: compile with `CGO_ENABLED=0` if you're not using `cgo`, otherwise it will
 depend on the go-sqlite3 (which uses cgo).
 
+This requires Go 1.16 or newer.
+
 ---
 
 It exposes a `DB` interface which can be used for both database connections and

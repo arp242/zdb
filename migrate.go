@@ -10,8 +10,7 @@ package zdb
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -20,16 +19,93 @@ import (
 )
 
 type Migrate struct {
-	DB           DB
-	Which        []string                  // List of migrations to run.
-	Migrations   map[string][]byte         // List of all migrations, for production.
-	GoMigrations map[string]func(DB) error // Go migration functions.
-	MigratePath  string                    // Path to migrations, for dev.
+	db    DB
+	mig   fs.FS
+	gomig map[string]func(DB) error
 }
 
-// TODO: this signature is kind of meh.
-func NewMigrate(db DB, which []string, mig map[string][]byte, gomig map[string]func(DB) error, path string) *Migrate {
-	return &Migrate{db, which, mig, gomig, path}
+// NewMigrate creates a new migration instance.
+//
+// Migrations are loaded from the filesystem, as described in ConnectOptions.
+//
+// You can optionally pass a list of Go functions to run as a "migration";
+func NewMigrate(db DB, mig fs.FS, gomig map[string]func(DB) error) *Migrate {
+	_, err := fs.ReadDir(mig, db.DriverName())
+	if err == nil {
+		mig, _ = fs.Sub(mig, db.DriverName())
+	}
+	_, err = fs.ReadDir(mig, "migrate")
+	if err == nil {
+		mig, _ = fs.Sub(mig, "migrate")
+	}
+
+	_, err = db.ExecContext(context.Background(), `create table if not exists version (name varchar)`)
+	if err != nil {
+		panic(fmt.Sprintf("create version table: %s", err))
+	}
+
+	return &Migrate{db, mig, gomig}
+}
+
+// List all migrations we know about, and all migrations that have already been
+// run.
+func (m Migrate) List() (haveMig, ranMig []string, err error) {
+	ls, err := fs.ReadDir(m.mig, ".")
+	if err != nil {
+		return nil, nil, fmt.Errorf("read migrations: %w", err)
+	}
+	for _, f := range ls {
+		if strings.HasSuffix(f.Name(), ".sql") {
+			haveMig = append(haveMig, strings.TrimSuffix(f.Name(), ".sql"))
+		}
+	}
+	for k := range m.gomig {
+		haveMig = append(haveMig, k)
+	}
+	sort.Strings(haveMig)
+
+	err = m.db.SelectContext(context.Background(), &ranMig,
+		`select name from version order by name asc`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("select version: %w", err)
+	}
+	return haveMig, ranMig, nil
+}
+
+// Schema of a migration by name.
+func (m Migrate) Schema(n string) (string, error) {
+	for k, _ := range m.gomig {
+		if n == k {
+			return "", fmt.Errorf("%q is a Go migration", n)
+		}
+	}
+
+	if !strings.HasSuffix(n, ".sql") {
+		n += ".sql"
+	}
+
+	b, err := fs.ReadFile(m.mig, n)
+	if err != nil {
+		return "", err
+	}
+
+	return string(b), nil
+}
+
+type PendingMigrationsError error
+
+// Check if there are pending migrations; will return the (non-fatal)
+// PendingMigrationsError if there are.
+func (m Migrate) Check() error {
+	haveMig, ranMig, err := m.List()
+	if err != nil {
+		return fmt.Errorf("zdb.Migrate.Check: %w", err)
+	}
+
+	if d := zstring.Difference(haveMig, ranMig); len(d) > 0 {
+		return PendingMigrationsError(fmt.Errorf("pending migrations: %s", d))
+	}
+	return nil
 }
 
 // Run a migration, or all of then if which is "all" or "auto".
@@ -49,9 +125,9 @@ outer:
 			continue
 		}
 
-		for k, f := range m.GoMigrations {
+		for k, f := range m.gomig {
 			if k == run {
-				err = f(m.DB)
+				err = f(m.db)
 				if err != nil {
 					return fmt.Errorf("zdb.Migrate.Run %q: %w", run, err)
 				}
@@ -70,121 +146,11 @@ outer:
 		}
 
 		l.Field("name", run).Print("SQL migration")
-		_, err = m.DB.ExecContext(context.Background(), s)
+		_, err = m.db.ExecContext(context.Background(), s)
 		if err != nil {
 			return fmt.Errorf("zdb.Migrate.Run %q: %w", run, err)
 		}
 	}
 
-	return nil
-}
-
-var printedWarning bool
-
-// Get a list of all migrations we know about, and all migrations that have
-// already been run.
-func (m Migrate) List() (haveMig, ranMig []string, err error) {
-	if _, err := os.Stat(m.MigratePath); os.IsNotExist(err) {
-		// Compiled migrations.
-		for k := range m.Migrations {
-			haveMig = append(haveMig, k)
-		}
-		for k := range m.GoMigrations {
-			haveMig = append(haveMig, k)
-		}
-	} else {
-		if !printedWarning {
-			l.Printf("WARNING: using migrations from filesystem; make sure the version of your source code matches the binary")
-			printedWarning = true
-		}
-
-		// Load from filesystem.
-		haveMig, err = filepath.Glob(m.MigratePath + "/*.sql")
-		if err != nil {
-			return nil, nil, fmt.Errorf("glob: %w", err)
-		}
-		for k := range m.GoMigrations {
-			haveMig = append(haveMig, k)
-		}
-	}
-	for i := range haveMig {
-		haveMig[i] = strings.TrimSuffix(filepath.Base(haveMig[i]), ".sql")
-	}
-	sort.Strings(haveMig)
-
-	err = m.DB.SelectContext(context.Background(), &ranMig,
-		`select name from version order by name asc`)
-	if err != nil {
-		return nil, nil, fmt.Errorf("select version: %w", err)
-	}
-	return haveMig, ranMig, nil
-}
-
-// Schema of a migration by name.
-func (m Migrate) Schema(n string) (string, error) {
-	for k, _ := range m.GoMigrations {
-		if n == k {
-			return "", fmt.Errorf("%q is a Go migration", n)
-		}
-	}
-
-	if !strings.HasSuffix(n, ".sql") {
-		n += ".sql"
-	}
-
-	var (
-		b   []byte
-		err error
-	)
-	if _, serr := os.Stat(m.MigratePath); os.IsNotExist(serr) {
-		// Compiled migrations.
-		err = fmt.Errorf("no migration found: %q", n)
-		for k, v := range m.Migrations {
-			if strings.HasSuffix(k, n) {
-				b = v
-				err = nil
-				break
-			}
-		}
-	} else {
-		path := filepath.Clean(n)
-		if !strings.HasPrefix(path, m.MigratePath) {
-			path = filepath.Join(m.MigratePath, path)
-		}
-
-		// Load from filesystem.
-		b, err = ioutil.ReadFile(path)
-	}
-	if err != nil {
-		return "", fmt.Errorf("Migrate.Schema: %w", err)
-	}
-
-	return string(b), nil
-}
-
-// Check if there are pending migrations and zlog.Error() if there are.
-func (m Migrate) Check() error {
-	if m.Migrations == nil && m.MigratePath == "" {
-		return nil
-	}
-	if zstring.Contains(m.Which, "show") || zstring.Contains(m.Which, "list") {
-		return nil
-	}
-
-	if len(m.Which) > 0 {
-		err := m.Run(m.Which...)
-		if err != nil {
-			return fmt.Errorf("zdb.Migrate.Check: %w", err)
-		}
-	}
-
-	haveMig, ranMig, err := m.List()
-	if err != nil {
-		return fmt.Errorf("zdb.Migrate.Check: %w", err)
-	}
-
-	if d := zstring.Difference(haveMig, ranMig); len(d) > 0 {
-		l.Field("migrations", d).Errorf("pending migrations")
-	}
 	return nil
 }

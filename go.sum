@@ -11,5 +11,5 @@ github.com/mattn/go-sqlite3 v1.14.5 h1:1IdxlwTNazvbKJQSxoJ5/9ECbEeaTTyeU7sEAZ5KK
 github.com/mattn/go-sqlite3 v1.14.5/go.mod h1:WVKg1VTActs4Qso6iwGbiFih2UIHo0ENGwNd0Lj+XmI=
 zgo.at/zlog v0.0.0-20200404052423-adffcc8acd57 h1:sIuh9IpccNlzMsmAvF7EPT87/Ab2XdUJHizsMxbQgM4=
 zgo.at/zlog v0.0.0-20200404052423-adffcc8acd57/go.mod h1:YkLAQZjLsp1RqWHn8SJokHzXyYU+6FZjM4GNY64IKME=
-zgo.at/zstd v0.0.0-20201208030035-69d7042db931 h1:LtAc4JR6coAsFmfou9hY5OdfOdNXthWxTvKEE09PVCM=
-zgo.at/zstd v0.0.0-20201208030035-69d7042db931/go.mod h1:bQqcOgaRPCBT7lZ52Ksg9GF1xwi0L97E3AyvW3oGJYE=
+zgo.at/zstd v0.0.0-20201219074540-1bdc62c5acc9 h1:buNAIg5jaamsvWh52LIj45zAW/1dGy6y0aWS1N5hM4s=
+zgo.at/zstd v0.0.0-20201219074540-1bdc62c5acc9/go.mod h1:bQqcOgaRPCBT7lZ52Ksg9GF1xwi0L97E3AyvW3oGJYE=
