@@ -3,6 +3,7 @@ package zdb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -10,17 +11,29 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"zgo.at/zlog"
 )
 
+// To wrap a zdb.DB object embed the zdb.DB interface, which contains the parent
+// DB connection.
+//
+// The Unwrap() method is expected to return the parent DB.
+//
+// Then implement override whatever you want; usually you will want to implement
+// the dbImpl interface, which contains the methods that actually interact with
+// the database. All the DB metods call this under the hood. This way you don't
+// have to wrap all the methods on DB, but just five.
+//
+// In Begin() you will want to return a new wrapped DB instance with the
+// transaction attached.
+
 type explainDB struct {
-	db     DBCloser
+	DB
 	out    io.Writer
 	filter string
 }
 
-// NewExplainDB returns a wrapper DB connection that will print all queries with
-// their EXPLAINs to out.
+// NewExplainDB returns a DB wrapper that will print all queries with their
+// EXPLAINs to out.
 //
 // Only queries which contain the string in filter are shown. Use an empty
 // string to show everything.
@@ -28,16 +41,47 @@ type explainDB struct {
 // Because EXPLAIN will actually run the queries this is quite a significant
 // performance impact. Note that data modification statements are *also* run
 // twice!
-func NewExplainDB(db DBCloser, out io.Writer, filter string) DBCloser {
-	return &explainDB{db: db, out: out, filter: filter}
+//
+// TODO: rename this to logDB, and add an option to either only log queries, log
+// + explain, or log + explain + show results, etc.
+func NewExplainDB(db DB, out io.Writer, filter string) DB {
+	return &explainDB{DB: db, out: out, filter: filter}
 }
 
-func (d explainDB) explain(ctx context.Context, query string, args []interface{}) func() {
+func (d explainDB) Unwrap() DB { return d.DB }
+
+func (d explainDB) Begin(ctx context.Context, opts ...beginOpt) (context.Context, DB, error) {
+	ctx, tx, err := d.DB.Begin(ctx, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+	edb := &explainDB{DB: tx, out: d.out, filter: d.filter}
+	return WithDB(ctx, edb), edb, nil
+}
+
+func (d explainDB) ExecContext(ctx context.Context, query string, params ...interface{}) (sql.Result, error) {
+	defer d.explain(ctx, query, params)()
+	return d.DB.(dbImpl).ExecContext(ctx, query, params...)
+}
+func (d explainDB) GetContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+	defer d.explain(ctx, query, params)()
+	return d.DB.(dbImpl).GetContext(ctx, dest, query, params...)
+}
+func (d explainDB) SelectContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+	defer d.explain(ctx, query, params)()
+	return d.DB.(dbImpl).SelectContext(ctx, dest, query, params...)
+}
+func (d explainDB) QueryxContext(ctx context.Context, query string, params ...interface{}) (*sqlx.Rows, error) {
+	defer d.explain(ctx, query, params)()
+	return d.DB.(dbImpl).QueryxContext(ctx, query, params...)
+}
+
+func (d explainDB) explain(ctx context.Context, query string, params []interface{}) func() {
 	if _, ok := GetDB(ctx); !ok {
 		return func() {}
 	}
 
-	q := ApplyPlaceholders(query, args...)
+	q := ApplyParams(query, params...)
 	if d.filter != "" {
 		q := strings.ReplaceAll(q, "\n", " ")
 		q = regexp.MustCompile(`\s+`).ReplaceAllString(q, " ")
@@ -52,18 +96,21 @@ func (d explainDB) explain(ctx context.Context, query string, args []interface{}
 			explain []string
 			err     error
 		)
-		if PgSQL(ctx) {
-			err = db.SelectContext(ctx, &explain, `explain analyze `+query, args...)
+		switch {
+		default:
+			err = errors.New("zdb.ExplainDB: unsupported driver: " + d.DB.DriverName())
+		case PgSQL(ctx):
+			err = db.Select(ctx, &explain, `explain analyze `+query, params...)
 			for i := range explain {
 				explain[i] = "\t" + explain[i]
 			}
-		} else {
+		case SQLite(ctx):
 			var sqe []struct {
 				ID, Parent, Notused int
 				Detail              string
 			}
 			s := time.Now()
-			err = db.SelectContext(ctx, &sqe, `explain query plan `+query, args...)
+			err = db.Select(ctx, &sqe, `explain query plan `+query, params...)
 			if len(sqe) > 0 {
 				explain = make([]string, len(sqe)+1)
 				for i := range sqe {
@@ -73,39 +120,13 @@ func (d explainDB) explain(ctx context.Context, query string, args []interface{}
 			}
 		}
 		if err != nil {
-			zlog.Error(err)
+			fmt.Fprint(d.out, "QUERY:\n\t"+strings.ReplaceAll(q, "\n", "\n\t")+
+				"\nERROR:\n\t"+err.Error()+"\n\n")
+			return
 		}
 
 		fmt.Fprint(d.out, "QUERY:\n\t"+strings.ReplaceAll(q, "\n", "\n\t")+
 			"\nEXPLAIN:\n"+strings.Join(explain, "\n")+
 			"\n\n")
 	}
-}
-
-func (d explainDB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	defer d.explain(ctx, query, args)()
-	return d.db.ExecContext(ctx, query, args...)
-}
-
-func (d explainDB) GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
-	defer d.explain(ctx, query, args)()
-	return d.db.GetContext(ctx, dest, query, args...)
-}
-
-func (d explainDB) SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
-	defer d.explain(ctx, query, args)()
-	return d.db.SelectContext(ctx, dest, query, args...)
-}
-
-func (d explainDB) QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error) {
-	defer d.explain(ctx, query, args)()
-	return d.db.QueryxContext(ctx, query, args...)
-}
-
-func (d explainDB) Unwrap() DB                 { return d.db }
-func (d explainDB) Close() error               { return d.db.Close() }
-func (d explainDB) Rebind(query string) string { return d.db.Rebind(query) }
-func (d explainDB) DriverName() string         { return d.db.DriverName() }
-func (d explainDB) BindNamed(query string, arg interface{}) (newquery string, args []interface{}, err error) {
-	return d.db.BindNamed(query, arg)
 }

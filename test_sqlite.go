@@ -7,10 +7,9 @@ import (
 	"testing"
 )
 
-/*
-TODO: think about adding a TestDB() wraper or some such which calls t.Fatal() on
-query errors.
-*/
+func connectTest() string {
+	return "sqlite://:memory:"
+}
 
 // StartTest starts a new test.
 //

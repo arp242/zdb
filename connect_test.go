@@ -1,90 +1,31 @@
-// +build cgo
-
 package zdb
 
 import (
 	"context"
+	_ "embed"
 	"testing"
 
-	"github.com/mattn/go-sqlite3"
+	"zgo.at/zdb/testdata"
 )
 
-func TestSQLiteHook(t *testing.T) {
-	hook1 := func(c *sqlite3.SQLiteConn) error {
-		return c.RegisterFunc("hook1", func() string { return "hook1" }, true)
-	}
-	hook2 := func(c *sqlite3.SQLiteConn) error {
-		return c.RegisterFunc("hook2", func() string { return "hook2" }, true)
-	}
-
-	var driver1, driver2, driver3 string
-	{
-		db, err := Connect(ConnectOptions{
-			Connect:    "sqlite://:memory:",
-			SQLiteHook: hook1,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx := WithDB(context.Background(), db)
-
-		var o string
-		err = db.GetContext(ctx, &o, `select hook1()`)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if o != "hook1" {
-			t.Error(o)
-		}
-		driver1 = db.DriverName()
+func TestConnect(t *testing.T) {
+	db, err := Connect(ConnectOptions{
+		Connect: connectTest(),
+		Create:  true,
+		Files:   testdata.Files,
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	{
-		db, err := Connect(ConnectOptions{
-			Connect:    "sqlite://:memory:",
-			SQLiteHook: hook2,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx := WithDB(context.Background(), db)
+	ctx := WithDB(context.Background(), db)
+	out := DumpString(ctx, `select * from factions`)
+	want := `
+		faction_id  name
+		1           Peacekeepers
+		2           Moya`
 
-		var o string
-		err = db.GetContext(ctx, &o, `select hook2()`)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if o != "hook2" {
-			t.Error(o)
-		}
-		driver2 = db.DriverName()
-	}
-
-	{
-		db, err := Connect(ConnectOptions{
-			Connect:    "sqlite://:memory:",
-			SQLiteHook: hook1,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx := WithDB(context.Background(), db)
-
-		var o string
-		err = db.GetContext(ctx, &o, `select hook1()`)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if o != "hook1" {
-			t.Error(o)
-		}
-		driver3 = db.DriverName()
-	}
-
-	if driver1 != driver3 {
-		t.Error()
-	}
-	if driver2 == driver1 {
-		t.Error()
+	if d := Diff(out, want); d != "" {
+		t.Error(d)
 	}
 }

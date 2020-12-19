@@ -34,7 +34,7 @@ func (b *builder) SQL(vals ...string) (string, []interface{}) {
 	s.WriteString(") values ")
 
 	offset := 0
-	var args []interface{}
+	var params []interface{}
 	for i := range b.vals {
 		s.WriteString("(")
 		for j := range b.vals[i] {
@@ -43,7 +43,7 @@ func (b *builder) SQL(vals ...string) (string, []interface{}) {
 			if j < len(b.vals[i])-1 {
 				s.WriteString(",")
 			}
-			args = append(args, b.vals[i][j])
+			params = append(params, b.vals[i][j])
 		}
 		s.WriteString(")")
 		if i < len(b.vals)-1 {
@@ -56,7 +56,7 @@ func (b *builder) SQL(vals ...string) (string, []interface{}) {
 		s.WriteString(b.post)
 	}
 
-	return s.String(), args
+	return s.String(), params
 }
 
 // Insert as many rows as possible per query we send to the server.
@@ -112,10 +112,10 @@ func (m *Insert) Finish() error {
 }
 
 func (m *Insert) doInsert() {
-	query, args := m.insert.SQL()
-	err := zdb.Exec(m.ctx, query, args...)
+	query, params := m.insert.SQL()
+	err := zdb.Exec(m.ctx, query, params...)
 	if err != nil {
-		m.errors = append(m.errors, fmt.Sprintf("%v (query=%q) (args=%v)", err, query, args))
+		m.errors = append(m.errors, fmt.Sprintf("%v (query=%q) (params=%v)", err, query, params))
 	}
 
 	//m.insert = newBuilder(m.table, m.columns...)

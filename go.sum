@@ -8,7 +8,5 @@ github.com/mattn/go-sqlite3 v1.14.6 h1:dNPt6NO46WmLVt2DLNpwczCmdV5boIZ6g/tlDrlRU
 github.com/mattn/go-sqlite3 v1.14.6/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
 github.com/zgoat/sqlx v1.2.1-0.20201228123424-c5cc0d957b92 h1:jN4AyjhTcM0SA7dPuAQ9NPGFXeiJ1jEQJUPMP6WLBTI=
 github.com/zgoat/sqlx v1.2.1-0.20201228123424-c5cc0d957b92/go.mod h1:ClpsPFzLpSBl7MvJ+BhV0JHz4vmKRBarpvZ9644v9Oo=
-zgo.at/zlog v0.0.0-20200404052423-adffcc8acd57 h1:sIuh9IpccNlzMsmAvF7EPT87/Ab2XdUJHizsMxbQgM4=
-zgo.at/zlog v0.0.0-20200404052423-adffcc8acd57/go.mod h1:YkLAQZjLsp1RqWHn8SJokHzXyYU+6FZjM4GNY64IKME=
 zgo.at/zstd v0.0.0-20201227165557-c822e638e28c h1:+ez1p/Tzy4RntMK7q855+/sEpczcQqPWqztMjZYVYLc=
 zgo.at/zstd v0.0.0-20201227165557-c822e638e28c/go.mod h1:bQqcOgaRPCBT7lZ52Ksg9GF1xwi0L97E3AyvW3oGJYE=

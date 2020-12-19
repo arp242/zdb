@@ -14,10 +14,17 @@ import (
 	"zgo.at/zstd/zcrypto"
 )
 
+func connectTest() string {
+	os.Setenv("PGDATABASE", "zdb_test_newdb")
+	return "postgresql://"
+}
+
 func StartTest(t *testing.T) (context.Context, func()) {
 	t.Helper()
 
-	os.Setenv("PGDATABASE", "zdb_test")
+	if _, ok := os.LookupEnv("PGDATABASE"); !ok {
+		os.Setenv("PGDATABASE", "zdb_test")
+	}
 	db, err := Connect(ConnectOptions{
 		Connect: "postgresql://",
 	})
@@ -34,17 +41,17 @@ func StartTest(t *testing.T) (context.Context, func()) {
 	}
 
 	schema := fmt.Sprintf(`zdb_test_` + zcrypto.Secret64())
-	_, err = db.ExecContext(context.Background(), `create schema `+schema)
+	err = db.Exec(context.Background(), `create schema `+schema)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.ExecContext(context.Background(), "set search_path to "+schema)
+	err = db.Exec(context.Background(), "set search_path to "+schema)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	return WithDB(context.Background(), db), func() {
-		db.ExecContext(context.Background(), "drop schema "+schema+" cascade")
+		db.Exec(context.Background(), "drop schema "+schema+" cascade")
 		db.Close()
 	}
 }

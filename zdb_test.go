@@ -7,14 +7,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
 
 var (
-	_ DB       = &sqlx.DB{}
-	_ DBCloser = &sqlx.DB{}
-	_ DB       = &sqlx.Tx{}
+	_ DB = zDB{}
+	_ DB = zTX{}
 )
 
 func TestUnwrap(t *testing.T) {
@@ -27,11 +25,10 @@ func TestUnwrap(t *testing.T) {
 		t.Error()
 	}
 
-	edb := NewExplainDB(db.(DBCloser), os.Stdout, "")
+	edb := NewExplainDB(db, os.Stdout, "")
 	if Unwrap(edb) != db {
 		t.Error()
 	}
-
 	edb2 := NewExplainDB(edb, os.Stdout, "")
 	if Unwrap(edb2) != db {
 		t.Error()
@@ -61,5 +58,28 @@ func TestError(t *testing.T) {
 				t.Errorf("out: %t; want: %t", out, tt.want)
 			}
 		})
+	}
+}
+
+func TestErrUnique(t *testing.T) {
+	ctx, clean := StartTest(t)
+	defer clean()
+
+	err := Exec(ctx, `create table t (c varchar); create unique index test on t(c)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = Exec(ctx, `insert into t values ('a')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = Exec(ctx, `insert into t values ('a')`)
+	if err == nil {
+		t.Fatal("error is nil")
+	}
+	if !ErrUnique(err) {
+		t.Fatalf("wrong error: %#v", err)
 	}
 }

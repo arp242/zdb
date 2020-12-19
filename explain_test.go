@@ -21,10 +21,18 @@ func TestExplain(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	ctx = WithDB(context.Background(), NewExplainDB(MustGetDB(ctx).(DBCloser), buf, ""))
+	ctx = WithDB(context.Background(), NewExplainDB(MustGetDB(ctx), buf, ""))
 
 	var i int
 	err = Get(ctx, &i, `select i from x where i<3`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var j int
+	err = TX(ctx, func(ctx context.Context) error {
+		return Get(ctx, &j, `select i from x where i<4`)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,6 +43,9 @@ func TestExplain(t *testing.T) {
 		want = "QUERY:\n\tselect i from x where i<3;\nEXPLAIN:\n\tSeq Scan on x"
 	}
 	if !strings.HasPrefix(out, want) {
+		t.Errorf("\nout:  %q\nwant: %q", out, want)
+	}
+	if !strings.Contains(out, "from x where i<4") { // Transaction
 		t.Errorf("\nout:  %q\nwant: %q", out, want)
 	}
 }

@@ -3,25 +3,44 @@ package zdb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 )
 
 type ConnectOptions struct {
-	Connect string // Connect string.
-	Schema  []byte // Database schema to create on startup.
-	Migrate *Migrate
+	Connect string   // Connect string.
+	Create  bool     // Create database if it doesn't exist yet.
+	Migrate []string // Migrations to run; nil for none, "all" for all, or a migration name.
+
+	// Database files; the following layout is assumed:
+	//
+	//   Schema       schema-{driver}.sql or schema.sql
+	//   Migrations   migrate/foo-{schema}.sql or migrate/foo.sql
+	//   Queries      query/foo-{schema}.sql or query/foo.sql
+	//
+	// It's okay if files are missing; e.g. no migrate directory simply means
+	// that it won't attempt to run migrations.
+	Files fs.FS
+
+	// In addition to migrations from .sql files, you can run migrations from Go
+	// functions. See the documentation on Migrate for details.
+	GoMigrations map[string]func(context.Context) error
 
 	// ConnectHook for sqlite3.SQLiteDriver; mainly useful to add your own
 	// functions:
 	//
-	//    opts.SQLiteHook = func(c *sqlite3.SQLiteConn) error {
+	//    opt.SQLiteHook = func(c *sqlite3.SQLiteConn) error {
 	//        return c.RegisterFunc("percent_diff", func(start, final float64) float64 {
 	//            return (final - start) / start * 100
 	//        }, true)
@@ -65,68 +84,132 @@ type ConnectOptions struct {
 //
 // You can still use "?_journal_mode=something_else" in the connection string to
 // set something different.
-func Connect(opts ConnectOptions) (DBCloser, error) {
-	var (
-		proto string
-		conn  string
-	)
-	if i := strings.Index(opts.Connect, "://"); i > -1 {
-		proto = opts.Connect[:i]
-		if len(opts.Connect) >= i+3 {
-			conn = opts.Connect[i+3:]
+//
+// For details on the connection string, see the documentation for go-sqlite3
+// and pq:
+// https://github.com/mattn/go-sqlite3/
+// https://github.com/lib/pq
+func Connect(opt ConnectOptions) (DB, error) {
+	// TODO: look at pgx, which is the recommended driver now. sqlx still uses
+	// pq though, but it's only referenced in tests.
+	// https://github.com/jackc/pgx
+	var proto, conn string
+	if i := strings.Index(opt.Connect, "://"); i > -1 {
+		proto = opt.Connect[:i]
+		if len(opt.Connect) >= i+3 {
+			conn = opt.Connect[i+3:]
 		}
 	}
 
 	var (
-		db     *sqlx.DB
+		dbx    *sqlx.DB
 		exists bool
 		err    error
 	)
 	switch proto {
 	case "postgresql", "postgres":
+		proto = "postgres"
+		// TODO: this check is less than ideal; maybe we should just try both?
 		if strings.ContainsRune(conn, ' ') {
 			// "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"
-			db, exists, err = connectPostgreSQL(conn)
+			dbx, exists, err = connectPostgreSQL(conn, opt.Create)
 		} else {
 			// "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"
-			db, exists, err = connectPostgreSQL(opts.Connect)
+			dbx, exists, err = connectPostgreSQL(opt.Connect, opt.Create)
 		}
 	case "sqlite", "sqlite3":
-		db, exists, err = connectSQLite(conn, opts.Schema != nil, opts.SQLiteHook)
+		proto = "sqlite3"
+		dbx, exists, err = connectSQLite(conn, opt.Create, opt.SQLiteHook)
 	default:
-		err = fmt.Errorf("zdb.Connect: unrecognized database engine in connect string %q", opts.Connect)
+		err = fmt.Errorf("zdb.Connect: unrecognized database engine in connect string %q", opt.Connect)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
 
-	if opts.Migrate != nil {
-		opts.Migrate.DB = db
+	// No files: no problem. But stop here.
+	if opt.Files == nil {
+		return &zDB{db: dbx}, nil
 	}
+
+	db := &zDB{db: dbx, fs: opt.Files}
+
+	ctx := WithDB(context.Background(), db)
 
 	if !exists {
-		l.Printf("database %q doesn't exist; loading new schema", opts.Connect)
-		_, err := db.ExecContext(context.Background(), string(opts.Schema))
+		s, err := findFile(opt.Files, insertDriver("schema", db.DriverName())...)
 		if err != nil {
-			return nil, fmt.Errorf("loading schema: %w", err)
+			return nil, fmt.Errorf("zdb.Connect: %w", err)
 		}
 
-		if opts.Migrate != nil {
-			err := opts.Migrate.Run("all")
-			if err != nil {
-				return nil, fmt.Errorf("migration: %w", err)
-			}
+		err = TX(ctx, func(ctx context.Context) error { return Exec(ctx, string(s)) })
+		if err != nil {
+			return nil, fmt.Errorf("zdb.Connect: running schema: %w", err)
 		}
+
+		// Always run migrations for new databases.
+		m, err := NewMigrate(db, opt.Files, opt.GoMigrations)
+		if err != nil {
+			return nil, err
+		}
+		err = m.Run("all")
+		if err != nil {
+			return nil, fmt.Errorf("zdb.Connect: running migrations: %w", err)
+		}
+		return db, nil
 	}
 
-	if opts.Migrate != nil {
-		err = opts.Migrate.Check()
+	if opt.Migrate != nil {
+		m, err := NewMigrate(db, opt.Files, opt.GoMigrations)
+		if err != nil {
+			return nil, err
+		}
+		err = m.Run(opt.Migrate...)
+		if err != nil {
+			return nil, fmt.Errorf("zdb.Connect: running migrations: %w", err)
+		}
+		return db, m.Check()
 	}
-	return db, err
+	return db, nil
 }
 
-func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
+func insertDriver(name, driver string) []string {
+	var r []string
+	switch driver {
+	case "sqlite3":
+		r = []string{name + "-sqlite.sql", name + "-sqlite3.sql"}
+	case "postgres":
+		r = []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql"}
+	}
+	return append(r, name+".sql")
+}
+
+func findFile(files fs.FS, paths ...string) ([]byte, error) {
+	for _, f := range paths {
+		s, err := fs.ReadFile(files, f)
+		if err == nil {
+			return s, nil
+		}
+	}
+	return nil, fmt.Errorf("could not load any of the files: %s", paths)
+}
+
+func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
+	exists := true
 	db, err := sqlx.Connect("postgres", connect)
+	if err != nil && create {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "3D000" {
+			dbname := regexp.MustCompile(`pq: database "(.+?)" does not exist`).FindStringSubmatch(pqErr.Error())
+			out, cerr := exec.Command("createdb", dbname[1]).CombinedOutput()
+			if cerr != nil {
+				return nil, false, fmt.Errorf("connectPostgreSQL: %w: %s", cerr, out)
+			}
+
+			db, err = sqlx.Connect("postgres", connect)
+			exists = false
+		}
+	}
 	if err != nil {
 		return nil, false, fmt.Errorf("connectPostgreSQL: %w", err)
 	}
@@ -134,18 +217,13 @@ func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
 	db.SetMaxOpenConns(25) // Default 0 (unlimited)
 	db.SetMaxIdleConns(25) // Default 2
 
-	// TODO: report if DB exists.
-	return db, true, nil
+	return db, exists, nil
 }
 
 func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn) error) (*sqlx.DB, bool, error) {
-	exists := true
 	memory := strings.HasPrefix(connect, ":memory:")
-
-	file := connect
-	if strings.HasPrefix(file, "file:") {
-		file = file[5:]
-	}
+	exists := !memory
+	file := strings.TrimPrefix(connect, "file:")
 
 	var (
 		i   = strings.IndexRune(connect, '?')

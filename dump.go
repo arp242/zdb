@@ -28,19 +28,19 @@ const (
 //
 // Combined with ztest.Diff() it can be an easy way to test the database state.
 //
-// You can add some special sentinel values in the args to control the output
+// You can add some special sentinel values in the params to control the output
 // (they're not sent as parameters to the DB):
 //
 //   DumpVertical   Show vertical output instead of horizontal columns.
 //   DumpQuery      Show the query with placeholders substituted.
 //   DumpExplain    Show the results of EXPLAIN (or EXPLAIN ANALYZE for PostgreSQL).
-func Dump(ctx context.Context, out io.Writer, query string, args ...interface{}) {
+func Dump(ctx context.Context, out io.Writer, query string, params ...interface{}) {
 	var showQuery, vertical, explain bool
-	argsb := args[:0]
-	for _, a := range args {
-		b, ok := a.(DumpArg)
+	paramsb := params[:0]
+	for _, p := range params {
+		b, ok := p.(DumpArg)
 		if !ok {
-			argsb = append(argsb, a)
+			paramsb = append(paramsb, p)
 			continue
 		}
 		// TODO: formatting could be better; also merge with explainDB
@@ -54,9 +54,9 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 			explain = true
 		}
 	}
-	args = argsb
+	params = paramsb
 
-	rows, err := Rows(ctx, query, args...)
+	rows, err := Query(ctx, query, params...)
 	if err != nil {
 		panic(err)
 	}
@@ -66,30 +66,32 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 	}
 
 	if showQuery {
-		fmt.Fprintln(out, "Query:", ApplyPlaceholders(query, args...))
+		fmt.Fprintln(out, "Query:", ApplyParams(query, params...))
 	}
 
 	t := tabwriter.NewWriter(out, 4, 4, 2, ' ', 0)
 	if vertical {
 		for rows.Next() {
-			row, err := rows.SliceScan()
+			var row []interface{}
+			err := rows.Scan(&row)
 			if err != nil {
 				panic(err)
 			}
 			for i, c := range row {
-				t.Write([]byte(fmt.Sprintf("%s\t%v\n", cols[i], formatArg(c, false))))
+				t.Write([]byte(fmt.Sprintf("%s\t%v\n", cols[i], formatParam(c, false))))
 			}
 			t.Write([]byte("\n"))
 		}
 	} else {
 		t.Write([]byte(strings.Join(cols, "\t") + "\n"))
 		for rows.Next() {
-			row, err := rows.SliceScan()
+			var row []interface{}
+			err := rows.Scan(&row)
 			if err != nil {
 				panic(err)
 			}
 			for i, c := range row {
-				t.Write([]byte(fmt.Sprintf("%v", formatArg(c, false))))
+				t.Write([]byte(fmt.Sprintf("%v", formatParam(c, false))))
 				if i < len(row)-1 {
 					t.Write([]byte("\t"))
 				}
@@ -102,15 +104,15 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 	if explain {
 		if PgSQL(ctx) {
 			fmt.Fprintln(out, "")
-			Dump(ctx, out, "explain analyze "+query, args...)
+			Dump(ctx, out, "explain analyze "+query, params...)
 		} else {
 			fmt.Fprintln(out, "\nEXPLAIN:")
-			Dump(ctx, out, "explain query plan "+query, args...)
+			Dump(ctx, out, "explain query plan "+query, params...)
 		}
 	}
 }
 
-// ApplyPlaceholders replaces parameter placeholders in query with the values.
+// ApplyParams replaces parameter placeholders in query with the values.
 //
 // This is ONLY for printf-debugging, and NOT for actual usage. Security was NOT
 // a consideration when writing this. Parameters in SQL are sent separately over
@@ -118,10 +120,10 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 //
 // This supports ? placeholders and $1 placeholders *in order* ($\d is simply
 // replace with ?).
-func ApplyPlaceholders(query string, args ...interface{}) string {
+func ApplyParams(query string, params ...interface{}) string {
 	query = regexp.MustCompile(`\$\d`).ReplaceAllString(query, "?")
-	for _, a := range args {
-		query = strings.Replace(query, "?", formatArg(a, true), 1)
+	for _, p := range params {
+		query = strings.Replace(query, "?", formatParam(p, true), 1)
 	}
 	query = deIndent(query)
 	if !strings.HasSuffix(query, ";") {
@@ -132,7 +134,7 @@ func ApplyPlaceholders(query string, args ...interface{}) string {
 
 // ListTables lists all tables
 func ListTables(ctx context.Context) ([]string, error) {
-	query := `select name from sqlite_master where type='table' order by name`
+	var query string
 	if PgSQL(ctx) {
 		query = `select c.relname as name
 			from pg_catalog.pg_class c
@@ -144,6 +146,10 @@ func ListTables(ctx context.Context) ([]string, error) {
 				n.nspname !~ '^pg_toast' and
 				pg_catalog.pg_table_is_visible(c.oid)
 			order by name`
+	} else if SQLite(ctx) {
+		query = `select name from sqlite_master where type='table' order by name`
+	} else {
+		panic("zdb.ListTables: unsupported driver: " + MustGetDB(ctx).DriverName())
 	}
 
 	var tables []string
@@ -154,7 +160,7 @@ func ListTables(ctx context.Context) ([]string, error) {
 	return tables, nil
 }
 
-func formatArg(a interface{}, quoted bool) string {
+func formatParam(a interface{}, quoted bool) string {
 	if a == nil {
 		return "NULL"
 	}
@@ -185,14 +191,14 @@ func formatArg(a interface{}, quoted bool) string {
 	case time.Time:
 		// TODO: be a bit smarter about the precision, e.g. a date or time
 		// column doesn't need the full date.
-		return formatArg(aa.Format(Date), quoted)
+		return formatParam(aa.Format(Date), quoted)
 	case int, int64:
 		return fmt.Sprintf("%v", aa)
 	case []byte:
 		if zbyte.Binary(aa) {
 			return fmt.Sprintf("%x", aa)
 		} else {
-			return formatArg(string(aa), quoted)
+			return formatParam(string(aa), quoted)
 		}
 	case string:
 		if quoted {
@@ -235,8 +241,8 @@ func deIndent(in string) string {
 }
 
 // DumpString is like Dump(), but returns the result as a string.
-func DumpString(ctx context.Context, query string, args ...interface{}) string {
+func DumpString(ctx context.Context, query string, params ...interface{}) string {
 	b := new(bytes.Buffer)
-	Dump(ctx, b, query, args...)
+	Dump(ctx, b, query, params...)
 	return b.String()
 }
