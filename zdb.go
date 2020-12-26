@@ -57,6 +57,20 @@ type DB interface {
 	DriverName() string
 }
 
+// DBCloser is like DB, but with the Close() method.
+//
+// sqlx.Db satisfies this interface, but sqlx.Tx does not. Usually you want to
+// accept the DB interface in your functions.
+//
+//   db := connectDB() // Returns zdb.DBCloser
+//   defer db.Close()
+//
+//   doWork(db)        // Accepts zdb.DB, so it can operate on both sql.DB and sqlx.Tx
+type DBCloser interface {
+	DB
+	Close() error
+}
+
 var (
 	ctxkey = &struct{ n string }{"zdb"}
 	l      = zlog.Module("zdb")
@@ -82,6 +96,18 @@ func MustGet(ctx context.Context) DB {
 	return db
 }
 
+// Unwrap this database, removing any of the zdb wrappers and returning the
+// underlying sqlx.DB or sqlx.Tx.
+func Unwrap(db DB) DB {
+	uw, ok := db.(interface {
+		Unwrap() DB
+	})
+	if !ok {
+		return db
+	}
+	return Unwrap(uw.Unwrap())
+}
+
 // ErrTransactionStarted is returned when a transaction is already started.
 var ErrTransactionStarted = errors.New("transaction already started")
 
@@ -93,10 +119,7 @@ var ErrTransactionStarted = errors.New("transaction already started")
 // Nested transactions return the original transaction together with
 // ErrTransactionStarted (which is not a fatal error).
 func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
-	db := MustGet(ctx)
-	if edb, ok := db.(*explainDB); ok {
-		db = edb.db
-	}
+	db := Unwrap(MustGet(ctx))
 
 	// Could use savepoints, but that's probably more confusing than anything
 	// else: almost all of the time you want the outermost transaction to be

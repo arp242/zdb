@@ -14,7 +14,7 @@ import (
 )
 
 type explainDB struct {
-	db     DB
+	db     DBCloser
 	out    io.Writer
 	filter string
 }
@@ -28,7 +28,7 @@ type explainDB struct {
 // Because EXPLAIN will actually run the queries this is quite a significant
 // performance impact. Note that data modification statements are *also* run
 // twice!
-func NewExplainDB(db DB, out io.Writer, filter string) DB {
+func NewExplainDB(db DBCloser, out io.Writer, filter string) DBCloser {
 	return &explainDB{db: db, out: out, filter: filter}
 }
 
@@ -107,6 +107,8 @@ func (d explainDB) QueryxContext(ctx context.Context, query string, args ...inte
 	return d.db.QueryxContext(ctx, query, args...)
 }
 
+func (d explainDB) Unwrap() DB                 { return d.db }
+func (d explainDB) Close() error               { return d.db.Close() }
 func (d explainDB) Rebind(query string) string { return d.db.Rebind(query) }
 func (d explainDB) DriverName() string         { return d.db.DriverName() }
 func (d explainDB) BindNamed(query string, arg interface{}) (newquery string, args []interface{}, err error) {

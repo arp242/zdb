@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 
@@ -14,9 +15,31 @@ import (
 )
 
 var (
-	_ DB = &sqlx.DB{}
-	_ DB = &sqlx.Tx{}
+	_ DB       = &sqlx.DB{}
+	_ DBCloser = &sqlx.DB{}
+	_ DB       = &sqlx.Tx{}
 )
+
+func TestUnwrap(t *testing.T) {
+	ctx, clean := StartTest(t)
+	defer clean()
+
+	db := MustGet(ctx)
+
+	if Unwrap(db) != db {
+		t.Error()
+	}
+
+	edb := NewExplainDB(db.(DBCloser), os.Stdout, "")
+	if Unwrap(edb) != db {
+		t.Error()
+	}
+
+	edb2 := NewExplainDB(edb, os.Stdout, "")
+	if Unwrap(edb2) != db {
+		t.Error()
+	}
+}
 
 func TestBegin(t *testing.T) {
 	ctx, clean := StartTest(t)

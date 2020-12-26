@@ -31,8 +31,38 @@ type ConnectOptions struct {
 	SQLiteHook func(*sqlite3.SQLiteConn) error
 }
 
-// Connect to database.
-func Connect(opts ConnectOptions) (*sqlx.DB, error) {
+// Connect to a database.
+//
+// The database will be created automatically if the database doesn't exist and
+// Schema is in ConnectOptions
+//
+// This will set the maximum number of open and idle connections to 25 each for
+// PostgreSQL, and 1 and -1 for SQLite, instead of Go's default of 0 and 2.
+//
+// To change this, you can use:
+//   db.(*sqlx.DB).SetMaxOpenConns(100)
+//
+// Several connection parameters are set to different defaults in SQLite:
+//
+//   _journal_mode=wal          Almost always faster with better concurrency,
+//                              with little drawbacks for most use cases.
+//                              https://www.sqlite.org/wal.html
+//
+//   _foreign_keys=on           Check FK constraints; by default they're not
+//                              enforced, which is probably not what you want.
+//
+//   _defer_foreign_keys=on     Delay FK checks until the transaction commit; by
+//                              default they're checked immediately (if
+//                              enabled).
+//
+//   _case_sensitive_like=on    LIKE is case-sensitive, like PostgreSQL.
+//
+//   _cache_size=-20000         20M cache size, instead of 2M. Can be a
+//                              significant performance improvement.
+//
+// You can still use "?_journal_mode=something_else" in the connection string to
+// set something different.
+func Connect(opts ConnectOptions) (DBCloser, error) {
 	var (
 		proto string
 		conn  string
@@ -143,6 +173,7 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 	set("on", "_foreign_keys", "_fk")             // Check FK constraints
 	set("on", "_defer_foreign_keys", "_defer_fk") // Check FKs after transaction commit
 	set("on", "_case_sensitive_like", "_cslike")  // Same as PostgreSQL
+	set("-20000", "_cache_size")                  // 20M max. cache, instead of 2M
 	connect = fmt.Sprintf("file:%s?%s", file, q.Encode())
 
 	if !memory {
@@ -172,6 +203,7 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 
 	c := "sqlite3"
 	if hook != nil {
+		// TODO: two connections with different hooks won't work.
 		found := false
 		for _, d := range sql.Drivers() {
 			if d == "sqlite3_zdb" {
