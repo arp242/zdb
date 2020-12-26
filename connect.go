@@ -40,7 +40,7 @@ type ConnectOptions struct {
 // Schema is in ConnectOptions
 //
 // This will set the maximum number of open and idle connections to 25 each for
-// PostgreSQL, and 1 and -1 for SQLite, instead of Go's default of 0 and 2.
+// PostgreSQL, and 16 and 4 for SQLite, instead of Go's default of 0 and 2.
 //
 // To change this, you can use:
 //   db.(*sqlx.DB).SetMaxOpenConns(100)
@@ -228,10 +228,8 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 		return nil, false, fmt.Errorf("connectSQLite: %w", err)
 	}
 
-	if !memory { // Seems to break :memory: database? Hmm
-		db.SetMaxOpenConns(1)
-		db.SetMaxIdleConns(-1)
-	}
+	db.SetMaxOpenConns(16)
+	db.SetMaxIdleConns(4)
 
 	return db, exists, nil
 }
