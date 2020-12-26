@@ -27,7 +27,10 @@ type ConnectOptions struct {
 	//        }, true)
 	//    }
 	//
-	// It'll automatically register and connect to a new "sqlite3_zdb" driver.
+	// It'll automatically register and connect to a new "sqlite3_zdb_[addr]"
+	// driver; note that DriverName() will now return "sqlite3_zdb_[addr]"
+	// instead of "sqlite3"; use zdb.SQLite() to test if a connection is a
+	// SQLite one.
 	SQLiteHook func(*sqlite3.SQLiteConn) error
 }
 
@@ -201,23 +204,27 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 	// 	return nil, false, fmt.Errorf("connectSQLite: %q is not writable", connect)
 	// }
 
-	c := "sqlite3"
+	// Register a new driver for every unique hook we see, and re-use
+	// existing drivers.
+	driver := "sqlite3"
 	if hook != nil {
-		// TODO: two connections with different hooks won't work.
+		suffix := "_zdb_" + fmt.Sprintf("%p\n", hook)[2:]
+		driver += suffix
+
 		found := false
 		for _, d := range sql.Drivers() {
-			if d == "sqlite3_zdb" {
+			if d == driver {
 				found = true
 				break
 			}
 		}
 		if !found {
-			sql.Register("sqlite3_zdb", &sqlite3.SQLiteDriver{ConnectHook: hook})
+			fmt.Println("REGISTER", driver)
+			sql.Register(driver, &sqlite3.SQLiteDriver{ConnectHook: hook})
 		}
-		c += "_zdb"
 	}
 
-	db, err := sqlx.Connect(c, connect)
+	db, err := sqlx.Connect(driver, connect)
 	if err != nil {
 		return nil, false, fmt.Errorf("connectSQLite: %w", err)
 	}

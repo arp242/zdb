@@ -409,6 +409,11 @@ func PgSQL(db DB) bool {
 	return db.DriverName() == "postgres"
 }
 
+// SQLite reports if this database connection is to SQLite.
+func SQLite(db DB) bool {
+	return strings.HasPrefix(db.DriverName(), "sqlite3")
+}
+
 // InsertID runs a INSERT query and returns the ID column idColumn.
 //
 // If multiple rows are inserted it will return the ID of the last inserted row.
