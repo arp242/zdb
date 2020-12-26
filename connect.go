@@ -219,7 +219,6 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 			}
 		}
 		if !found {
-			fmt.Println("REGISTER", driver)
 			sql.Register(driver, &sqlite3.SQLiteDriver{ConnectHook: hook})
 		}
 	}
