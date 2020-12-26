@@ -34,11 +34,17 @@ func StartTest(t *testing.T) (context.Context, func()) {
 	}
 
 	schema := fmt.Sprintf(`zdb_test_` + zcrypto.Secret64())
-	db.MustExec(`create schema ` + schema)
-	db.MustExec("set search_path to " + schema)
+	_, err = db.ExecContext(context.Background(), `create schema `+schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.ExecContext(context.Background(), "set search_path to "+schema)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return With(context.Background(), db), func() {
-		db.MustExec("drop schema " + schema + " cascade")
+		db.ExecContext(context.Background(), "drop schema "+schema+" cascade")
 		db.Close()
 	}
 }
