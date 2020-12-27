@@ -62,7 +62,7 @@ func (b *builder) SQL(vals ...string) (string, []interface{}) {
 // Insert as many rows as possible per query we send to the server.
 type Insert struct {
 	rows    uint16
-	limit   uint16
+	Limit   uint16
 	ctx     context.Context
 	table   string
 	columns []string
@@ -75,7 +75,7 @@ func NewInsert(ctx context.Context, table string, columns []string) Insert {
 	return Insert{
 		ctx: ctx,
 		// SQLITE_MAX_VARIABLE_NUMBER: https://www.sqlite.org/limits.html
-		limit:   uint16(999/len(columns) - 1),
+		Limit:   uint16(999/len(columns) - 1),
 		table:   table,
 		columns: columns,
 		insert:  newBuilder(table, columns...),
@@ -93,7 +93,7 @@ func (m *Insert) Values(values ...interface{}) {
 	m.insert.values(values...)
 	m.rows++
 
-	if m.rows >= m.limit {
+	if m.rows >= m.Limit {
 		m.doInsert()
 	}
 }
