@@ -71,6 +71,9 @@ type DBCloser interface {
 	Close() error
 }
 
+// A is an alias for map[string]interface{}, just because it's less typing 🙃
+type A map[string]interface{}
+
 var (
 	ctxkey = &struct{ n string }{"zdb"}
 	l      = zlog.Module("zdb")
@@ -176,9 +179,11 @@ func TX(ctx context.Context, fn func(context.Context, DB) error) error {
 type DumpArg int
 
 const (
-	DumpVertical DumpArg = iota
+	_ DumpArg = iota
+	DumpVertical
 	DumpQuery
 	DumpExplain
+	DumpResult
 )
 
 // Dump the results of a query to a writer in an aligned table. This is a
@@ -201,6 +206,8 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 			argsb = append(argsb, a)
 			continue
 		}
+		// TODO: formatting could be better; also merge with explainDB
+		// TODO: DumpQuery -> DumpQueryOnly and make "DumpQuery" do query+explain
 		switch b {
 		case DumpQuery:
 			showQuery = true
@@ -261,7 +268,7 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 			Dump(ctx, out, "explain analyze "+query, args...)
 		} else {
 			fmt.Fprintln(out, "\nEXPLAIN:")
-			Dump(ctx, out, "explain "+query, args...)
+			Dump(ctx, out, "explain query plan "+query, args...)
 		}
 	}
 }

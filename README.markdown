@@ -114,11 +114,12 @@ DSL it just includes or omits some parts based on boolean parameters.
 func getData(ctx context.Context, siteID int64, order bool) error {
     query, args, err := zdb.Query(ctx, `
         select * from tbl
-        where site_id=:site
-        {{order by id}}`,
+        where site_id = :site
+        {{:order order by id}}`,
         struct {
             Site int64
-        }{siteID}, order)
+            Order bool
+        }{siteID, order})
     if err != nil {
         return err
     }
