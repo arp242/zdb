@@ -55,17 +55,17 @@ func TestTX(t *testing.T) {
 
 	t.Run("nested", func(t *testing.T) {
 		err := TX(ctx, func(ctx context.Context) error {
-			_, err := Exec(ctx, `create table test_tx (c varchar)`, nil)
+			err := Exec(ctx, `create table test_tx (c varchar)`, nil)
 			if err != nil {
 				return err
 			}
-			_, err = Exec(ctx, `insert into test_tx values ('outer')`, nil)
+			err = Exec(ctx, `insert into test_tx values ('outer')`, nil)
 			if err != nil {
 				return err
 			}
 
 			return TX(ctx, func(ctx context.Context) error {
-				_, err := Exec(ctx, `insert into test_tx values ('inner')`, nil)
+				err := Exec(ctx, `insert into test_tx values ('inner')`, nil)
 				return err
 			})
 		})
@@ -83,7 +83,7 @@ func TestTX(t *testing.T) {
 	t.Run("nested_inner_error", func(t *testing.T) {
 		Exec(ctx, `create table test_tx2 (c varchar)`, nil)
 		err := TX(ctx, func(ctx context.Context) error {
-			_, err := Exec(ctx, `insert into test_tx2 values ('outer')`, nil)
+			err := Exec(ctx, `insert into test_tx2 values ('outer')`, nil)
 			if err != nil {
 				return err
 			}
@@ -109,7 +109,7 @@ func TestTX(t *testing.T) {
 		Exec(ctx, `create table test_tx3 (c varchar)`, nil)
 
 		err := TX(ctx, func(ctx context.Context) error {
-			_, err := Exec(ctx, `insert into test_tx3 values ('outer')`, nil)
+			err := Exec(ctx, `insert into test_tx3 values ('outer')`, nil)
 			if err != nil {
 				return err
 			}

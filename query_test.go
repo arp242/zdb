@@ -93,7 +93,7 @@ func TestQueryDump(t *testing.T) {
 		buf := new(bytes.Buffer)
 		stderr = buf
 
-		_, err = Exec(ctx, `insert into tbl values (:val, 1), {{:val2 (:val2, 2)}}`, map[string]interface{}{
+		err = Exec(ctx, `insert into tbl values (:val, 1), {{:val2 (:val2, 2)}}`, map[string]interface{}{
 			"val":  "hello",
 			"val2": "world",
 		}, DumpQuery)
@@ -116,7 +116,7 @@ func TestQueryDump(t *testing.T) {
 		buf := new(bytes.Buffer)
 		stderr = buf
 
-		_, err = Exec(ctx, `select * from tbl where col1 = :val`, map[string]interface{}{
+		err = Exec(ctx, `select * from tbl where col1 = :val`, map[string]interface{}{
 			"val": "hello",
 		}, DumpResult)
 		if err != nil {
@@ -136,7 +136,7 @@ func TestQueryDump(t *testing.T) {
 		buf := new(bytes.Buffer)
 		stderr = buf
 
-		_, err = Exec(ctx, `select * from tbl where col1 = :val`, map[string]interface{}{
+		err = Exec(ctx, `select * from tbl where col1 = :val`, map[string]interface{}{
 			"val": "hello",
 		}, DumpResult, DumpExplain)
 		if err != nil {
@@ -170,6 +170,75 @@ func TestQueryDump(t *testing.T) {
 			t.Error(d)
 		}
 	}()
+}
+
+func TestInsertID(t *testing.T) {
+	ctx, clean := StartTest(t)
+	defer clean()
+
+	tbl := `create table test (col_id integer primary key autoincrement, v varchar)`
+	if PgSQL(ctx) {
+		tbl = `create table test (col_id serial primary key, v varchar)`
+	}
+	err := Exec(ctx, tbl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	{ // One row
+		id, err := InsertID(ctx, `col_id`, `insert into test (v) values (:val)`, A{"val": "aa"})
+		if err != nil {
+			t.Error(err)
+		}
+		if id != 1 {
+			t.Errorf("id is %d, not 1", id)
+		}
+	}
+
+	{ // Multiple rows
+		id, err := InsertID(ctx, `col_id`, `insert into test (v) values (:val), ('bb')`, A{"val": "aa"})
+		if err != nil {
+			t.Error(err)
+		}
+		if id != 3 {
+			t.Errorf("id is %d, not 3", id)
+		}
+	}
+
+	{
+		id, err := InsertID(ctx, `col_id`, `insert into test (v) values (?), (?)`,
+			[]interface{}{"X", "Y"})
+		if err != nil {
+			t.Error(err)
+		}
+		if id != 5 {
+			t.Errorf("id is %d, not 3", id)
+		}
+	}
+
+	{ // Invalid SQL
+
+		id, err := InsertID(ctx, `col_id`, `insert into test (no_such_col) values ($1)`, nil)
+		if err == nil {
+			t.Error("err is nil")
+		}
+		if id != 0 {
+			t.Errorf("id is not 0: %d", id)
+		}
+	}
+
+	out := "\n" + DumpString(ctx, `select * from test`)
+	want := `
+col_id  v
+1       aa
+2       aa
+3       bb
+4       X
+5       Y
+`
+	if out != want {
+		t.Errorf("\nwant: %v\ngot:  %v", want, out)
+	}
 }
 
 func BenchmarkQuery(b *testing.B) {

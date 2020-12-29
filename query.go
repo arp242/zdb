@@ -2,7 +2,6 @@ package zdb
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"os"
@@ -16,21 +15,48 @@ import (
 
 var stderr io.Writer = os.Stderr
 
+/*
+TODO: I don't really like how you need to use []interface for positional
+parameters; especially if you have just one or two parameters position is often
+easier, and with inserts it's pretty ugly:
+
+   p.ID, err = zdb.InsertID(ctx, "user_agent_id", `insert into user_agents
+       (ua, isbot, browser_id, system_id) values (?, ?, ?, ?)`,
+       []interface{}{shortUA, p.Isbot, p.BrowserID, p.SystemID})
+
+We can't accept ...interface{} because of those DumpArgs and that shizzle,
+but maybe just change it anyway even though we lose some type safe type.
+
+This would also allow passing two struct or maps for named arguments, which is
+actually kind of nice in some cases
+
+	alwaysAdd := zdb.A{"site": site.ID}
+	zdb.Select(ctx, "...", alwaysAdd, zdb.A{"just_this": "..."})
+
+Note: we must be careful to not use between something like time.Time for named
+parameters.
+
+Actually, that entire (?, ?, ?, ?) is something that annoyed me for a while;
+let's see if we can improve on that, too. For example ?all? or whatnot which
+expands to (? * num_of_args).
+*/
+
 // Query creates a new query.
+//
+// Named paramters (:name) are used if arg is a map or struct; positional
+// parameters (? or $1) are used if it's a []inerface{}.
 //
 // Everything between {{:name ..}} is parsed as a conditional; for example
 // {{:foo query}} will only be added if "foo" from arg is true or not a zero
-// type.
+// type. Conditionals only work with named parameters.
 //
-// SQL parameters can be added as :name; sqlx's BindNamed() is used.
-//
-// Additional dumpArgs can be added to dump the results of the query to stderr
-// for testing:
+// Additional DumpArgs can be added to dump the results of the query to stderr
+// for testing and debugging:
 //
 //    DumpQuery      Show the query
 //    DumpExplain    Show query plain (WILL RUN QUERY TWICE!)
 //    DumpResult     Show the query result (WILL RUN QUERY TWICE!)
-//    DumpVertical   Show results in "vertical" format.
+//    DumpVertical   Show results in vertical format.
 //
 // Running the query twice for a select is usually safe (just slower), but
 // running insert, update, or delete twice may cause problems.
@@ -66,10 +92,19 @@ func Query(ctx context.Context, query string, arg interface{}, dump ...DumpArg) 
 		arg = struct{}{}
 	}
 
-	query, args, err := sqlx.Named(query, arg)
-	if err != nil {
-		return "", nil, fmt.Errorf("zdb.Query: %w", err)
+	var (
+		args []interface{}
+		err  error
+	)
+	if s, ok := arg.([]interface{}); ok { // Slice: use positional paramters.
+		args = s
+	} else { // Named parameters
+		query, args, err = sqlx.Named(query, arg)
+		if err != nil {
+			return "", nil, fmt.Errorf("zdb.Query: %w", err)
+		}
 	}
+
 	query, args, err = sqlx.In(query, args...)
 	if err != nil {
 		return "", nil, fmt.Errorf("zdb.Query: %w", err)
@@ -118,12 +153,56 @@ func Get(ctx context.Context, dest interface{}, query string, arg interface{}, d
 // Exec executes a query without returning the result.
 //
 // This uses Query(), and all the documentation from there applies here too.
-func Exec(ctx context.Context, query string, arg interface{}, dump ...DumpArg) (sql.Result, error) {
+func Exec(ctx context.Context, query string, arg interface{}, dump ...DumpArg) error {
 	query, args, err := Query(ctx, query, arg, dump...)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return MustGetDB(ctx).ExecContext(ctx, query, args...)
+	_, err = MustGetDB(ctx).ExecContext(ctx, query, args...)
+	return err
+}
+
+// NumRows executes a query and returns the number of affected rows.
+//
+// This uses Query(), and all the documentation from there applies here too.
+func NumRows(ctx context.Context, query string, arg interface{}, dump ...DumpArg) (int64, error) {
+	query, args, err := Query(ctx, query, arg, dump...)
+	if err != nil {
+		return 0, err
+	}
+	r, err := MustGetDB(ctx).ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	return r.RowsAffected()
+}
+
+// InsertID runs a INSERT query and returns the ID column idColumn.
+//
+// If multiple rows are inserted it will return the ID of the last inserted row.
+// This works for both PostgreSQL and SQLite.
+//
+// This uses Query(), and all the documentation from there applies here too.
+func InsertID(ctx context.Context, idColumn, query string, arg interface{}, dump ...DumpArg) (int64, error) {
+	query, args, err := Query(ctx, query, arg, dump...)
+	if err != nil {
+		return 0, err
+	}
+
+	if PgSQL(ctx) {
+		var id []int64
+		err := MustGetDB(ctx).SelectContext(ctx, &id, query+" returning "+idColumn, args...)
+		if err != nil {
+			return 0, err
+		}
+		return id[len(id)-1], nil
+	}
+
+	r, err := MustGetDB(ctx).ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	return r.LastInsertId()
 }
 
 func includeConditional(arg interface{}, name string) (bool, error) {

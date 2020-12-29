@@ -18,11 +18,11 @@ func TestListTables(t *testing.T) {
 		t.Errorf("\nwant: %v\ngot:  %v", want, tables)
 	}
 
-	_, err = Exec(ctx, `create table test2 (col int)`, nil)
+	err = Exec(ctx, `create table test2 (col int)`, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = Exec(ctx, `create table test1 (col varchar)`, nil)
+	err = Exec(ctx, `create table test1 (col varchar)`, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

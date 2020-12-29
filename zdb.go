@@ -125,25 +125,3 @@ func PgSQL(ctx context.Context) bool {
 func SQLite(ctx context.Context) bool {
 	return strings.HasPrefix(MustGetDB(ctx).DriverName(), "sqlite3")
 }
-
-// InsertID runs a INSERT query and returns the ID column idColumn.
-//
-// If multiple rows are inserted it will return the ID of the last inserted row.
-//
-// This works for both PostgreSQL and SQLite.
-func InsertID(ctx context.Context, idColumn, query string, args ...interface{}) (int64, error) {
-	if PgSQL(ctx) {
-		var id []int64
-		err := MustGetDB(ctx).SelectContext(ctx, &id, query+" returning "+idColumn, args...)
-		if err != nil {
-			return 0, err
-		}
-		return id[len(id)-1], nil
-	}
-
-	r, err := MustGetDB(ctx).ExecContext(ctx, query, args...)
-	if err != nil {
-		return 0, err
-	}
-	return r.LastInsertId()
-}

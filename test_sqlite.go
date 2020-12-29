@@ -7,6 +7,11 @@ import (
 	"testing"
 )
 
+/*
+TODO: think about adding a TestDB() wraper or some such which calls t.Fatal() on
+query errors.
+*/
+
 // StartTest starts a new test.
 //
 // There are two versions of this function: one for SQLite and one for
