@@ -21,7 +21,7 @@ func TestUnwrap(t *testing.T) {
 	ctx, clean := StartTest(t)
 	defer clean()
 
-	db := MustGet(ctx)
+	db := MustGetDB(ctx)
 
 	if Unwrap(db) != db {
 		t.Error()
@@ -72,7 +72,7 @@ func TestInsertID(t *testing.T) {
 	if PgSQL(ctx) {
 		tbl = `create table test (col_id serial primary key, v varchar)`
 	}
-	_, err := MustGet(ctx).ExecContext(ctx, tbl)
+	_, err := Exec(ctx, tbl, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

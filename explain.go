@@ -33,7 +33,7 @@ func NewExplainDB(db DBCloser, out io.Writer, filter string) DBCloser {
 }
 
 func (d explainDB) explain(ctx context.Context, query string, args []interface{}) func() {
-	if _, ok := Get(ctx); !ok {
+	if _, ok := GetDB(ctx); !ok {
 		return func() {}
 	}
 
@@ -48,7 +48,7 @@ func (d explainDB) explain(ctx context.Context, query string, args []interface{}
 
 	return func() {
 		var (
-			db      = MustGet(ctx)
+			db      = MustGetDB(ctx)
 			explain []string
 			err     error
 		)

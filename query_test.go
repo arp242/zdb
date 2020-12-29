@@ -82,7 +82,7 @@ func TestQueryDump(t *testing.T) {
 	ctx, clean := StartTest(t)
 	defer clean()
 
-	_, err := MustGet(ctx).ExecContext(ctx, `create table tbl (col1 varchar, col2 int);`)
+	_, err := MustGetDB(ctx).ExecContext(ctx, `create table tbl (col1 varchar, col2 int);`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestQueryDump(t *testing.T) {
 		buf := new(bytes.Buffer)
 		stderr = buf
 
-		_, err = QueryExec(ctx, `insert into tbl values (:val, 1), {{:val2 (:val2, 2)}}`, map[string]interface{}{
+		_, err = Exec(ctx, `insert into tbl values (:val, 1), {{:val2 (:val2, 2)}}`, map[string]interface{}{
 			"val":  "hello",
 			"val2": "world",
 		}, DumpQuery)
@@ -116,7 +116,7 @@ func TestQueryDump(t *testing.T) {
 		buf := new(bytes.Buffer)
 		stderr = buf
 
-		_, err = QueryExec(ctx, `select * from tbl where col1 = :val`, map[string]interface{}{
+		_, err = Exec(ctx, `select * from tbl where col1 = :val`, map[string]interface{}{
 			"val": "hello",
 		}, DumpResult)
 		if err != nil {
@@ -136,7 +136,7 @@ func TestQueryDump(t *testing.T) {
 		buf := new(bytes.Buffer)
 		stderr = buf
 
-		_, err = QueryExec(ctx, `select * from tbl where col1 = :val`, map[string]interface{}{
+		_, err = Exec(ctx, `select * from tbl where col1 = :val`, map[string]interface{}{
 			"val": "hello",
 		}, DumpResult, DumpExplain)
 		if err != nil {
@@ -198,6 +198,6 @@ func BenchmarkQuery(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		_, _, _ = Query(With(context.Background(), db), query, arg)
+		_, _, _ = Query(WithDB(context.Background(), db), query, arg)
 	}
 }

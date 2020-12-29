@@ -56,7 +56,7 @@ func Dump(ctx context.Context, out io.Writer, query string, args ...interface{})
 	}
 	args = argsb
 
-	rows, err := MustGet(ctx).QueryxContext(ctx, query, args...)
+	rows, err := MustGetDB(ctx).QueryxContext(ctx, query, args...)
 	if err != nil {
 		panic(err)
 	}
@@ -147,7 +147,7 @@ func ListTables(ctx context.Context) ([]string, error) {
 	}
 
 	var tables []string
-	err := MustGet(ctx).SelectContext(ctx, &tables, query)
+	err := MustGetDB(ctx).SelectContext(ctx, &tables, query)
 	if err != nil {
 		return nil, fmt.Errorf("zdb.ListTables: %w", err)
 	}

@@ -19,8 +19,7 @@ type DB interface {
 	// Execute a query without returning any result.
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 
-	// Get a simple single-column value. dest needs to be a pointer to a
-	// primitive.
+	// Get a single row.
 	//
 	// Returns sql.ErrNoRows if there are no rows.
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
@@ -74,25 +73,31 @@ var (
 	l      = zlog.Module("zdb")
 )
 
-// With returns a copy of the context with the DB instance.
-func With(ctx context.Context, db DB) context.Context {
+// WithDB returns a copy of the context with the DB instance.
+func WithDB(ctx context.Context, db DB) context.Context {
 	return context.WithValue(ctx, ctxkey, db)
 }
 
-// Get the DB from the context.
-func Get(ctx context.Context) (DB, bool) {
+// GetDB gets the DB from the context.
+func GetDB(ctx context.Context) (DB, bool) {
 	db, ok := ctx.Value(ctxkey).(DB)
 	return db, ok
 }
 
 // MustGet gets the DB from the context, panicking if there is none.
-func MustGet(ctx context.Context) DB {
-	db, ok := Get(ctx)
+func MustGetDB(ctx context.Context) DB {
+	db, ok := GetDB(ctx)
 	if !ok {
 		panic(fmt.Sprintf("zdb.MustGet: no DB on this context (value: %#v)", db))
 	}
 	return db
 }
+
+// TODO: temporary alias to easy migration; GoatCounter has a lot of MustGet()
+// calls predating the Query()/Get()/Exec()/Select() functions and uses a lot of
+// positional arguments; I don't want to migrate everything in one go just for
+// this.
+func MustGet(ctx context.Context) DB { return MustGetDB(ctx) }
 
 // Unwrap this database, removing any of the zdb wrappers and returning the
 // underlying sqlx.DB or sqlx.Tx.
@@ -113,12 +118,12 @@ func ErrNoRows(err error) bool {
 
 // PgSQL reports if this database connection is to PostgreSQL.
 func PgSQL(ctx context.Context) bool {
-	return MustGet(ctx).DriverName() == "postgres"
+	return MustGetDB(ctx).DriverName() == "postgres"
 }
 
 // SQLite reports if this database connection is to SQLite.
 func SQLite(ctx context.Context) bool {
-	return strings.HasPrefix(MustGet(ctx).DriverName(), "sqlite3")
+	return strings.HasPrefix(MustGetDB(ctx).DriverName(), "sqlite3")
 }
 
 // InsertID runs a INSERT query and returns the ID column idColumn.
@@ -129,14 +134,14 @@ func SQLite(ctx context.Context) bool {
 func InsertID(ctx context.Context, idColumn, query string, args ...interface{}) (int64, error) {
 	if PgSQL(ctx) {
 		var id []int64
-		err := MustGet(ctx).SelectContext(ctx, &id, query+" returning "+idColumn, args...)
+		err := MustGetDB(ctx).SelectContext(ctx, &id, query+" returning "+idColumn, args...)
 		if err != nil {
 			return 0, err
 		}
 		return id[len(id)-1], nil
 	}
 
-	r, err := MustGet(ctx).ExecContext(ctx, query, args...)
+	r, err := MustGetDB(ctx).ExecContext(ctx, query, args...)
 	if err != nil {
 		return 0, err
 	}

@@ -60,6 +60,12 @@ func Query(ctx context.Context, query string, arg interface{}, dump ...DumpArg) 
 		}
 	}
 
+	// sqlx doesn't deal well with this, but if there are no parameters then it
+	// makes little sense having to pass a map or struct.
+	if arg == nil {
+		arg = struct{}{}
+	}
+
 	query, args, err := sqlx.Named(query, arg)
 	if err != nil {
 		return "", nil, fmt.Errorf("zdb.Query: %w", err)
@@ -68,7 +74,7 @@ func Query(ctx context.Context, query string, arg interface{}, dump ...DumpArg) 
 	if err != nil {
 		return "", nil, fmt.Errorf("zdb.Query: %w", err)
 	}
-	query = MustGet(ctx).Rebind(query)
+	query = MustGetDB(ctx).Rebind(query)
 
 	if len(dump) > 0 {
 		if len(dump) == 1 && dump[0] == DumpQuery {
@@ -85,33 +91,39 @@ func Query(ctx context.Context, query string, arg interface{}, dump ...DumpArg) 
 	return query, args, nil
 }
 
-// QuerySelect is like Query(), but will also run SelectContext() and scan in to
-// desc.
-func QuerySelect(ctx context.Context, dest interface{}, query string, arg interface{}, dump ...DumpArg) error {
+// Select one or more rows; dest needs to be a pointer to a slice.
+//
+// Returns nil if there are no rows.
+//
+// This uses Query(), and all the documentation from there applies here too.
+func Select(ctx context.Context, dest interface{}, query string, arg interface{}, dump ...DumpArg) error {
 	query, args, err := Query(ctx, query, arg, dump...)
 	if err != nil {
 		return err
 	}
-	return MustGet(ctx).SelectContext(ctx, dest, query, args...)
+	return MustGetDB(ctx).SelectContext(ctx, dest, query, args...)
 }
 
-// QueryGet is like Query(), but will also run GetContext() and scan in to
-// desc.
-func QueryGet(ctx context.Context, dest interface{}, query string, arg interface{}, dump ...DumpArg) error {
+// Get one row, returning sql.ErrNoRows if there are no rows.
+//
+// This uses Query(), and all the documentation from there applies here too.
+func Get(ctx context.Context, dest interface{}, query string, arg interface{}, dump ...DumpArg) error {
 	query, args, err := Query(ctx, query, arg, dump...)
 	if err != nil {
 		return err
 	}
-	return MustGet(ctx).GetContext(ctx, dest, query, args...)
+	return MustGetDB(ctx).GetContext(ctx, dest, query, args...)
 }
 
-// QueryExec is like Query(), but will also run ExecContext().
-func QueryExec(ctx context.Context, query string, arg interface{}, dump ...DumpArg) (sql.Result, error) {
+// Exec executes a query without returning the result.
+//
+// This uses Query(), and all the documentation from there applies here too.
+func Exec(ctx context.Context, query string, arg interface{}, dump ...DumpArg) (sql.Result, error) {
 	query, args, err := Query(ctx, query, arg, dump...)
 	if err != nil {
 		return nil, err
 	}
-	return MustGet(ctx).ExecContext(ctx, query, args...)
+	return MustGetDB(ctx).ExecContext(ctx, query, args...)
 }
 
 func includeConditional(arg interface{}, name string) (bool, error) {

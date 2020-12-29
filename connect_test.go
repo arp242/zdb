@@ -26,7 +26,7 @@ func TestSQLiteHook(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		ctx := With(context.Background(), db)
+		ctx := WithDB(context.Background(), db)
 
 		var o string
 		err = db.GetContext(ctx, &o, `select hook1()`)
@@ -47,7 +47,7 @@ func TestSQLiteHook(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		ctx := With(context.Background(), db)
+		ctx := WithDB(context.Background(), db)
 
 		var o string
 		err = db.GetContext(ctx, &o, `select hook2()`)
@@ -68,7 +68,7 @@ func TestSQLiteHook(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		ctx := With(context.Background(), db)
+		ctx := WithDB(context.Background(), db)
 
 		var o string
 		err = db.GetContext(ctx, &o, `select hook1()`)

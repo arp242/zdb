@@ -12,14 +12,14 @@ import (
 func TestExplain(t *testing.T) {
 	ctx, clean := StartTest(t)
 	defer clean()
-	db := MustGet(ctx).(*sqlx.DB)
+	db := MustGetDB(ctx).(*sqlx.DB)
 
 	db.MustExec(`create table x (i int)`)
 	db.MustExec(`insert into x values (1), (2), (3), (4), (5)`)
 
 	buf := new(bytes.Buffer)
 	dbe := NewExplainDB(db, buf, "")
-	ctx = With(context.Background(), dbe)
+	ctx = WithDB(context.Background(), dbe)
 
 	var i int
 	err := dbe.GetContext(ctx, &i, `select i from x where i<3`)

@@ -41,15 +41,10 @@ func TestTX(t *testing.T) {
 	ctx, clean := StartTest(t)
 	defer clean()
 
-	err := TX(ctx, func(ctx context.Context, tx DB) error {
-		_, ok := tx.(*sqlx.Tx)
+	err := TX(ctx, func(ctx context.Context) error {
+		_, ok := MustGetDB(ctx).(*sqlx.Tx)
 		if !ok {
-			t.Errorf("not a tx: %T", tx)
-		}
-
-		_, ok = MustGet(ctx).(*sqlx.Tx)
-		if !ok {
-			t.Errorf("not a tx: %T", tx)
+			t.Errorf("not a tx: %T", MustGetDB(ctx))
 		}
 
 		return nil
@@ -59,18 +54,18 @@ func TestTX(t *testing.T) {
 	}
 
 	t.Run("nested", func(t *testing.T) {
-		err := TX(ctx, func(ctx context.Context, tx DB) error {
-			_, err := tx.ExecContext(ctx, `create table test_tx (c varchar)`)
+		err := TX(ctx, func(ctx context.Context) error {
+			_, err := Exec(ctx, `create table test_tx (c varchar)`, nil)
 			if err != nil {
 				return err
 			}
-			_, err = tx.ExecContext(ctx, `insert into test_tx values ('outer')`)
+			_, err = Exec(ctx, `insert into test_tx values ('outer')`, nil)
 			if err != nil {
 				return err
 			}
 
-			return TX(ctx, func(ctx context.Context, tx DB) error {
-				_, err := tx.ExecContext(ctx, `insert into test_tx values ('inner')`)
+			return TX(ctx, func(ctx context.Context) error {
+				_, err := Exec(ctx, `insert into test_tx values ('inner')`, nil)
 				return err
 			})
 		})
@@ -86,15 +81,15 @@ func TestTX(t *testing.T) {
 	})
 
 	t.Run("nested_inner_error", func(t *testing.T) {
-		MustGet(ctx).ExecContext(ctx, `create table test_tx2 (c varchar)`)
-		err := TX(ctx, func(ctx context.Context, tx DB) error {
-			_, err := tx.ExecContext(ctx, `insert into test_tx2 values ('outer')`)
+		Exec(ctx, `create table test_tx2 (c varchar)`, nil)
+		err := TX(ctx, func(ctx context.Context) error {
+			_, err := Exec(ctx, `insert into test_tx2 values ('outer')`, nil)
 			if err != nil {
 				return err
 			}
 
-			return TX(ctx, func(ctx context.Context, tx DB) error {
-				tx.ExecContext(ctx, `insert into test_tx2 values ('inner')`)
+			return TX(ctx, func(ctx context.Context) error {
+				Exec(ctx, `insert into test_tx2 values ('inner')`, nil)
 				return errors.New("oh noes")
 			})
 		})
@@ -110,15 +105,17 @@ func TestTX(t *testing.T) {
 	})
 
 	t.Run("nested_outer_error", func(t *testing.T) {
-		MustGet(ctx).ExecContext(ctx, `create table test_tx3 (c varchar)`)
-		err := TX(ctx, func(ctx context.Context, tx DB) error {
-			_, err := tx.ExecContext(ctx, `insert into test_tx3 values ('outer')`)
+
+		Exec(ctx, `create table test_tx3 (c varchar)`, nil)
+
+		err := TX(ctx, func(ctx context.Context) error {
+			_, err := Exec(ctx, `insert into test_tx3 values ('outer')`, nil)
 			if err != nil {
 				return err
 			}
 
-			err = TX(ctx, func(ctx context.Context, tx DB) error {
-				tx.ExecContext(ctx, `insert into test_tx3 values ('inner')`)
+			err = TX(ctx, func(ctx context.Context) error {
+				Exec(ctx, `insert into test_tx3 values ('inner')`, nil)
 				return nil
 			})
 			if err != nil {

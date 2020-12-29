@@ -19,7 +19,7 @@ var ErrTransactionStarted = errors.New("transaction already started")
 // Nested transactions return the original transaction together with
 // ErrTransactionStarted (which is not a fatal error).
 func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
-	db := Unwrap(MustGet(ctx))
+	db := Unwrap(MustGetDB(ctx))
 
 	// Could use savepoints, but that's probably more confusing than anything
 	// else: almost all of the time you want the outermost transaction to be
@@ -33,7 +33,7 @@ func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("zdb.Begin: %w", err)
 	}
-	return With(ctx, tx), tx, nil
+	return WithDB(ctx, tx), tx, nil
 }
 
 // TX runs the given function in a transaction.
@@ -46,10 +46,10 @@ func Begin(ctx context.Context) (context.Context, *sqlx.Tx, error) {
 // are comitted only if the outermost transaction returns true.
 //
 // This is just a more convenient wrapper for Begin().
-func TX(ctx context.Context, fn func(context.Context, DB) error) error {
+func TX(ctx context.Context, fn func(context.Context) error) error {
 	txctx, tx, err := Begin(ctx)
 	if err == ErrTransactionStarted {
-		err := fn(txctx, tx)
+		err := fn(txctx)
 		if err != nil {
 			return fmt.Errorf("zdb.TX fn: %w", err)
 		}
@@ -61,7 +61,7 @@ func TX(ctx context.Context, fn func(context.Context, DB) error) error {
 
 	defer tx.Rollback()
 
-	err = fn(txctx, tx)
+	err = fn(txctx)
 	if err != nil {
 		return fmt.Errorf("zdb.TX fn: %w", err)
 	}
