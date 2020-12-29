@@ -52,7 +52,7 @@ func (d explainDB) explain(ctx context.Context, query string, args []interface{}
 			explain []string
 			err     error
 		)
-		if PgSQL(db) {
+		if PgSQL(ctx) {
 			err = db.(*explainDB).db.SelectContext(ctx, &explain, `explain analyze `+query, args...)
 			for i := range explain {
 				explain[i] = "\t" + explain[i]

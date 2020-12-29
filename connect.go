@@ -131,8 +131,8 @@ func connectPostgreSQL(connect string) (*sqlx.DB, bool, error) {
 		return nil, false, fmt.Errorf("connectPostgreSQL: %w", err)
 	}
 
+	db.SetMaxOpenConns(25) // Default 0 (unlimited)
 	db.SetMaxIdleConns(25) // Default 2
-	db.SetMaxOpenConns(25) // Default 0
 
 	// TODO: report if DB exists.
 	return db, true, nil
@@ -228,8 +228,8 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 		return nil, false, fmt.Errorf("connectSQLite: %w", err)
 	}
 
-	db.SetMaxOpenConns(16)
-	db.SetMaxIdleConns(4)
+	db.SetMaxOpenConns(16) // Default 0 (unlimited)
+	db.SetMaxIdleConns(4)  // Default 2
 
 	return db, exists, nil
 }

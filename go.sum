@@ -1,7 +1,5 @@
 github.com/go-sql-driver/mysql v1.5.0 h1:ozyZYNQW3x3HtqT1jira07DN2PArx2v7/mN66gGcHOs=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
-github.com/jmoiron/sqlx v1.2.1-0.20201120164427-00c6e74d816a h1:74FsVHi8zuvyUTv1W3Wry/oiAQYhZzcB5vEKLYEAv0E=
-github.com/jmoiron/sqlx v1.2.1-0.20201120164427-00c6e74d816a/go.mod h1:ClpsPFzLpSBl7MvJ+BhV0JHz4vmKRBarpvZ9644v9Oo=
 github.com/lib/pq v1.2.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
 github.com/lib/pq v1.9.0 h1:L8nSXQQzAYByakOFMTwpjRoHsMJklur4Gi59b6VivR8=
 github.com/lib/pq v1.9.0/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=

@@ -29,7 +29,7 @@ func TestExplain(t *testing.T) {
 
 	out := buf.String()
 	want := "QUERY:\n\tselect i from x where i<3;\nEXPLAIN:\n\tSCAN TABLE x\n\tTime:"
-	if PgSQL(db) {
+	if PgSQL(ctx) {
 		want = "QUERY:\n\tselect i from x where i<3;\nEXPLAIN:\n\tSeq Scan on x"
 	}
 	if !strings.HasPrefix(out, want) {

@@ -6,7 +6,7 @@ engines wouldn't be hard, but I don't use it myself so didn't bother adding (and
 testing!) it. Just need someone to write a patch 😅
 
 Note: compile with `CGO_ENABLED=0` if you're not using `cgo`, otherwise it will
-depend on the go-sqlite3 (which uses cgo).
+depend on the go-sqlite3, which uses cgo.
 
 ---
 

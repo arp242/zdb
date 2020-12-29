@@ -46,8 +46,8 @@ func Query(ctx context.Context, query string, arg interface{}, dump ...DumpArg) 
 		}
 		name = name[:i]
 
-		// TODO: this is a bit inefficient, since it duplicates sqlx's
-		// NamedMapper logic; still seems plenty fast enough though.
+		// This is a bit inefficient, since it duplicates sqlx's NamedMapper
+		// logic; still seems plenty fast enough though.
 		ok, err := includeConditional(arg, name)
 		if err != nil {
 			return "", nil, fmt.Errorf("zdb.Query: %w", err)

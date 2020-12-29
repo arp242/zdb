@@ -152,7 +152,7 @@ func TestQueryDump(t *testing.T) {
 			id  parent  notused  detail
 			2   0       0        SCAN TABLE tbl`
 
-		if PgSQL(MustGet(ctx)) {
+		if PgSQL(ctx) {
 			out = regexp.MustCompile(`[0-9.]{4,}`).ReplaceAllString(out, "")
 			want = `
 				col1   col2

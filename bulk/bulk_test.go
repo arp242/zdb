@@ -62,7 +62,7 @@ func TestError(t *testing.T) {
 	}
 
 	want := `1 errors: 2 values for 3 columns (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (args=[one two a b])`
-	if zdb.PgSQL(zdb.MustGet(ctx)) {
+	if zdb.PgSQL(ctx) {
 		want = `1 errors: pq: INSERT has more target columns than expressions (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (args=[one two a b])`
 	}
 	if err.Error() != want {
