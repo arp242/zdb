@@ -43,7 +43,7 @@ func StartTest(t *testing.T) (context.Context, func()) {
 		t.Fatal(err)
 	}
 
-	return With(context.Background(), db), func() {
+	return WithDB(context.Background(), db), func() {
 		db.ExecContext(context.Background(), "drop schema "+schema+" cascade")
 		db.Close()
 	}

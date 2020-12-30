@@ -19,31 +19,21 @@ type DB interface {
 	// Execute a query without returning any result.
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 
-	// Get a single row.
-	//
-	// Returns sql.ErrNoRows if there are no rows.
+	// Get a single row. Returns sql.ErrNoRows if there are no rows.
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 
-	// Select multiple rows, dest needs to be a pointer to a slice.
-	//
-	// Returns nil if there are no rows.
+	// Select multiple rows, dest needs to be a pointer to a slice. Returns nil
+	// if there are no rows.
 	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 
-	// Query one row.
-	//
-	// Returning row is never nil; use .Err() to check for errors. Row.Scan()
-	// will return sql.ErrNoRows if there are no rows.
-	QueryRowxContext(ctx context.Context, query string, args ...interface{}) *sqlx.Row
-
-	// Query one or more rows.
-	//
-	// Returning rows is never nil; use .Err() to check for errors. Row
+	// Query one or more rows. Returning rows is never nil; use .Err() to check
+	// for errors.
 	QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error)
 
 	// Rebind :named to placeholders appropriate for this SQL connection.
 	BindNamed(query string, arg interface{}) (newquery string, args []interface{}, err error)
 
-	// Rebind ? to placeholders appropriate for this SQL connection.
+	// Rebind ? or $1 to placeholders appropriate for this SQL connection.
 	Rebind(query string) string
 
 	// SQL driver name for this connection.
@@ -92,12 +82,6 @@ func MustGetDB(ctx context.Context) DB {
 	}
 	return db
 }
-
-// TODO: temporary alias to easy migration; GoatCounter has a lot of MustGet()
-// calls predating the Query()/Get()/Exec()/Select() functions and uses a lot of
-// positional arguments; I don't want to migrate everything in one go just for
-// this.
-func MustGet(ctx context.Context) DB { return MustGetDB(ctx) }
 
 // Unwrap this database, removing any of the zdb wrappers and returning the
 // underlying sqlx.DB or sqlx.Tx.

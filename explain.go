@@ -48,12 +48,12 @@ func (d explainDB) explain(ctx context.Context, query string, args []interface{}
 
 	return func() {
 		var (
-			db      = MustGetDB(ctx)
+			db      = Unwrap(MustGetDB(ctx))
 			explain []string
 			err     error
 		)
 		if PgSQL(ctx) {
-			err = db.(*explainDB).db.SelectContext(ctx, &explain, `explain analyze `+query, args...)
+			err = db.SelectContext(ctx, &explain, `explain analyze `+query, args...)
 			for i := range explain {
 				explain[i] = "\t" + explain[i]
 			}
@@ -63,7 +63,7 @@ func (d explainDB) explain(ctx context.Context, query string, args []interface{}
 				Detail              string
 			}
 			s := time.Now()
-			err = db.(*explainDB).db.SelectContext(ctx, &sqe, `explain query plan `+query, args...)
+			err = db.SelectContext(ctx, &sqe, `explain query plan `+query, args...)
 			if len(sqe) > 0 {
 				explain = make([]string, len(sqe)+1)
 				for i := range sqe {
@@ -95,11 +95,6 @@ func (d explainDB) GetContext(ctx context.Context, dest interface{}, query strin
 func (d explainDB) SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
 	defer d.explain(ctx, query, args)()
 	return d.db.SelectContext(ctx, dest, query, args...)
-}
-
-func (d explainDB) QueryRowxContext(ctx context.Context, query string, args ...interface{}) *sqlx.Row {
-	defer d.explain(ctx, query, args)()
-	return d.db.QueryRowxContext(ctx, query, args...)
 }
 
 func (d explainDB) QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error) {

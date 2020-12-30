@@ -5,24 +5,26 @@ import (
 	"context"
 	"strings"
 	"testing"
-
-	"github.com/jmoiron/sqlx"
 )
 
 func TestExplain(t *testing.T) {
 	ctx, clean := StartTest(t)
 	defer clean()
-	db := MustGetDB(ctx).(*sqlx.DB)
 
-	db.MustExec(`create table x (i int)`)
-	db.MustExec(`insert into x values (1), (2), (3), (4), (5)`)
+	err := Exec(ctx, `create table x (i int)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Exec(ctx, `insert into x values (1), (2), (3), (4), (5)`)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	buf := new(bytes.Buffer)
-	dbe := NewExplainDB(db, buf, "")
-	ctx = WithDB(context.Background(), dbe)
+	ctx = WithDB(context.Background(), NewExplainDB(MustGetDB(ctx).(DBCloser), buf, ""))
 
 	var i int
-	err := dbe.GetContext(ctx, &i, `select i from x where i<3`)
+	err = Get(ctx, &i, `select i from x where i<3`)
 	if err != nil {
 		t.Fatal(err)
 	}
