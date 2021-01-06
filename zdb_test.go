@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/lib/pq"
 )
@@ -82,4 +83,22 @@ func TestErrUnique(t *testing.T) {
 	if !ErrUnique(err) {
 		t.Fatalf("wrong error: %#v", err)
 	}
+}
+
+func TestDate(t *testing.T) {
+	ctx, clean := StartTest(t)
+	defer clean()
+
+	err := Exec(ctx, `create table t (a timestamp, b timestamp)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	n := time.Now()
+	err = Exec(ctx, `insert into t values (?)`, L{n, &n})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	Dump(ctx, os.Stdout, `select * from t`)
 }

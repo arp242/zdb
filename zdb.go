@@ -20,19 +20,14 @@ import (
 // rollback the transaction and close the database connection.
 //
 // See documentation on the top-level functions for more details on the methods.
-//
-// TODO; some things are still missing:
-//   db.Ping, db.Stats
-//
-// And also:
-//
-//   db.SetConnMaxIdleTime
-//   db.SetMaxIdleConns
-//   db.SetMaxOpenConns
-//
-// But they should probably be on ConnectOptions.
-
 type DB interface {
+	// TODO; some things are still missing:
+	//   db.Ping, db.Stats
+	//
+	// db.SetConnMaxIdleTime
+	// db.SetMaxIdleConns
+	// db.SetMaxOpenConns
+
 	Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error)
 	Load(ctx context.Context, name string) (string, error)
 
@@ -239,12 +234,6 @@ func (r *Rows) Scan(dest ...interface{}) error {
 // func (r *Rows) Struct(d interface{}) error         { return r.r.StructScan(d) }
 // func (r *Rows) Slice() ([]interface{}, error)      { return r.r.SliceScan() }
 // func (r *Rows) Map(d map[string]interface{}) error { return r.r.MapScan(d) }
-
-// Date format for SQL.
-//
-// TODO: deal with this better, inserting a date as a parameter should just
-// work.
-const Date = "2006-01-02 15:04:05"
 
 // WithDB returns a copy of the context with the DB instance.
 func WithDB(ctx context.Context, db DB) context.Context {

@@ -132,34 +132,6 @@ func ApplyParams(query string, params ...interface{}) string {
 	return query
 }
 
-// ListTables lists all tables
-func ListTables(ctx context.Context) ([]string, error) {
-	var query string
-	if PgSQL(ctx) {
-		query = `select c.relname as name
-			from pg_catalog.pg_class c
-			left join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-			where
-				c.relkind = 'r' and
-				n.nspname <> 'pg_catalog' and
-				n.nspname <> 'information_schema' and
-				n.nspname !~ '^pg_toast' and
-				pg_catalog.pg_table_is_visible(c.oid)
-			order by name`
-	} else if SQLite(ctx) {
-		query = `select name from sqlite_master where type='table' order by name`
-	} else {
-		panic("zdb.ListTables: unsupported driver: " + MustGetDB(ctx).DriverName())
-	}
-
-	var tables []string
-	err := Select(ctx, &tables, query)
-	if err != nil {
-		return nil, fmt.Errorf("zdb.ListTables: %w", err)
-	}
-	return tables, nil
-}
-
 func formatParam(a interface{}, quoted bool) string {
 	if a == nil {
 		return "NULL"
@@ -191,7 +163,7 @@ func formatParam(a interface{}, quoted bool) string {
 	case time.Time:
 		// TODO: be a bit smarter about the precision, e.g. a date or time
 		// column doesn't need the full date.
-		return formatParam(aa.Format(Date), quoted)
+		return formatParam(aa.Format("2006-01-02 15:04:05"), quoted)
 	case int, int64:
 		return fmt.Sprintf("%v", aa)
 	case []byte:
