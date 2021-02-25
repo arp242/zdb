@@ -62,6 +62,9 @@ type zDB struct {
 
 func (db zDB) files() fs.FS { return db.fs }
 
+func (db zDB) DBSQL() *sql.DB                 { return db.db.DB }
+func (db zDB) Ping(ctx context.Context) error { return db.db.PingContext(ctx) }
+
 func (db zDB) Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error) {
 	return prepareImpl(ctx, db, query, params...)
 }
@@ -118,6 +121,9 @@ type zTX struct {
 }
 
 func (db zTX) files() fs.FS { return db.parent.files() }
+
+func (db zTX) DBSQL() *sql.DB                 { return db.parent.DBSQL() }
+func (db zTX) Ping(ctx context.Context) error { return db.parent.Ping(ctx) }
 
 func (db zTX) Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error) {
 	return prepareImpl(ctx, db, query, params...)

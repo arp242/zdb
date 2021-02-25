@@ -8,22 +8,19 @@ import (
 )
 
 func TestMigrate(t *testing.T) {
-	t.Skip() // TODO
-
 	ctx, clean := StartTest(t)
 	defer clean()
-	db := MustGetDB(ctx)
 
-	err := db.Exec(ctx, `create table version (name varchar)`)
+	err := Exec(ctx, `create table version (name varchar)`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = db.Exec(ctx, `insert into version (name) values ('one'), ('two')`)
+	err = Exec(ctx, `insert into version (name) values ('one'), ('two')`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	m, err := NewMigrate(db, testdata.Files, nil)
+	m, err := NewMigrate(MustGetDB(ctx), testdata.Files, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +30,10 @@ func TestMigrate(t *testing.T) {
 	}
 
 	{
-		want := []string{"test"}
+		want := []string{"test-sqlite3"}
+		if PgSQL(ctx) {
+			want = []string{"test-postgres"}
+		}
 		if !reflect.DeepEqual(have, want) {
 			t.Errorf("\ngot:  %#v\nwant: %#v", have, want)
 		}

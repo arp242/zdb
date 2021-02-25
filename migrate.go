@@ -42,12 +42,21 @@ func NewMigrate(db DB, files fs.FS, gomig map[string]func(context.Context) error
 // List all migrations we know about, and all migrations that have already been
 // run.
 func (m Migrate) List() (haveMig, ranMig []string, err error) {
-	// TODO: filter out migrations not for us.
 	ls, err := fs.ReadDir(m.files, ".")
 	if err != nil {
 		return nil, nil, fmt.Errorf("read migrations: %w", err)
 	}
+
+	d := m.db.DriverName()
 	for _, f := range ls {
+		// TODO: also support the aliases.
+		if d == "sqlite3" && strings.HasSuffix(f.Name(), "-postgres.sql") {
+			continue
+		}
+		if d == "postgres" && strings.HasSuffix(f.Name(), "-sqlite3.sql") {
+			continue
+		}
+
 		if strings.HasSuffix(f.Name(), ".sql") {
 			haveMig = append(haveMig, strings.TrimSuffix(f.Name(), ".sql"))
 		}

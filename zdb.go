@@ -21,12 +21,8 @@ import (
 //
 // See documentation on the top-level functions for more details on the methods.
 type DB interface {
-	// TODO; some things are still missing:
-	//   db.Ping, db.Stats
-	//
-	// db.SetConnMaxIdleTime
-	// db.SetMaxIdleConns
-	// db.SetMaxOpenConns
+	DBSQL() *sql.DB
+	Ping(context.Context) error
 
 	Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error)
 	Load(ctx context.Context, name string) (string, error)
