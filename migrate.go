@@ -110,7 +110,11 @@ func (m Migrate) Schema(name string) (string, error) {
 
 // PendingMigrationsError is a non-fatal error used to indicate there are
 // migrations that have not yet been run.
-type PendingMigrationsError error
+type PendingMigrationsError struct{ Pending []string }
+
+func (err PendingMigrationsError) Error() string {
+	return fmt.Sprintf("%d pending migrations: %s", len(err.Pending), err.Pending)
+}
 
 // Check if there are pending migrations; will return the (non-fatal)
 // PendingMigrationsError if there are.
@@ -121,7 +125,7 @@ func (m Migrate) Check() error {
 	}
 
 	if d := zstring.Difference(haveMig, ranMig); len(d) > 0 {
-		return PendingMigrationsError(fmt.Errorf("pending migrations: %s", d))
+		return &PendingMigrationsError{Pending: d}
 	}
 	return nil
 }
