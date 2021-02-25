@@ -7,5 +7,5 @@ github.com/lib/pq v1.9.0 h1:L8nSXQQzAYByakOFMTwpjRoHsMJklur4Gi59b6VivR8=
 github.com/lib/pq v1.9.0/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
 github.com/mattn/go-sqlite3 v1.14.6 h1:dNPt6NO46WmLVt2DLNpwczCmdV5boIZ6g/tlDrlRUbg=
 github.com/mattn/go-sqlite3 v1.14.6/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
-zgo.at/zstd v0.0.0-20210103202436-6219affd69dd h1:QVSe7e5bo9VeG/8amwVOB9WtnR55zC7K0WUPaZSaOVY=
-zgo.at/zstd v0.0.0-20210103202436-6219affd69dd/go.mod h1:bQqcOgaRPCBT7lZ52Ksg9GF1xwi0L97E3AyvW3oGJYE=
+zgo.at/zstd v0.0.0-20210225020238-e518c9ebf874 h1:KHAAHHRbsWnWZhw4Xcd4VirRdEOdQxXJ+12VFyqKQDA=
+zgo.at/zstd v0.0.0-20210225020238-e518c9ebf874/go.mod h1:bQqcOgaRPCBT7lZ52Ksg9GF1xwi0L97E3AyvW3oGJYE=

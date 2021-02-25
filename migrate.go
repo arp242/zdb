@@ -18,6 +18,23 @@ type Migrate struct {
 	gomig map[string]func(context.Context) error
 }
 
+func subIfExists(files fs.FS, dir string) (fs.FS, error) {
+	ls, err := fs.ReadDir(files, ".")
+	if err != nil {
+		return nil, err
+	}
+	if len(ls) == 0 {
+		return files, nil
+	}
+
+	for _, e := range ls {
+		if e.IsDir() && e.Name() == dir {
+			return fs.Sub(files, dir)
+		}
+	}
+	return files, nil
+}
+
 // NewMigrate creates a new migration instance.
 //
 // Migrations are loaded from the filesystem, as described in ConnectOptions.
@@ -27,7 +44,11 @@ type Migrate struct {
 // Every migration is automatically run in a transaction; and an entry in the
 // version table is inserted.
 func NewMigrate(db DB, files fs.FS, gomig map[string]func(context.Context) error) (*Migrate, error) {
-	files, err := fs.Sub(files, "migrate")
+	files, err := subIfExists(files, "db")
+	if err != nil {
+		return nil, fmt.Errorf("zdb.NewMigrate: %w", err)
+	}
+	files, err = subIfExists(files, "migrate")
 	if err != nil {
 		return nil, fmt.Errorf("zdb.NewMigrate: %w", err)
 	}
@@ -47,18 +68,18 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 		return nil, nil, fmt.Errorf("read migrations: %w", err)
 	}
 
-	d := m.db.DriverName()
+	ctx := WithDB(context.Background(), m.db)
 	for _, f := range ls {
-		// TODO: also support the aliases.
-		if d == "sqlite3" && strings.HasSuffix(f.Name(), "-postgres.sql") {
+		if SQLite(ctx) && zstring.HasSuffixes(f.Name(), "-postgres.sql", "-postgresql.sql", "-psql.sql") {
 			continue
 		}
-		if d == "postgres" && strings.HasSuffix(f.Name(), "-sqlite3.sql") {
+		if PgSQL(ctx) && zstring.HasSuffixes(f.Name(), "-sqlite3.sql", "-sqlite.sql") {
 			continue
 		}
 
 		if strings.HasSuffix(f.Name(), ".sql") {
-			haveMig = append(haveMig, strings.TrimSuffix(f.Name(), ".sql"))
+			haveMig = append(haveMig, zstring.TrimSuffixes(f.Name(),
+				".sql", "-postgres", "-postgresql", "-psql.sql", "-sqlite3", "-sqlite"))
 		}
 	}
 	for k := range m.gomig {
@@ -80,12 +101,10 @@ func (m Migrate) Schema(name string) (string, error) {
 		return "", fmt.Errorf("%q is a Go migration", name)
 	}
 
-	name = strings.TrimSuffix(name, ".sql")
-	b, err := findFile(m.files, name+"-"+m.db.DriverName()+".sql", name+".sql")
+	b, err := findFile(m.files, insertDriver(m.db, strings.TrimSuffix(name, ".sql"))...)
 	if err != nil {
 		return "", err
 	}
-
 	return string(b), nil
 }
 
@@ -126,26 +145,24 @@ func (m Migrate) Run(which ...string) error {
 		err := TX(WithDB(context.Background(), m.db), func(ctx context.Context) error {
 			version := strings.TrimSuffix(filepath.Base(run), ".sql")
 
-			err := TX(ctx, func(ctx context.Context) error {
-				// Go migration.
-				f := m.findGoMig(run)
-				if f != nil {
-					return f(ctx)
-				}
+			// Go migration.
+			f := m.findGoMig(run)
+			if f != nil {
+				return f(ctx)
+			}
 
-				// SQL migration.
-				if zstring.Contains(ranMig, version) {
-					return fmt.Errorf("migration already run: %q (version entry: %q)", run, version)
-				}
+			// SQL migration.
+			if zstring.Contains(ranMig, version) {
+				return fmt.Errorf("migration already run: %q (version entry: %q)", run, version)
+			}
 
-				s, err := m.Schema(run)
-				if err != nil {
-					return err
-				}
+			s, err := m.Schema(run)
+			if err != nil {
+				return err
+			}
 
-				//l.Field("name", run).Print("SQL migration")
-				return Exec(ctx, s)
-			})
+			//l.Field("name", run).Print("SQL migration")
+			err = Exec(ctx, s)
 			if err != nil {
 				return err
 			}

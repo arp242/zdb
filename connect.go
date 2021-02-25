@@ -137,15 +137,9 @@ func Connect(opt ConnectOptions) (DB, error) {
 
 	// Accept both "go:embed db/*" from the toplevel, and "go:embbed *" from the
 	// db package.
-	ls, err := fs.ReadDir(opt.Files, ".")
+	opt.Files, err = subIfExists(opt.Files, "db")
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
-	}
-	if len(ls) == 1 && ls[0].Name() == "db" && ls[0].IsDir() {
-		opt.Files, err = fs.Sub(opt.Files, "db")
-		if err != nil {
-			return nil, fmt.Errorf("zdb.Connect: %w", err)
-		}
 	}
 
 	db := &zDB{db: dbx, fs: opt.Files}
@@ -153,7 +147,7 @@ func Connect(opt ConnectOptions) (DB, error) {
 
 	// Create schema.
 	if !exists {
-		s, err := findFile(opt.Files, insertDriver("schema", db.DriverName())...)
+		s, err := findFile(opt.Files, insertDriver(db, "schema")...)
 		if err != nil {
 			return nil, fmt.Errorf("zdb.Connect: %w", err)
 		}
@@ -182,13 +176,16 @@ func Connect(opt ConnectOptions) (DB, error) {
 	return db, nil
 }
 
-func insertDriver(name, driver string) []string {
+func insertDriver(db DB, name string) []string {
+	ctx := WithDB(context.Background(), db)
 	var r []string
 	switch {
-	case strings.HasPrefix(driver, "postgres"):
-		r = []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql"}
-	case strings.HasPrefix(driver, "sqlite3"):
+	case SQLite(ctx):
 		r = []string{name + "-sqlite.sql", name + "-sqlite3.sql"}
+	case PgSQL(ctx):
+		r = []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql"}
+	default:
+		r = []string{name + "-" + db.DriverName() + ".sql"}
 	}
 	return append(r, name+".sql")
 }

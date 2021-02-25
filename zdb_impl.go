@@ -238,22 +238,12 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 }
 
 func loadImpl(ctx context.Context, db DB, name string) (string, error) {
-	var driver string
-	switch PgSQL(ctx) {
-	case PgSQL(ctx):
-		driver = "postgres"
-	case SQLite(ctx):
-		driver = "sqlite3"
-	default:
-		return "", errors.New("zdb.Load: unknown driver")
-	}
-
 	files, err := fs.Sub(db.(interface{ files() fs.FS }).files(), "query")
 	if err != nil {
 		return "", fmt.Errorf("zdb.Load: %s", err)
 	}
 
-	q, err := findFile(files, insertDriver(name, driver)...)
+	q, err := findFile(files, insertDriver(db, name)...)
 	if err != nil {
 		return "", fmt.Errorf("zdb.Load: %s", err)
 	}

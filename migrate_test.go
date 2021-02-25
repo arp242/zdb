@@ -30,10 +30,7 @@ func TestMigrate(t *testing.T) {
 	}
 
 	{
-		want := []string{"test-sqlite3"}
-		if PgSQL(ctx) {
-			want = []string{"test-postgres"}
-		}
+		want := []string{"test"}
 		if !reflect.DeepEqual(have, want) {
 			t.Errorf("\ngot:  %#v\nwant: %#v", have, want)
 		}
