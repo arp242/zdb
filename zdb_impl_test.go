@@ -384,6 +384,11 @@ func TestQuery(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
+	// ctx, clean := StartTest(t)
+	// defer clean()
+
+	// TODO: can't set Files from StartTest(); don't really want to add a
+	// parameter for it. Would be nice if it could be set later?
 	db, err := Connect(ConnectOptions{
 		Connect: "sqlite3://:memory:",
 		Files:   testdata.Files,
@@ -392,16 +397,29 @@ func TestLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-
 	ctx := WithDB(context.Background(), db)
-	// ctx, clean := StartTest(t)
-	// defer clean()
 
-	s, err := Load(ctx, "select-1")
-	if err != nil {
-		t.Fatal(err)
+	{
+		got, err := Load(ctx, "select-1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "/* select-1 */\nselect * from t where col like :find\n"
+		if got != want {
+			t.Errorf("\ngot:  %q\nwant: %q", got, want)
+		}
 	}
-	fmt.Println(s)
+
+	{
+		got, err := Load(ctx, "comment")
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "/* comment */\nselect 1\n\nfrom x;  -- xx\n"
+		if got != want {
+			t.Errorf("\ngot:  %q\nwant: %q", got, want)
+		}
+	}
 }
 
 func TestBegin(t *testing.T) {

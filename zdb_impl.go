@@ -248,7 +248,23 @@ func loadImpl(ctx context.Context, db DB, name string) (string, error) {
 		return "", fmt.Errorf("zdb.Load: %s", err)
 	}
 
-	return "/* " + name + " */\n" + string(bytes.TrimSpace(q)), nil
+	var b strings.Builder
+	b.WriteString("/* ")
+	b.WriteString(name)
+	b.WriteString(" */\n")
+
+	// Strip out "-- " comments at the start of lines; don't attempt to strip
+	// other comments, as it requires parsing the SQL and this is "good enough"
+	// to allow some comments in the SQL files, while also not cluttering the
+	// SQL stats/logs with them.
+	for _, line := range bytes.Split(bytes.TrimSpace(q), []byte("\n")) {
+		if !bytes.HasPrefix(line, []byte("--")) {
+			b.Write(line)
+			b.WriteRune('\n')
+		}
+	}
+
+	return b.String(), nil
 }
 
 type dbImpl interface {
