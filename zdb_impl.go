@@ -56,11 +56,11 @@ import (
 var ctxkey = &struct{ n string }{"zdb"}
 
 type zDB struct {
-	db *sqlx.DB
-	fs fs.FS
+	db      *sqlx.DB
+	queryFS fs.FS
 }
 
-func (db zDB) files() fs.FS { return db.fs }
+func (db zDB) queryFiles() fs.FS { return db.queryFS }
 
 func (db zDB) DBSQL() *sql.DB                 { return db.db.DB }
 func (db zDB) Ping(ctx context.Context) error { return db.db.PingContext(ctx) }
@@ -117,10 +117,10 @@ func (db zDB) QueryxContext(ctx context.Context, query string, params ...interfa
 
 type zTX struct {
 	db     *sqlx.Tx
-	parent *zDB // Needed for Close() and files()
+	parent *zDB // Needed for Close() and queryFiles()
 }
 
-func (db zTX) files() fs.FS { return db.parent.files() }
+func (db zTX) queryFiles() fs.FS { return db.parent.queryFiles() }
 
 func (db zTX) DBSQL() *sql.DB                 { return db.parent.DBSQL() }
 func (db zTX) Ping(ctx context.Context) error { return db.parent.Ping(ctx) }
@@ -237,15 +237,13 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 	return query, qparams, nil
 }
 
+// TODO: this could be cached, but if the FS is an os.DirFS then it may have
+// changes on the filesystem (being able to change queries w/o recompile is
+// nice).
 func loadImpl(ctx context.Context, db DB, name string) (string, error) {
-	files, err := fs.Sub(db.(interface{ files() fs.FS }).files(), "query")
+	q, err := findFile(db.(interface{ queryFiles() fs.FS }).queryFiles(), insertDriver(db, name)...)
 	if err != nil {
-		return "", fmt.Errorf("zdb.Load: %s", err)
-	}
-
-	q, err := findFile(files, insertDriver(db, name)...)
-	if err != nil {
-		return "", fmt.Errorf("zdb.Load: %s", err)
+		return "", fmt.Errorf("zdb.Load: %w", err)
 	}
 
 	var b strings.Builder
@@ -258,12 +256,11 @@ func loadImpl(ctx context.Context, db DB, name string) (string, error) {
 	// to allow some comments in the SQL files, while also not cluttering the
 	// SQL stats/logs with them.
 	for _, line := range bytes.Split(bytes.TrimSpace(q), []byte("\n")) {
-		if !bytes.HasPrefix(line, []byte("--")) {
+		if !bytes.HasPrefix(bytes.TrimSpace(line), []byte("--")) {
 			b.Write(line)
 			b.WriteRune('\n')
 		}
 	}
-
 	return b.String(), nil
 }
 

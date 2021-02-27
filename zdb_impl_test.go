@@ -577,3 +577,21 @@ func BenchmarkPrepare(b *testing.B) {
 		_, _, _ = Prepare(WithDB(context.Background(), db), query, arg)
 	}
 }
+
+func BenchmarkLoad(b *testing.B) {
+	db, err := Connect(ConnectOptions{
+		Connect: "sqlite3://:memory:",
+		Files:   testdata.Files,
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer db.Close()
+	ctx := WithDB(context.Background(), db)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		_, _ = Load(ctx, "hit_list.GetTotalCount")
+	}
+}

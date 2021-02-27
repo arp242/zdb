@@ -128,10 +128,10 @@ func DumpString(ctx context.Context, query string, params ...interface{}) string
 // a consideration when writing this. Parameters in SQL are sent separately over
 // the write and are not interpolated, so it's very different.
 //
-// This supports ? placeholders and $1 placeholders *in order* ($\d is simply
+// This supports ? placeholders and $1 placeholders *in order* ($\d+ is simply
 // replace with ?).
 func ApplyParams(query string, params ...interface{}) string {
-	query = regexp.MustCompile(`\$\d`).ReplaceAllString(query, "?")
+	query = regexp.MustCompile(`\$\d+`).ReplaceAllString(query, "?")
 	for _, p := range params {
 		query = strings.Replace(query, "?", formatParam(p, true), 1)
 	}

@@ -142,8 +142,13 @@ func Connect(opt ConnectOptions) (DB, error) {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
 
-	db := &zDB{db: dbx, fs: opt.Files}
+	db := &zDB{db: dbx}
 	ctx := WithDB(context.Background(), db)
+
+	db.queryFS, _ = fs.Sub(opt.Files, "query")
+	if err != nil {
+		return "", fmt.Errorf("zdb.Connect: %w", err)
+	}
 
 	// Create schema.
 	if !exists {
@@ -178,16 +183,14 @@ func Connect(opt ConnectOptions) (DB, error) {
 
 func insertDriver(db DB, name string) []string {
 	ctx := WithDB(context.Background(), db)
-	var r []string
 	switch {
 	case SQLite(ctx):
-		r = []string{name + "-sqlite.sql", name + "-sqlite3.sql"}
+		return []string{name + "-sqlite.sql", name + "-sqlite3.sql", name + ".sql"}
 	case PgSQL(ctx):
-		r = []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql"}
+		return []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql", name + ".sql"}
 	default:
-		r = []string{name + "-" + db.DriverName() + ".sql"}
+		return []string{name + "-" + db.DriverName() + ".sql", name + ".sql"}
 	}
-	return append(r, name+".sql")
 }
 
 func findFile(files fs.FS, paths ...string) ([]byte, error) {
