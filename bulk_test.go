@@ -1,10 +1,8 @@
-package bulk
+package zdb
 
 import (
 	"reflect"
 	"testing"
-
-	"zgo.at/zdb"
 )
 
 func TestBuilder(t *testing.T) {
@@ -24,16 +22,16 @@ func TestBuilder(t *testing.T) {
 	}
 }
 
-func TestInsert(t *testing.T) {
-	ctx, clean := zdb.StartTest(t)
+func TestBulkInsert(t *testing.T) {
+	ctx, clean := StartTest(t)
 	defer clean()
 
-	err := zdb.Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
+	err := Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	insert := NewInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
+	insert := NewBulkInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
 	insert.Values("one", "two", "three")
 	insert.Values("a", "b", "c")
 
@@ -43,16 +41,16 @@ func TestInsert(t *testing.T) {
 	}
 }
 
-func TestError(t *testing.T) {
-	ctx, clean := zdb.StartTest(t)
+func TestBulkInsertError(t *testing.T) {
+	ctx, clean := StartTest(t)
 	defer clean()
 
-	err := zdb.Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
+	err := Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	insert := NewInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
+	insert := NewBulkInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
 	insert.Values("one", "two")
 	insert.Values("a", "b")
 
@@ -62,7 +60,7 @@ func TestError(t *testing.T) {
 	}
 
 	want := `1 errors: 2 values for 3 columns (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=[one two a b])`
-	if zdb.PgSQL(ctx) {
+	if PgSQL(ctx) {
 		want = `1 errors: pq: INSERT has more target columns than expressions (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=[one two a b])`
 	}
 	if err.Error() != want {
