@@ -147,7 +147,7 @@ func Connect(opt ConnectOptions) (DB, error) {
 
 	db.queryFS, _ = fs.Sub(opt.Files, "query")
 	if err != nil {
-		return "", fmt.Errorf("zdb.Connect: %w", err)
+		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
 
 	// Create schema.
