@@ -272,4 +272,6 @@ func Diff(out, want string) string {
 //      -- want
 func TestQueries(t *testing.T, files fs.FS) {
 	t.Helper()
+
+	// TODO
 }

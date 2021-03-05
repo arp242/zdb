@@ -411,13 +411,15 @@ func TestLoad(t *testing.T) {
 	}
 
 	{
-		got, err := Load(ctx, "comment")
-		if err != nil {
-			t.Fatal(err)
-		}
-		want := "/* comment */\nselect 1\n\nfrom x;  -- xx\n"
-		if got != want {
-			t.Errorf("\ngot:  %q\nwant: %q", got, want)
+		for _, n := range []string{"comment", "comment.sql"} {
+			got, err := Load(ctx, n)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "/* comment */\nselect 1\n\nfrom x;  -- xx\n"
+			if got != want {
+				t.Errorf("\ngot:  %q\nwant: %q", got, want)
+			}
 		}
 	}
 }

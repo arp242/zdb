@@ -241,6 +241,7 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 // changes on the filesystem (being able to change queries w/o recompile is
 // nice).
 func loadImpl(ctx context.Context, db DB, name string) (string, error) {
+	name = strings.TrimSuffix(name, ".sql")
 	q, err := findFile(db.(interface{ queryFiles() fs.FS }).queryFiles(), insertDriver(db, name)...)
 	if err != nil {
 		return "", fmt.Errorf("zdb.Load: %w", err)
