@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"os"
 	"reflect"
 	"regexp"
@@ -351,21 +350,21 @@ func TestQuery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			fmt.Println("scan", s, i, ti, n)
+			//fmt.Println("scan", s, i, ti, n)
 		case 1:
 			var r map[string]interface{}
 			err := rows.Scan(&r)
 			if err != nil {
 				t.Fatal(err)
 			}
-			fmt.Println("map", r)
+			//fmt.Println("map", r)
 		case 2:
 			var r []interface{}
 			err := rows.Scan(&r)
 			if err != nil {
 				t.Fatal(err)
 			}
-			fmt.Println("slice", r)
+			//fmt.Println("slice", r)
 		case 3:
 			var r struct {
 				S string
@@ -377,7 +376,7 @@ func TestQuery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			fmt.Println("struct", r)
+			//fmt.Println("struct", r)
 		}
 		i++
 	}

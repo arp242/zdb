@@ -3,6 +3,7 @@ package zdb
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestBuilder(t *testing.T) {
@@ -51,17 +52,18 @@ func TestBulkInsertError(t *testing.T) {
 	}
 
 	insert := NewBulkInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
-	insert.Values("one", "two")
-	insert.Values("a", "b")
+	insert.Values("'one\"", 2)
+	a := "a"
+	insert.Values(&a, time.Date(2021, 6, 18, 12, 00, 00, 0, time.UTC))
 
 	err = insert.Finish()
 	if err == nil {
 		t.Fatal("error is nil")
 	}
 
-	want := `1 errors: 2 values for 3 columns (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=[one two a b])`
+	want := `1 errors: 2 values for 3 columns (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=['''one"' 2 'a' '2021-06-18 12:00:00'])`
 	if PgSQL(ctx) {
-		want = `1 errors: pq: INSERT has more target columns than expressions (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=[one two a b])`
+		want = `1 errors: pq: INSERT has more target columns than expressions (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=['''one"' 2 'a' '2021-06-18 12:00:00'])`
 	}
 	if err.Error() != want {
 		t.Fatalf("wrong error:\n%v", err)

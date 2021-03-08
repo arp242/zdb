@@ -61,7 +61,11 @@ func (m *BulkInsert) doInsert() {
 	query, params := m.insert.SQL()
 	err := Exec(m.ctx, query, params...)
 	if err != nil {
-		m.errors = append(m.errors, fmt.Sprintf("%v (query=%q) (params=%v)", err, query, params))
+		fmtParams := make([]interface{}, 0, len(params))
+		for _, p := range params {
+			fmtParams = append(fmtParams, formatParam(p, true))
+		}
+		m.errors = append(m.errors, fmt.Sprintf("%v (query=%q) (params=%v)", err, query, fmtParams))
 	}
 
 	m.insert.vals = make([][]interface{}, 0, 32)
