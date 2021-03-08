@@ -1,0 +1,54 @@
+zdb.LogDB: [1mlog_test.go:XX[0m
+  [1mQUERY[0m:
+    select i from x where i<3;
+  [1mEXPLAIN[0m:
+    SCAN TABLE x
+    Time: XXX ms
+  [1mRESULT[0m:
+    i
+    1
+    2
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  [1mQUERY[0m:
+    select i from x where i<4;
+  [1mEXPLAIN[0m:
+    SCAN TABLE x
+    Time: XXX ms
+  [1mRESULT[0m:
+    i
+    1
+    2
+    3
+
+---
+
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  [1mQUERY[0m:
+    select i from x where i<3;
+  [1mEXPLAIN[0m:
+    Seq Scan on x  (cost=XXX..XXX rows=850 width=4) (actual time=XXX..XXX rows=2 loops=1)
+      Filter: (i < 3)
+      Rows Removed by Filter: 3
+    Planning Time: XXX ms
+    Execution Time: XXX ms
+  [1mRESULT[0m:
+    i
+    1
+    2
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  [1mQUERY[0m:
+    select i from x where i<4;
+  [1mEXPLAIN[0m:
+    Seq Scan on x  (cost=XXX..XXX rows=850 width=4) (actual time=XXX..XXX rows=3 loops=1)
+      Filter: (i < 4)
+      Rows Removed by Filter: 2
+    Planning Time: XXX ms
+    Execution Time: XXX ms
+  [1mRESULT[0m:
+    i
+    1
+    2
+    3

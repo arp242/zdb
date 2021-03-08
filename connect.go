@@ -292,8 +292,8 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 	// 	return nil, false, fmt.Errorf("connectSQLite: %q is not writable", connect)
 	// }
 
-	// Register a new driver for every unique hook we see, and re-use
-	// existing drivers.
+	// Register a new driver for every unique hook we see, and re-use existing
+	// drivers.
 	driver := "sqlite3"
 	if hook != nil {
 		suffix := "_zdb_" + fmt.Sprintf("%p\n", hook)[2:]

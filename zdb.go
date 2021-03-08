@@ -253,6 +253,19 @@ func MustGetDB(ctx context.Context) DB {
 
 // Unwrap this database, removing any of the zdb wrappers and returning the
 // underlying sqlx.DB or sqlx.Tx.
+//
+// To wrap a zdb.DB object embed the zdb.DB interface, which contains the parent
+// DB connection.
+//
+// The Unwrap() method is expected to return the parent DB.
+//
+// Then implement override whatever you want; usually you will want to implement
+// the dbImpl interface, which contains the methods that actually interact with
+// the database. All the DB methods call this under the hood. This way you don't
+// have to wrap all the methods on DB, but just five.
+//
+// In Begin() you will want to return a new wrapped DB instance with the
+// transaction attached.
 func Unwrap(db DB) DB {
 	uw, ok := db.(interface {
 		Unwrap() DB

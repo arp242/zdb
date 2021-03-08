@@ -3,6 +3,7 @@ package zdb
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -13,17 +14,21 @@ import (
 	"time"
 
 	"zgo.at/zstd/zbyte"
+	"zgo.at/zstd/zdebug"
 	"zgo.at/zstd/ztest"
+	"zgo.at/zstd/ztime"
 )
 
 type DumpArg int
 
 const (
-	_ DumpArg = iota
-	DumpVertical
-	DumpQuery
-	DumpExplain
-	DumpResult
+	DumpAll       DumpArg = -1       // Dump all we can.
+	DumpLocation  DumpArg = 0b000001 // Show location of Dump call.
+	DumpQuery     DumpArg = 0b000010 // Show the query with placeholders substituted.
+	DumpExplain   DumpArg = 0b000100 // Show the results of EXPLAIN (or EXPLAIN ANALYZE for PostgreSQL).
+	DumpResult    DumpArg = 0b001000 // Show the query result.
+	DumpVertical  DumpArg = 0b010000 // Show vertical output instead of horizontal columns.
+	dumpFromLogDB DumpArg = 0b100000
 )
 
 // Dump the results of a query to a writer in an aligned table. This is a
@@ -34,11 +39,14 @@ const (
 // You can add some special sentinel values in the params to control the output
 // (they're not sent as parameters to the DB):
 //
-//   DumpVertical   Show vertical output instead of horizontal columns.
+//   DumpAll
+//   DumpLocation
 //   DumpQuery      Show the query with placeholders substituted.
 //   DumpExplain    Show the results of EXPLAIN (or EXPLAIN ANALYZE for PostgreSQL).
+//   DumpResult     Show the query result (
+//   DumpVertical   Show vertical output instead of horizontal columns.
 func Dump(ctx context.Context, out io.Writer, query string, params ...interface{}) {
-	var showQuery, vertical, explain bool
+	var showLoc, showQuery, showExplain, showResult, showVertical, fromLogDB bool
 	paramsb := params[:0]
 	for _, p := range params {
 		b, ok := p.(DumpArg)
@@ -46,80 +54,168 @@ func Dump(ctx context.Context, out io.Writer, query string, params ...interface{
 			paramsb = append(paramsb, p)
 			continue
 		}
-		// TODO: formatting could be better; also merge with explainDB
-		// TODO: DumpQuery -> DumpQueryOnly and make "DumpQuery" do query+explain
-		switch b {
-		case DumpQuery:
+
+		if b == DumpAll {
+			showLoc, showQuery, showExplain, showResult = true, true, true, true
+			continue
+		}
+		if b&DumpLocation != 0 {
+			showLoc = true
+		}
+		if b&DumpQuery != 0 {
 			showQuery = true
-		case DumpVertical:
-			vertical = true
-		case DumpExplain:
-			explain = true
+		}
+		if b&DumpExplain != 0 {
+			showExplain = true
+		}
+		if b&DumpResult != 0 {
+			showResult = true
+		}
+		if b&DumpVertical != 0 {
+			showVertical = true
+		}
+		if b&dumpFromLogDB != 0 {
+			fromLogDB = true
 		}
 	}
 	params = paramsb
 
-	rows, err := Query(ctx, query, params...)
-	if err != nil {
-		panic(err)
+	if !showLoc && !showQuery && !showExplain && !showResult {
+		showResult = true
 	}
-	cols, err := rows.Columns()
-	if err != nil {
-		panic(err)
+	var nsections int
+	// if showLoc {
+	// 	nsections++
+	// }
+	if showQuery {
+		nsections++
+	}
+	if showExplain {
+		nsections++
+	}
+	if showResult {
+		nsections++
+	}
+
+	var (
+		bold    = func(s string) string { return "\x1b[1m" + s + "\x1b[0m" }
+		indent  = func(s string) string { return "  " + strings.ReplaceAll(strings.TrimSpace(s), "\n", "\n  ") }
+		section = func(name, s string) {
+			r := strings.TrimRight(s, "\n")
+			if nsections > 1 {
+				r = bold(name) + ":\n" + indent(s)
+			}
+			if showLoc {
+				r = indent(r)
+			}
+			fmt.Fprintln(out, r)
+		}
+	)
+
+	if showLoc {
+		if fromLogDB {
+			fmt.Fprintf(out, "zdb.LogDB: %s\n", bold(zdebug.Loc(5)))
+		} else {
+			fmt.Fprintf(out, "zdb.Dump: %s\n", bold(zdebug.Loc(4)))
+		}
 	}
 
 	if showQuery {
-		fmt.Fprintln(out, "Query:", ApplyParams(query, params...))
+		section("QUERY", ApplyParams(query, params...))
 	}
 
-	t := tabwriter.NewWriter(out, 4, 4, 2, ' ', 0)
-	if vertical {
-		for rows.Next() {
-			var row []interface{}
-			err := rows.Scan(&row)
-			if err != nil {
-				panic(err)
+	if showExplain {
+		var (
+			explain []string
+			err     error
+		)
+		switch {
+		default:
+			err = errors.New("zdb.LogDB: unsupported driver for LogExplain " + MustGetDB(ctx).DriverName())
+		case PgSQL(ctx):
+			err = Select(ctx, &explain, `explain analyze `+query, params...)
+		case SQLite(ctx):
+			var sqe []struct {
+				ID, Parent, Notused int
+				Detail              string
 			}
-			for i, c := range row {
-				t.Write([]byte(fmt.Sprintf("%s\t%v\n", cols[i], formatParam(c, false))))
+			t := ztime.Takes(func() {
+				err = Select(ctx, &sqe, `explain query plan `+query, params...)
+			})
+			if len(sqe) > 0 {
+				explain = make([]string, len(sqe)+1)
+				for i := range sqe {
+					explain[i] = sqe[i].Detail
+				}
+				explain[len(sqe)] = "Time: " + ztime.DurationAs(t.Round(time.Microsecond), time.Millisecond) + " ms"
 			}
-			t.Write([]byte("\n"))
 		}
-	} else {
-		t.Write([]byte(strings.Join(cols, "\t") + "\n"))
-		for rows.Next() {
-			var row []interface{}
-			err := rows.Scan(&row)
+		if err != nil {
+			section("EXPLAIN", err.Error())
+		} else {
+			section("EXPLAIN", strings.Join(explain, "\n"))
+		}
+	}
+
+	if showResult {
+		buf := new(bytes.Buffer)
+		err := func() error {
+			rows, err := Query(ctx, query, params...)
 			if err != nil {
-				panic(err)
+				return err
 			}
-			for i, c := range row {
-				t.Write([]byte(fmt.Sprintf("%v", formatParam(c, false))))
-				if i < len(row)-1 {
-					t.Write([]byte("\t"))
+			cols, err := rows.Columns()
+			if err != nil {
+				return err
+			}
+
+			t := tabwriter.NewWriter(buf, 4, 4, 2, ' ', 0)
+			if showVertical {
+				for rows.Next() {
+					var row []interface{}
+					err := rows.Scan(&row)
+					if err != nil {
+						return err
+					}
+					for i, c := range row {
+						t.Write([]byte(fmt.Sprintf("%s\t%v\n", cols[i], formatParam(c, false))))
+					}
+					t.Write([]byte("\n"))
+				}
+			} else {
+				t.Write([]byte(strings.Join(cols, "\t") + "\n"))
+				for rows.Next() {
+					var row []interface{}
+					err := rows.Scan(&row)
+					if err != nil {
+						return err
+					}
+					for i, c := range row {
+						t.Write([]byte(fmt.Sprintf("%v", formatParam(c, false))))
+						if i < len(row)-1 {
+							t.Write([]byte("\t"))
+						}
+					}
+					t.Write([]byte("\n"))
 				}
 			}
-			t.Write([]byte("\n"))
-		}
-	}
-	t.Flush()
-
-	if explain {
-		if PgSQL(ctx) {
-			fmt.Fprintln(out, "")
-			Dump(ctx, out, "explain analyze "+query, params...)
+			return t.Flush()
+		}()
+		if err != nil {
+			section("RESULT", err.Error())
 		} else {
-			fmt.Fprintln(out, "\nEXPLAIN:")
-			Dump(ctx, out, "explain query plan "+query, params...)
+			section("RESULT", buf.String())
 		}
 	}
+
+	fmt.Fprintln(out)
 }
 
 // DumpString is like Dump(), but returns the result as a string.
 func DumpString(ctx context.Context, query string, params ...interface{}) string {
 	b := new(bytes.Buffer)
 	Dump(ctx, b, query, params...)
-	return b.String()
+	return strings.TrimSpace(b.String()) + "\n"
 }
 
 // ApplyParams replaces parameter placeholders in query with the values.

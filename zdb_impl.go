@@ -501,7 +501,7 @@ func isNamed(t reflect.Type, a interface{}) bool {
 	return t.Kind() == reflect.Struct || t.Kind() == reflect.Map
 }
 
-// TODO: it would be nice if this would deal with whitesace a bit better
+// TODO: it would be nice if this would deal with whitespace a bit better.
 //
 // This has two spaces:
 //

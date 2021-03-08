@@ -7,7 +7,6 @@ import (
 	"errors"
 	"os"
 	"reflect"
-	"regexp"
 	"testing"
 	"time"
 
@@ -173,7 +172,7 @@ func TestPrepareDump(t *testing.T) {
 		Dump(ctx, buf, `select * from tbl`)
 
 		out := buf.String()
-		want := "insert into tbl values ('hello', 1), ('world', 2);\ncol1   col2\nhello  1\nworld  2\n"
+		want := "insert into tbl values ('hello', 1), ('world', 2);\ncol1   col2\nhello  1\nworld  2\n\n"
 		if out != want {
 			t.Errorf("wrong query\nout:  %q\nwant: %q", out, want)
 		}
@@ -193,7 +192,7 @@ func TestPrepareDump(t *testing.T) {
 		}
 
 		out := buf.String()
-		want := "col1   col2\nhello  1\n"
+		want := "col1   col2\nhello  1\n\n"
 		if out != want {
 			t.Errorf("wrong query\nout:  %q\nwant: %q", out, want)
 		}
@@ -214,31 +213,44 @@ func TestPrepareDump(t *testing.T) {
 
 		out := buf.String()
 		want := `
-			col1   col2
-			hello  1
-
-			EXPLAIN:
-			id  parent  notused  detail
-			2   0       0        SCAN TABLE tbl`
+			[1mEXPLAIN[0m:
+			  SCAN TABLE tbl
+			  Time: 0.016 ms
+			[1mRESULT[0m:
+			  col1   col2
+			  hello  1`
 
 		if PgSQL(ctx) {
-			out = regexp.MustCompile(`[0-9.]{4,}`).ReplaceAllString(out, "")
 			want = `
-				col1   col2
-				hello  1
-
-				QUERY PLAN
-				Seq Scan on tbl  (cost= rows=6 width=36) (actual time= rows=1 loops=1)
-				Filter: ((col1)::text = 'hello'::text)
-				Rows Removed by Filter: 1
-				Planning Time:  ms
-				Execution Time:  ms`
+			[1mEXPLAIN[0m:
+			  Seq Scan on tbl  (cost=0.00..25.88 rows=6 width=36) (actual time=0.005..0.015 rows=1 loops=1)
+			    Filter: ((col1)::text = 'hello'::text)
+			  	Rows Removed by Filter: 1
+			  Planning Time: 0.123 ms
+			  Execution Time: 0.646 ms
+			[1mRESULT[0m:
+			  col1   col2
+			  hello  1`
 		}
+
+		out, want = prep(ctx, out, want)
 
 		if d := ztest.Diff(out, want, ztest.DiffNormalizeWhitespace); d != "" {
 			t.Error(d)
 		}
 	}()
+}
+
+func prep(ctx context.Context, got, want string) (string, string) {
+	re := []string{`([0-9]+.[0-9]+) ms`, `log_test\.go:(\d\d)`}
+	if PgSQL(ctx) {
+		re = append(re, `(?:cost|time)=([0-9.]+)\.\.([0-9.]+) `)
+	}
+
+	got = ztest.Replace(got, re...)
+	want = ztest.Replace(want, re...)
+	return got, want
+
 }
 
 func TestInsertID(t *testing.T) {

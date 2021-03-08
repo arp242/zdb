@@ -26,12 +26,12 @@ func TestUnwrap(t *testing.T) {
 		t.Error()
 	}
 
-	edb := NewExplainDB(db, os.Stdout, "")
-	if Unwrap(edb) != db {
+	ldb := NewLogDB(db, os.Stdout, 0, "")
+	if Unwrap(ldb) != db {
 		t.Error()
 	}
-	edb2 := NewExplainDB(edb, os.Stdout, "")
-	if Unwrap(edb2) != db {
+	ldb2 := NewLogDB(ldb, os.Stdout, 0, "")
+	if Unwrap(ldb2) != db {
 		t.Error()
 	}
 }
@@ -99,6 +99,4 @@ func TestDate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	Dump(ctx, os.Stdout, `select * from t`)
 }

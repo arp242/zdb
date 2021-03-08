@@ -1,0 +1,35 @@
+zdb.LogDB: [1mlog_test.go:XX[0m
+  [1mQUERY[0m:
+    select i from x where i<3;
+  [1mEXPLAIN[0m:
+    SCAN TABLE x
+    Time: 0.123 ms
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  [1mQUERY[0m:
+    select i from x where i<4;
+  [1mEXPLAIN[0m:
+    SCAN TABLE x
+    Time: 0.153121 ms
+
+---
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  [1mQUERY[0m:
+    select i from x where i<3;
+  [1mEXPLAIN[0m:
+    Seq Scan on x  (cost=9.99..41.88 rows=850 width=4) (actual time=9.005..9.014 rows=2 loops=1)
+      Filter: (i < 3)
+      Rows Removed by Filter: 3
+    Planning Time: 0.020 ms
+    Execution Time: 0.060 ms
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  [1mQUERY[0m:
+    select i from x where i<4;
+  [1mEXPLAIN[0m:
+    Seq Scan on x  (cost=9.99..42.88 rows=850 width=4) (actual time=8.004..8.017 rows=3 loops=1)
+      Filter: (i < 4)
+      Rows Removed by Filter: 2
+    Planning Time: 0.017 ms
+    Execution Time: 0.061 ms
