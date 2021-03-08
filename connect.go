@@ -145,10 +145,7 @@ func Connect(opt ConnectOptions) (DB, error) {
 	db := &zDB{db: dbx}
 	ctx := WithDB(context.Background(), db)
 
-	db.queryFS, _ = fs.Sub(opt.Files, "query")
-	if err != nil {
-		return nil, fmt.Errorf("zdb.Connect: %w", err)
-	}
+	db.queryFS, _ = fs.Sub(opt.Files, "query") // This is optional, okay to ignore error.
 
 	// Create schema.
 	if !exists {

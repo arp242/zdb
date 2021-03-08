@@ -226,11 +226,7 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 		if len(dumpArgs) == 1 && dumpArgs[0] == DumpQuery {
 			fmt.Fprintln(stderr, ApplyParams(query, qparams...))
 		} else {
-			di := make([]interface{}, len(dumpArgs))
-			for i := range dumpArgs {
-				di[i] = dumpArgs[i]
-			}
-			Dump(ctx, stderr, query, append(qparams, di...)...)
+			Dump(ctx, stderr, query, append(qparams, dumpArgs...)...)
 		}
 	}
 
