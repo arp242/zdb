@@ -16,6 +16,7 @@ type Migrate struct {
 	db    DB
 	files fs.FS
 	gomig map[string]func(context.Context) error
+	log   func(name string)
 }
 
 func subIfExists(files fs.FS, dir string) (fs.FS, error) {
@@ -59,6 +60,12 @@ func NewMigrate(db DB, files fs.FS, gomig map[string]func(context.Context) error
 	}
 	return &Migrate{db: db, files: files, gomig: gomig}, nil
 }
+
+// Log sets a log function for migrations; this gets called for every migration
+// that gets run.
+//
+// This only gets called if the migration was run successfully.
+func (m *Migrate) Log(f func(name string)) { m.log = f }
 
 // List all migrations we know about, and all migrations that have already been
 // run.
@@ -113,7 +120,11 @@ func (m Migrate) Schema(name string) (string, error) {
 type PendingMigrationsError struct{ Pending []string }
 
 func (err PendingMigrationsError) Error() string {
-	return fmt.Sprintf("%d pending migrations: %s", len(err.Pending), err.Pending)
+	s := make([]string, 0, len(err.Pending))
+	for _, p := range err.Pending {
+		s = append(s, fmt.Sprintf("%q", p))
+	}
+	return fmt.Sprintf("%d pending migrations: %s", len(err.Pending), strings.Join(s, ", "))
 }
 
 // Check if there are pending migrations; will return the (non-fatal)
@@ -137,12 +148,12 @@ func (m Migrate) Run(which ...string) error {
 		return fmt.Errorf("zdb.Migrate.Run: %w", err)
 	}
 
-	if zstring.Contains(which, "all") || zstring.Contains(which, "auto") {
+	if zstring.ContainsAny(which, "all", "auto") {
 		which = zstring.Difference(haveMig, ranMig)
 	}
 
 	for _, run := range which {
-		if run == "show" || run == "list" {
+		if run == "pending" {
 			continue
 		}
 
@@ -173,7 +184,10 @@ func (m Migrate) Run(which ...string) error {
 			return Exec(ctx, `insert into version (name) values (?)`, version)
 		})
 		if err != nil {
-			return fmt.Errorf("zdb.Migrate.Run %q: %w", run, err)
+			return fmt.Errorf("zdb.Migrate.Run: error running %q: %w", run, err)
+		}
+		if m.log != nil {
+			m.log(run)
 		}
 	}
 

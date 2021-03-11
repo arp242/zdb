@@ -23,6 +23,9 @@ type ConnectOptions struct {
 	Create  bool     // Create database if it doesn't exist yet.
 	Migrate []string // Migrations to run; nil for none, "all" for all, or a migration name.
 
+	// Will be called for every migration that gets run.
+	MigrateLog func(name string)
+
 	// Database files; the following layout is assumed:
 	//
 	//   Schema       schema-{driver}.sql or schema.sql
@@ -167,11 +170,12 @@ func Connect(opt ConnectOptions) (DB, error) {
 	if opt.Migrate != nil {
 		m, err := NewMigrate(db, opt.Files, opt.GoMigrations)
 		if err != nil {
-			return nil, fmt.Errorf("zdb.Connect: running migrations: %w", err)
+			return nil, fmt.Errorf("zdb.Connect: %w", err)
 		}
+		m.Log(opt.MigrateLog)
 		err = m.Run(opt.Migrate...)
 		if err != nil {
-			return nil, fmt.Errorf("zdb.Connect: running migrations: %w", err)
+			return nil, fmt.Errorf("zdb.Connect: %w", err)
 		}
 		return db, m.Check()
 	}
