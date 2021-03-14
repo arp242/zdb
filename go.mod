@@ -2,6 +2,7 @@ module zgo.at/zdb
 
 go 1.16
 
+replace zgo.at/zstd => ../zstd
 require (
 	github.com/jmoiron/sqlx v1.3.1
 	github.com/lib/pq v1.9.0

@@ -57,12 +57,14 @@ var ctxkey = &struct{ n string }{"zdb"}
 
 type zDB struct {
 	db      *sqlx.DB
+	driver  DriverType
 	queryFS fs.FS
 }
 
 func (db zDB) queryFiles() fs.FS { return db.queryFS }
 
 func (db zDB) DBSQL() *sql.DB                 { return db.db.DB }
+func (db zDB) Driver() DriverType             { return db.driver }
 func (db zDB) Ping(ctx context.Context) error { return db.db.PingContext(ctx) }
 
 func (db zDB) Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error) {
@@ -123,6 +125,7 @@ type zTX struct {
 func (db zTX) queryFiles() fs.FS { return db.parent.queryFiles() }
 
 func (db zTX) DBSQL() *sql.DB                 { return db.parent.DBSQL() }
+func (db zTX) Driver() DriverType             { return db.parent.driver }
 func (db zTX) Ping(ctx context.Context) error { return db.parent.Ping(ctx) }
 
 func (db zTX) Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error) {
@@ -345,7 +348,7 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 		return 0, err
 	}
 
-	if PgSQL(ctx) {
+	if Driver(ctx) == DriverPostgreSQL {
 		var id []int64
 		err := db.(dbImpl).SelectContext(ctx, &id, query+" returning "+idColumn, params...)
 		if err != nil {

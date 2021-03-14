@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"zgo.at/zstd/zfs"
 	"zgo.at/zstd/zstring"
 )
 
@@ -19,23 +20,6 @@ type Migrate struct {
 	log   func(name string)
 }
 
-func subIfExists(files fs.FS, dir string) (fs.FS, error) {
-	ls, err := fs.ReadDir(files, ".")
-	if err != nil {
-		return nil, err
-	}
-	if len(ls) == 0 {
-		return files, nil
-	}
-
-	for _, e := range ls {
-		if e.IsDir() && e.Name() == dir {
-			return fs.Sub(files, dir)
-		}
-	}
-	return files, nil
-}
-
 // NewMigrate creates a new migration instance.
 //
 // Migrations are loaded from the filesystem, as described in ConnectOptions.
@@ -45,11 +29,7 @@ func subIfExists(files fs.FS, dir string) (fs.FS, error) {
 // Every migration is automatically run in a transaction; and an entry in the
 // version table is inserted.
 func NewMigrate(db DB, files fs.FS, gomig map[string]func(context.Context) error) (*Migrate, error) {
-	files, err := subIfExists(files, "db")
-	if err != nil {
-		return nil, fmt.Errorf("zdb.NewMigrate: %w", err)
-	}
-	files, err = subIfExists(files, "migrate")
+	files, err := zfs.SubIfExists(files, "db/migrate")
 	if err != nil {
 		return nil, fmt.Errorf("zdb.NewMigrate: %w", err)
 	}
@@ -75,12 +55,12 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 		return nil, nil, fmt.Errorf("read migrations: %w", err)
 	}
 
-	ctx := WithDB(context.Background(), m.db)
+	driver := m.db.Driver()
 	for _, f := range ls {
-		if SQLite(ctx) && zstring.HasSuffixes(f.Name(), "-postgres.sql", "-postgresql.sql", "-psql.sql") {
+		if driver == DriverSQLite && zstring.HasSuffixes(f.Name(), "-postgres.sql", "-postgresql.sql", "-psql.sql") {
 			continue
 		}
-		if PgSQL(ctx) && zstring.HasSuffixes(f.Name(), "-sqlite3.sql", "-sqlite.sql") {
+		if driver == DriverPostgreSQL && zstring.HasSuffixes(f.Name(), "-sqlite3.sql", "-sqlite.sql") {
 			continue
 		}
 

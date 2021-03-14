@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -22,6 +21,7 @@ import (
 // See documentation on the top-level functions for more details on the methods.
 type DB interface {
 	DBSQL() *sql.DB
+	Driver() DriverType
 	Ping(context.Context) error
 
 	Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error)
@@ -52,6 +52,14 @@ type (
 
 	// L ("list") is an alias for []interface.
 	L []interface{}
+
+	DriverType uint8
+)
+
+var (
+	DriverUnknown    DriverType = 0
+	DriverSQLite     DriverType = 1
+	DriverPostgreSQL DriverType = 2
 )
 
 // ErrTransactionStarted is returned when a transaction is already started; this
@@ -281,12 +289,5 @@ func ErrNoRows(err error) bool {
 	return errors.Is(err, sql.ErrNoRows)
 }
 
-// PgSQL reports if this database connection is to PostgreSQL.
-func PgSQL(ctx context.Context) bool {
-	return MustGetDB(ctx).DriverName() == "postgres"
-}
-
-// SQLite reports if this database connection is to SQLite.
-func SQLite(ctx context.Context) bool {
-	return strings.HasPrefix(MustGetDB(ctx).DriverName(), "sqlite3")
-}
+// Driver gets the SQL driver.
+func Driver(ctx context.Context) DriverType { return MustGetDB(ctx).Driver() }

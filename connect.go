@@ -16,6 +16,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
+	"zgo.at/zstd/zfs"
 )
 
 type ConnectOptions struct {
@@ -28,7 +29,7 @@ type ConnectOptions struct {
 
 	// Database files; the following layout is assumed:
 	//
-	//   Schema       schema-{driver}.sql or schema.sql
+	//   Schema       schema-{driver}.sql, schema.sql, or schema.gotxt
 	//   Migrations   migrate/foo-{schema}.sql or migrate/foo.sql
 	//   Queries      query/foo-{schema}.sql or query/foo.sql
 	//
@@ -59,7 +60,11 @@ type ConnectOptions struct {
 // Connect to a database.
 //
 // The database will be created automatically if the database doesn't exist and
-// Schema is in ConnectOptions
+// Schema is in ConnectOptions. It looks for the following files, in this order:
+//
+//   schema.gotxt           Run zdb.SchemaTemplate first.
+//   schema-{driver}.sql    Driver-specific schema.
+//   schema.sql
 //
 // This will set the maximum number of open and idle connections to 25 each for
 // PostgreSQL, and 16 and 4 for SQLite, instead of Go's default of 0 and 2.
@@ -106,6 +111,7 @@ func Connect(opt ConnectOptions) (DB, error) {
 
 	var (
 		dbx    *sqlx.DB
+		driver DriverType
 		exists bool
 		err    error
 	)
@@ -124,8 +130,10 @@ func Connect(opt ConnectOptions) (DB, error) {
 		if err != nil {
 			dbx, exists, err = connectPostgreSQL(opt.Connect, opt.Create) // URL-style
 		}
+		driver = DriverPostgreSQL
 	case "sqlite", "sqlite3":
 		dbx, exists, err = connectSQLite(conn, opt.Create, opt.SQLiteHook)
+		driver = DriverSQLite
 	default:
 		err = fmt.Errorf("zdb.Connect: unrecognized database engine %q in connect string %q", proto, opt.Connect)
 	}
@@ -133,31 +141,36 @@ func Connect(opt ConnectOptions) (DB, error) {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
 
+	db := &zDB{db: dbx, driver: driver}
+
 	// No files for DB creation and migration: can just return now.
 	if opt.Files == nil {
-		return &zDB{db: dbx}, nil
+		return db, nil
 	}
 
 	// Accept both "go:embed db/*" from the toplevel, and "go:embbed *" from the
 	// db package.
-	opt.Files, err = subIfExists(opt.Files, "db")
+	opt.Files, err = zfs.SubIfExists(opt.Files, "db")
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
-
-	db := &zDB{db: dbx}
-	ctx := WithDB(context.Background(), db)
-
-	db.queryFS, _ = fs.Sub(opt.Files, "query") // This is optional, okay to ignore error.
+	db.queryFS, _ = fs.Sub(opt.Files, "query") // Optional, okay to ignore error.
 
 	// Create schema.
 	if !exists {
-		s, err := findFile(opt.Files, insertDriver(db, "schema")...)
+		s, err := fs.ReadFile(opt.Files, "schema.gotxt")
+		if err == nil {
+			s, err = SchemaTemplate(db.Driver(), string(s))
+		} else {
+			s, err = findFile(opt.Files, insertDriver(db, "schema")...)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("zdb.Connect: %w", err)
 		}
 
-		err = TX(ctx, func(ctx context.Context) error { return Exec(ctx, string(s)) })
+		err = TX(WithDB(context.Background(), db), func(ctx context.Context) error {
+			return Exec(ctx, string(s))
+		})
 		if err != nil {
 			return nil, fmt.Errorf("zdb.Connect: running schema: %w", err)
 		}
@@ -183,11 +196,10 @@ func Connect(opt ConnectOptions) (DB, error) {
 }
 
 func insertDriver(db DB, name string) []string {
-	ctx := WithDB(context.Background(), db)
-	switch {
-	case SQLite(ctx):
+	switch db.Driver() {
+	case DriverSQLite:
 		return []string{name + "-sqlite.sql", name + "-sqlite3.sql", name + ".sql"}
-	case PgSQL(ctx):
+	case DriverPostgreSQL:
 		return []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql", name + ".sql"}
 	default:
 		return []string{name + "-" + db.DriverName() + ".sql", name + ".sql"}

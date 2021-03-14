@@ -62,7 +62,7 @@ func TestBulkInsertError(t *testing.T) {
 	}
 
 	want := `1 errors: 2 values for 3 columns (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=['''one"' 2 'a' '2021-06-18 12:00:00'])`
-	if PgSQL(ctx) {
+	if Driver(ctx) == DriverPostgreSQL {
 		want = `1 errors: pq: INSERT has more target columns than expressions (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=['''one"' 2 'a' '2021-06-18 12:00:00'])`
 	}
 	if err.Error() != want {
