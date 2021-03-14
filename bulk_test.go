@@ -24,8 +24,7 @@ func TestBuilder(t *testing.T) {
 }
 
 func TestBulkInsert(t *testing.T) {
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	err := Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
 	if err != nil {
@@ -43,8 +42,7 @@ func TestBulkInsert(t *testing.T) {
 }
 
 func TestBulkInsertError(t *testing.T) {
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	err := Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
 	if err != nil {

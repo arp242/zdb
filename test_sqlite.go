@@ -26,7 +26,7 @@ func connectTest() string {
 //
 // The table (or schema) will be removed when the test ends, but the PostgreSQL
 // zdb_test database is kept.
-func StartTest(t *testing.T) (context.Context, func()) {
+func StartTest(t *testing.T) context.Context {
 	t.Helper()
 
 	db, err := Connect(ConnectOptions{
@@ -36,7 +36,7 @@ func StartTest(t *testing.T) (context.Context, func()) {
 		t.Fatal(err)
 	}
 
-	return WithDB(context.Background(), db), func() {
-		db.Close()
-	}
+	t.Cleanup(func() { db.Close() })
+
+	return WithDB(context.Background(), db)
 }

@@ -22,8 +22,7 @@ func TestLogDB(t *testing.T) {
 		{"all", DumpAll},
 	}
 
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	err := Exec(ctx, `create table x (i int); insert into x values (1), (2), (3), (4), (5)`)
 	if err != nil {

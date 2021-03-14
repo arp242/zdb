@@ -19,7 +19,7 @@ func connectTest() string {
 	return "postgresql://"
 }
 
-func StartTest(t *testing.T) (context.Context, func()) {
+func StartTest(t *testing.T) context.Context {
 	t.Helper()
 
 	if _, ok := os.LookupEnv("PGDATABASE"); !ok {
@@ -50,10 +50,11 @@ func StartTest(t *testing.T) (context.Context, func()) {
 		t.Fatal(err)
 	}
 
-	return WithDB(context.Background(), db), func() {
+	t.Cleanup(func() {
 		db.Exec(context.Background(), "drop schema "+schema+" cascade")
 		db.Close()
-	}
+	})
+	return WithDB(context.Background(), db)
 }
 
 func createdb() error {

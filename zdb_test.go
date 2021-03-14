@@ -17,8 +17,7 @@ var (
 )
 
 func TestUnwrap(t *testing.T) {
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	db := MustGetDB(ctx)
 
@@ -63,8 +62,7 @@ func TestError(t *testing.T) {
 }
 
 func TestErrUnique(t *testing.T) {
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	err := Exec(ctx, `create table t (c varchar); create unique index test on t(c)`)
 	if err != nil {
@@ -86,8 +84,7 @@ func TestErrUnique(t *testing.T) {
 }
 
 func TestDate(t *testing.T) {
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	err := Exec(ctx, `create table t (a timestamp, b timestamp)`)
 	if err != nil {

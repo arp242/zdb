@@ -8,8 +8,7 @@ import (
 )
 
 func TestMigrate(t *testing.T) {
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	err := Exec(ctx, `create table version (name varchar)`)
 	if err != nil {

@@ -128,8 +128,7 @@ func TestPrepare(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			ctx, clean := StartTest(t)
-			defer clean()
+			ctx := StartTest(t)
 
 			query, args, err := Prepare(ctx, tt.query, tt.args...)
 			query = sqlx.Rebind(sqlx.DOLLAR, query) // Always use $-binds for tests
@@ -147,8 +146,7 @@ func TestPrepare(t *testing.T) {
 }
 
 func TestPrepareDump(t *testing.T) {
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	err := Exec(ctx, `create table tbl (col1 varchar, col2 int);`)
 	if err != nil {
@@ -254,8 +252,7 @@ func prep(ctx context.Context, got, want string) (string, string) {
 }
 
 func TestInsertID(t *testing.T) {
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	tbl := `create table test (col_id integer primary key autoincrement, v varchar)`
 	if Driver(ctx) == DriverPostgreSQL {
@@ -323,8 +320,7 @@ col_id  v
 }
 
 func TestQuery(t *testing.T) {
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	err := Exec(ctx, `
 		create table tbl (
@@ -395,8 +391,7 @@ func TestQuery(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
-	// ctx, clean := StartTest(t)
-	// defer clean()
+	// ctx := StartTest(t)
 
 	// TODO: can't set Files from StartTest(); don't really want to add a
 	// parameter for it. Would be nice if it could be set later?
@@ -436,8 +431,7 @@ func TestLoad(t *testing.T) {
 }
 
 func TestBegin(t *testing.T) {
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	txctx, tx, err := Begin(ctx)
 	if err != nil {
@@ -464,8 +458,7 @@ func TestBegin(t *testing.T) {
 }
 
 func TestTX(t *testing.T) {
-	ctx, clean := StartTest(t)
-	defer clean()
+	ctx := StartTest(t)
 
 	err := TX(ctx, func(ctx context.Context) error {
 		_, ok := MustGetDB(ctx).(*zTX)
