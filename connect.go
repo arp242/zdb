@@ -219,24 +219,34 @@ func findFile(files fs.FS, paths ...string) ([]byte, error) {
 func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
 	db, err := sqlx.Connect("postgres", connect)
 	if err != nil {
-		if create {
-			var pqErr *pq.Error
-			if errors.As(err, &pqErr) && pqErr.Code == "3D000" {
-				dbname := regexp.MustCompile(`pq: database "(.+?)" does not exist`).FindStringSubmatch(pqErr.Error())
-				out, cerr := exec.Command("createdb", dbname[1]).CombinedOutput()
-				if cerr != nil {
-					return nil, false, fmt.Errorf("connectPostgreSQL: %w: %s", cerr, out)
-				}
-
-				db, err = sqlx.Connect("postgres", connect)
-				if err != nil {
-					return nil, false, fmt.Errorf("connectPostgreSQL: %w", err)
-				}
-
-				return db, false, nil
+		var (
+			dbname string
+			pqErr  *pq.Error
+		)
+		if errors.As(err, &pqErr) && pqErr.Code == "3D000" {
+			x := regexp.MustCompile(`pq: database "(.+?)" does not exist`).FindStringSubmatch(pqErr.Error())
+			if len(x) >= 2 {
+				dbname = x[1]
 			}
 		}
 
+		if create && dbname != "" {
+			out, cerr := exec.Command("createdb", dbname).CombinedOutput()
+			if cerr != nil {
+				return nil, false, fmt.Errorf("connectPostgreSQL: %w: %s", cerr, out)
+			}
+
+			db, err = sqlx.Connect("postgres", connect)
+			if err != nil {
+				return nil, false, fmt.Errorf("connectPostgreSQL: %w", err)
+			}
+
+			return db, false, nil
+		}
+
+		if dbname != "" {
+			return nil, false, &NotExistError{Driver: "postgres", DB: dbname, Connect: connect}
+		}
 		return nil, false, fmt.Errorf("connectPostgreSQL: %w", err)
 	}
 
@@ -244,6 +254,19 @@ func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
 	db.SetMaxIdleConns(25)
 
 	return db, true, nil
+}
+
+// NotExistError is returned when a database doesn't exist and Create is false
+// in the connection arguments.
+type NotExistError struct {
+	Driver  string // Driver name
+	DB      string // Database name
+	Connect string // Full connect string
+}
+
+func (err NotExistError) Error() string {
+	return fmt.Sprintf("%s database %q doesn't exist (from connection string %q)",
+		err.Driver, err.DB, err.Driver+"://"+err.Connect)
 }
 
 func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn) error) (*sqlx.DB, bool, error) {
@@ -288,7 +311,10 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 		if os.IsNotExist(err) {
 			exists = false
 			if !create {
-				return nil, false, fmt.Errorf("connectSQLite: database %q doesn't exist", file)
+				if abs, err := filepath.Abs(file); err == nil {
+					file = abs
+				}
+				return nil, false, &NotExistError{Driver: "sqlite3", DB: file, Connect: connect}
 			}
 
 			err = os.MkdirAll(filepath.Dir(file), 0755)
