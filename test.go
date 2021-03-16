@@ -3,6 +3,8 @@ package zdb
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,16 +21,44 @@ import (
 	"zgo.at/zstd/ztime"
 )
 
-type DumpArg int
+type DumpArg int32
+
+func (d DumpArg) has(flag DumpArg) bool { return d&flag != 0 }
+
+func (d *DumpArg) extract(params []interface{}) []interface{} {
+	var newParams = make([]interface{}, 0, len(params))
+	for _, p := range params {
+		b, ok := p.(DumpArg)
+		if !ok {
+			newParams = append(newParams, p)
+			continue
+		}
+
+		if b.has(DumpAll) {
+			*d |= DumpLocation | DumpQuery | DumpExplain | DumpResult
+			continue
+		}
+		*d |= b
+	}
+
+	if !d.has(DumpLocation) && !d.has(DumpQuery) && !d.has(DumpExplain) && !d.has(DumpResult) {
+		*d |= DumpResult
+	}
+
+	return newParams
+}
 
 const (
-	DumpAll       DumpArg = -1       // Dump all we can.
-	DumpLocation  DumpArg = 0b000001 // Show location of Dump call.
-	DumpQuery     DumpArg = 0b000010 // Show the query with placeholders substituted.
-	DumpExplain   DumpArg = 0b000100 // Show the results of EXPLAIN (or EXPLAIN ANALYZE for PostgreSQL).
-	DumpResult    DumpArg = 0b001000 // Show the query result.
-	DumpVertical  DumpArg = 0b010000 // Show vertical output instead of horizontal columns.
-	dumpFromLogDB DumpArg = 0b100000
+	dumpFromLogDB DumpArg = 1 << iota
+
+	DumpLocation // Show location of Dump call.
+	DumpQuery    // Show the query with placeholders substituted.
+	DumpExplain  // Show the results of EXPLAIN (or EXPLAIN ANALYZE for PostgreSQL).
+	DumpResult   // Show the query result.
+	DumpVertical // Print query result in vertical columns instead of horizontal.
+	DumpCSV      // Print query result as CSV.
+	DumpJSON     // Print query result as JSON.
+	DumpAll      // Dump all we can.
 )
 
 // Dump the results of a query to a writer in an aligned table. This is a
@@ -40,60 +70,25 @@ const (
 // (they're not sent as parameters to the DB):
 //
 //   DumpAll
-//   DumpLocation
+//   DumpLocation   Show location of the Dump() cal.
 //   DumpQuery      Show the query with placeholders substituted.
 //   DumpExplain    Show the results of EXPLAIN (or EXPLAIN ANALYZE for PostgreSQL).
 //   DumpResult     Show the query result (
 //   DumpVertical   Show vertical output instead of horizontal columns.
+//   DumpCSV        Show as CSV.
+//   DumpJSON       Show as an array of JSON objects.
 func Dump(ctx context.Context, out io.Writer, query string, params ...interface{}) {
-	var showLoc, showQuery, showExplain, showResult, showVertical, fromLogDB bool
-	paramsb := params[:0]
-	for _, p := range params {
-		b, ok := p.(DumpArg)
-		if !ok {
-			paramsb = append(paramsb, p)
-			continue
-		}
+	var dump DumpArg
+	params = dump.extract(params)
 
-		if b == DumpAll {
-			showLoc, showQuery, showExplain, showResult = true, true, true, true
-			continue
-		}
-		if b&DumpLocation != 0 {
-			showLoc = true
-		}
-		if b&DumpQuery != 0 {
-			showQuery = true
-		}
-		if b&DumpExplain != 0 {
-			showExplain = true
-		}
-		if b&DumpResult != 0 {
-			showResult = true
-		}
-		if b&DumpVertical != 0 {
-			showVertical = true
-		}
-		if b&dumpFromLogDB != 0 {
-			fromLogDB = true
-		}
-	}
-	params = paramsb
-
-	if !showLoc && !showQuery && !showExplain && !showResult {
-		showResult = true
-	}
 	var nsections int
-	// if showLoc {
-	// 	nsections++
-	// }
-	if showQuery {
+	if dump.has(DumpQuery) {
 		nsections++
 	}
-	if showExplain {
+	if dump.has(DumpExplain) {
 		nsections++
 	}
-	if showResult {
+	if dump.has(DumpResult) {
 		nsections++
 	}
 
@@ -105,26 +100,26 @@ func Dump(ctx context.Context, out io.Writer, query string, params ...interface{
 			if nsections > 1 {
 				r = bold(name) + ":\n" + indent(s)
 			}
-			if showLoc {
+			if dump.has(DumpLocation) {
 				r = indent(r)
 			}
 			fmt.Fprintln(out, r)
 		}
 	)
 
-	if showLoc {
-		if fromLogDB {
+	if dump.has(DumpLocation) {
+		if dump.has(dumpFromLogDB) {
 			fmt.Fprintf(out, "zdb.LogDB: %s\n", bold(zdebug.Loc(5)))
 		} else {
 			fmt.Fprintf(out, "zdb.Dump: %s\n", bold(zdebug.Loc(4)))
 		}
 	}
 
-	if showQuery {
+	if dump.has(DumpQuery) {
 		section("QUERY", ApplyParams(query, params...))
 	}
 
-	if showExplain {
+	if dump.has(DumpExplain) {
 		var (
 			explain []string
 			err     error
@@ -159,7 +154,7 @@ func Dump(ctx context.Context, out io.Writer, query string, params ...interface{
 		}
 	}
 
-	if showResult {
+	if dump.has(DumpResult) {
 		buf := new(bytes.Buffer)
 		err := func() error {
 			rows, err := Query(ctx, query, params...)
@@ -171,37 +166,16 @@ func Dump(ctx context.Context, out io.Writer, query string, params ...interface{
 				return err
 			}
 
-			t := tabwriter.NewWriter(buf, 4, 4, 2, ' ', 0)
-			if showVertical {
-				for rows.Next() {
-					var row []interface{}
-					err := rows.Scan(&row)
-					if err != nil {
-						return err
-					}
-					for i, c := range row {
-						t.Write([]byte(fmt.Sprintf("%s\t%v\n", cols[i], formatParam(c, false))))
-					}
-					t.Write([]byte("\n"))
-				}
-			} else {
-				t.Write([]byte(strings.Join(cols, "\t") + "\n"))
-				for rows.Next() {
-					var row []interface{}
-					err := rows.Scan(&row)
-					if err != nil {
-						return err
-					}
-					for i, c := range row {
-						t.Write([]byte(fmt.Sprintf("%v", formatParam(c, false))))
-						if i < len(row)-1 {
-							t.Write([]byte("\t"))
-						}
-					}
-					t.Write([]byte("\n"))
-				}
+			switch {
+			default:
+				return dumpHorizontal(buf, rows, cols)
+			case dump.has(DumpVertical):
+				return dumpVertical(buf, rows, cols)
+			case dump.has(DumpCSV):
+				return dumpCSV(buf, rows, cols)
+			case dump.has(DumpJSON):
+				return dumpJSON(buf, rows, cols)
 			}
-			return t.Flush()
 		}()
 		if err != nil {
 			section("RESULT", err.Error())
@@ -211,6 +185,95 @@ func Dump(ctx context.Context, out io.Writer, query string, params ...interface{
 	}
 
 	fmt.Fprintln(out)
+}
+
+func dumpHorizontal(buf io.Writer, rows *Rows, cols []string) error {
+	t := tabwriter.NewWriter(buf, 4, 4, 2, ' ', 0)
+	t.Write([]byte(strings.Join(cols, "\t") + "\n"))
+
+	for rows.Next() {
+		var row []interface{}
+		err := rows.Scan(&row)
+		if err != nil {
+			return err
+		}
+
+		for i, c := range row {
+			t.Write([]byte(fmt.Sprintf("%v", formatParam(c, false))))
+			if i < len(row)-1 {
+				t.Write([]byte("\t"))
+			}
+		}
+		t.Write([]byte("\n"))
+	}
+	return t.Flush()
+}
+
+func dumpVertical(buf io.Writer, rows *Rows, cols []string) error {
+	t := tabwriter.NewWriter(buf, 4, 4, 2, ' ', 0)
+
+	for rows.Next() {
+		var row []interface{}
+		err := rows.Scan(&row)
+		if err != nil {
+			return err
+		}
+
+		for i, c := range row {
+			t.Write([]byte(fmt.Sprintf("%s\t%v\n", cols[i], formatParam(c, false))))
+		}
+		t.Write([]byte("\n"))
+	}
+	return t.Flush()
+}
+
+func dumpCSV(buf io.Writer, rows *Rows, cols []string) error {
+	cf := csv.NewWriter(buf)
+	err := cf.Write(cols)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var row []interface{}
+		err := rows.Scan(&row)
+		if err != nil {
+			return err
+		}
+		rr := make([]string, 0, len(row))
+		for _, c := range row {
+			rr = append(rr, formatParam(c, false))
+		}
+		err = cf.Write(rr)
+		if err != nil {
+			return err
+		}
+	}
+	cf.Flush()
+	return cf.Error()
+}
+
+func dumpJSON(buf *bytes.Buffer, rows *Rows, cols []string) error {
+	var j []map[string]interface{}
+	for rows.Next() {
+		var row []interface{}
+		err := rows.Scan(&row)
+		if err != nil {
+			return err
+		}
+		obj := make(map[string]interface{})
+		for i, c := range row {
+			obj[cols[i]] = c
+		}
+		j = append(j, obj)
+	}
+
+	out, err := json.MarshalIndent(j, "", "\t")
+	if err != nil {
+		return err
+	}
+	buf.Write(out)
+	return nil
 }
 
 // DumpString is like Dump(), but returns the result as a string.

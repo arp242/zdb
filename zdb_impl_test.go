@@ -170,7 +170,7 @@ func TestPrepareDump(t *testing.T) {
 		Dump(ctx, buf, `select * from tbl`)
 
 		out := buf.String()
-		want := "insert into tbl values ('hello', 1), ('world', 2);\ncol1   col2\nhello  1\nworld  2\n\n"
+		want := "insert into tbl values ('hello', 1), ('world', 2);\n\ncol1   col2\nhello  1\nworld  2\n\n"
 		if out != want {
 			t.Errorf("wrong query\nout:  %q\nwant: %q", out, want)
 		}

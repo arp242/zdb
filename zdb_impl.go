@@ -225,12 +225,8 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 	}
 	query = db.Rebind(query)
 
-	if len(dumpArgs) > 0 {
-		if len(dumpArgs) == 1 && dumpArgs[0] == DumpQuery {
-			fmt.Fprintln(stderr, ApplyParams(query, qparams...))
-		} else {
-			Dump(ctx, stderr, query, append(qparams, dumpArgs...)...)
-		}
+	if dumpArgs > 0 {
+		Dump(ctx, stderr, query, append(qparams, dumpArgs)...)
 	}
 
 	return query, qparams, nil
@@ -432,15 +428,15 @@ func queryImpl(ctx context.Context, db DB, query string, params ...interface{}) 
 }
 
 // Support multiple named parameters by merging the lot in a map.
-func prepareParams(params []interface{}) (interface{}, bool, []interface{}, error) {
+func prepareParams(params []interface{}) (interface{}, bool, DumpArg, error) {
 	if len(params) == 0 {
-		return nil, false, nil, nil
+		return nil, false, 0, nil
 	}
 
 	// No need to merge.
 	if len(params) == 1 {
 		if params[0] == nil {
-			return nil, false, nil, nil
+			return nil, false, 0, nil
 		}
 
 		var (
@@ -450,11 +446,11 @@ func prepareParams(params []interface{}) (interface{}, bool, []interface{}, erro
 		if !named {
 			a = []interface{}{params[0]}
 		}
-		return a, named, nil, nil
+		return a, named, 0, nil
 	}
 
 	var (
-		dumpArgs    []interface{}
+		dumpArgs    DumpArg
 		mergedPos   []interface{}
 		mergedNamed = make(map[string]interface{})
 		named       bool
@@ -464,7 +460,7 @@ func prepareParams(params []interface{}) (interface{}, bool, []interface{}, erro
 			continue
 		}
 		if d, ok := param.(DumpArg); ok {
-			dumpArgs = append(dumpArgs, d)
+			dumpArgs |= d
 			continue
 		}
 
@@ -483,7 +479,7 @@ func prepareParams(params []interface{}) (interface{}, bool, []interface{}, erro
 			m = reflect.ValueOf(param).Convert(reflect.TypeOf(m)).Interface().(map[string]interface{})
 			for k, v := range m {
 				if _, ok := mergedNamed[k]; ok {
-					return nil, false, nil, fmt.Errorf("parameter given more than once: %q", k)
+					return nil, false, 0, fmt.Errorf("parameter given more than once: %q", k)
 				}
 				mergedNamed[k] = v
 			}
@@ -498,7 +494,7 @@ func prepareParams(params []interface{}) (interface{}, bool, []interface{}, erro
 			m := reflectx.NewMapperFunc("db", sqlx.NameMapper).FieldMap(reflect.ValueOf(param))
 			for k, v := range m {
 				if _, ok := mergedNamed[k]; ok {
-					return nil, false, nil, fmt.Errorf("parameter given more than once: %q", k)
+					return nil, false, 0, fmt.Errorf("parameter given more than once: %q", k)
 				}
 				mergedNamed[k] = v.Interface()
 			}
