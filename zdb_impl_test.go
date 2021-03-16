@@ -258,6 +258,9 @@ func TestInsertID(t *testing.T) {
 	if Driver(ctx) == DriverPostgreSQL {
 		tbl = `create table test (col_id serial primary key, v varchar)`
 	}
+	if Driver(ctx) == DriverMySQL {
+		tbl = `create table test (col_id integer auto_increment, v varchar(255), primary key(col_id))`
+	}
 	err := Exec(ctx, tbl, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -279,7 +282,7 @@ func TestInsertID(t *testing.T) {
 			t.Error(err)
 		}
 		if id != 3 {
-			t.Errorf("id is %d, not 3", id)
+			t.Errorf("id is %d, not 3\n%s", id, DumpString(ctx, `select * from test`))
 		}
 	}
 
@@ -290,7 +293,7 @@ func TestInsertID(t *testing.T) {
 			t.Error(err)
 		}
 		if id != 5 {
-			t.Errorf("id is %d, not 3", id)
+			t.Errorf("id is %d, not 5\n%s", id, DumpString(ctx, `select * from test`))
 		}
 	}
 

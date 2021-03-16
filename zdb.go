@@ -60,6 +60,7 @@ var (
 	DriverUnknown    DriverType = 0
 	DriverSQLite     DriverType = 1
 	DriverPostgreSQL DriverType = 2
+	DriverMySQL      DriverType = 3
 )
 
 // ErrTransactionStarted is returned when a transaction is already started; this

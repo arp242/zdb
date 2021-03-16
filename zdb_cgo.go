@@ -21,5 +21,6 @@ func ErrUnique(err error) bool {
 	if errors.As(err, &pqErr) && pqErr.Code == "23505" {
 		return true
 	}
+	// TODO: mysql
 	return false
 }

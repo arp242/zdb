@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
@@ -134,6 +135,9 @@ func Connect(opt ConnectOptions) (DB, error) {
 	case "sqlite", "sqlite3":
 		dbx, exists, err = connectSQLite(conn, opt.Create, opt.SQLiteHook)
 		driver = DriverSQLite
+	case "mysql":
+		dbx, exists, err = connectMySQL(conn, opt.Create)
+		driver = DriverMySQL
 	default:
 		err = fmt.Errorf("zdb.Connect: unrecognized database engine %q in connect string %q", proto, opt.Connect)
 	}
@@ -201,6 +205,8 @@ func insertDriver(db DB, name string) []string {
 		return []string{name + "-sqlite.sql", name + "-sqlite3.sql", name + ".sql"}
 	case DriverPostgreSQL:
 		return []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql", name + ".sql"}
+	case DriverMySQL:
+		return []string{name + "-mysql.sql", name + ".sql"}
 	default:
 		return []string{name + "-" + db.DriverName() + ".sql", name + ".sql"}
 	}
@@ -214,6 +220,19 @@ func findFile(files fs.FS, paths ...string) ([]byte, error) {
 		}
 	}
 	return nil, fmt.Errorf("could not load any of the files: %s", paths)
+}
+
+// NotExistError is returned when a database doesn't exist and Create is false
+// in the connection arguments.
+type NotExistError struct {
+	Driver  string // Driver name
+	DB      string // Database name
+	Connect string // Full connect string
+}
+
+func (err NotExistError) Error() string {
+	return fmt.Sprintf("%s database %q doesn't exist (from connection string %q)",
+		err.Driver, err.DB, err.Driver+"://"+err.Connect)
 }
 
 func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
@@ -231,6 +250,8 @@ func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
 		}
 
 		if create && dbname != "" {
+			// AFAIK using the "createdb" shell command is the only way to
+			// create a database. I don't really like it though :-/
 			out, cerr := exec.Command("createdb", dbname).CombinedOutput()
 			if cerr != nil {
 				return nil, false, fmt.Errorf("connectPostgreSQL: %w: %s", cerr, out)
@@ -256,17 +277,13 @@ func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
 	return db, true, nil
 }
 
-// NotExistError is returned when a database doesn't exist and Create is false
-// in the connection arguments.
-type NotExistError struct {
-	Driver  string // Driver name
-	DB      string // Database name
-	Connect string // Full connect string
-}
+func connectMySQL(connect string, create bool) (*sqlx.DB, bool, error) {
+	db, err := sqlx.Connect("mysql", connect)
+	if err != nil {
+		return nil, false, fmt.Errorf("connectMySQL: %w", err)
+	}
 
-func (err NotExistError) Error() string {
-	return fmt.Sprintf("%s database %q doesn't exist (from connection string %q)",
-		err.Driver, err.DB, err.Driver+"://"+err.Connect)
+	return db, true, nil
 }
 
 func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn) error) (*sqlx.DB, bool, error) {

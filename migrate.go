@@ -57,6 +57,7 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 
 	driver := m.db.Driver()
 	for _, f := range ls {
+		// TODO: mysql
 		if driver == DriverSQLite && zstring.HasSuffixes(f.Name(), "-postgres.sql", "-postgresql.sql", "-psql.sql") {
 			continue
 		}

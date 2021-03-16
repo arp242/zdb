@@ -348,6 +348,11 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 		return 0, err
 	}
 
+	// TODO: SQLite 3.35 (March 2021) also supports returning; probably better
+	// to use this for SQLite as well as it's more flexible. Need to make sure
+	// that people are using SQLite 3.35 though.
+	//
+	// https://sqlite.org/lang_returning.html
 	if Driver(ctx) == DriverPostgreSQL {
 		var id []int64
 		err := db.(dbImpl).SelectContext(ctx, &id, query+" returning "+idColumn, params...)
@@ -361,6 +366,40 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 	if err != nil {
 		return 0, err
 	}
+	// TODO: On MySQL lastinsertID returns the FIRST insert id, not the LAST.
+	// This is a MySQL problem, not a Go problem.
+	//
+	// MariaDB [test]> insert into test (v) values('asd'), ('asd');
+	//
+	// MariaDB [test]> select last_insert_id();
+	// +------------------+
+	// | last_insert_id() |
+	// +------------------+
+	// |                1 |
+	// +------------------+
+	//
+	// MariaDB [test]> select * from test;
+	// +--------+------+
+	// | col_id | v    |
+	// +--------+------+
+	// |      1 | asd  |
+	// |      2 | asd  |
+	// +--------+------+
+	//
+	// It also doesn't support "returning", the best we can do is max(col_id) or
+	// some such? This isn't thread-safe though.
+	//
+	// Actually, MariaDB 10.5 supports this:
+	// https://mariadb.com/kb/en/insertreturning/
+	//
+	// MySQL doesn't support this (yet). I guess we'll have to just restrict
+	// "MySQL support" to "MariaDB support".
+	//
+	// But void is using 10.1 still, which isn't even supported any more :-/
+	// https://github.com/void-linux/void-packages/pull/25618
+	//
+	// Come to think of it, this should probably return a []int64 of all IDs,
+	// which can be done with PostgreSQL and SQLite, but not really with MySQL.
 	return r.LastInsertId()
 }
 

@@ -1,4 +1,5 @@
 // +build !testpg
+// +build !testmy
 
 package zdb
 
@@ -37,6 +38,5 @@ func StartTest(t *testing.T) context.Context {
 	}
 
 	t.Cleanup(func() { db.Close() })
-
 	return WithDB(context.Background(), db)
 }

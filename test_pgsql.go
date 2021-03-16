@@ -4,13 +4,10 @@ package zdb
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"testing"
 
-	"github.com/lib/pq"
 	"zgo.at/zstd/zcrypto"
 )
 
@@ -29,17 +26,11 @@ func StartTest(t *testing.T) context.Context {
 		Connect: "postgresql://",
 	})
 	if err != nil {
-		var pqErr *pq.Error
-		if errors.As(err, &pqErr) && pqErr.Code == "3D000" {
-			err := createdb()
-			if err != nil {
-				t.Fatal(err)
-			}
-			return StartTest(t)
-		}
 		t.Fatal(err)
 	}
 
+	// The first test will create the zdb_test database, and every test after
+	// that runs in its own schema.
 	schema := fmt.Sprintf(`zdb_test_` + zcrypto.Secret64())
 	err = db.Exec(context.Background(), `create schema `+schema)
 	if err != nil {
@@ -55,12 +46,4 @@ func StartTest(t *testing.T) context.Context {
 		db.Close()
 	})
 	return WithDB(context.Background(), db)
-}
-
-func createdb() error {
-	out, err := exec.Command("createdb", "zdb_test").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("createdb: %s → %s", err, out)
-	}
-	return nil
 }
