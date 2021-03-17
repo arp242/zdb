@@ -1,5 +1,5 @@
 // +build !testpg
-// +build !testmy
+// +build !testmariadb
 
 package zdb
 

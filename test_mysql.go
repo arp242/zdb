@@ -1,4 +1,4 @@
-// +build testmy
+// +build testmariadb
 
 package zdb
 

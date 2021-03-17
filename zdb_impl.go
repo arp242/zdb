@@ -63,9 +63,10 @@ type zDB struct {
 
 func (db zDB) queryFiles() fs.FS { return db.queryFS }
 
-func (db zDB) DBSQL() *sql.DB                 { return db.db.DB }
-func (db zDB) Driver() DriverType             { return db.driver }
-func (db zDB) Ping(ctx context.Context) error { return db.db.PingContext(ctx) }
+func (db zDB) DBSQL() *sql.DB                               { return db.db.DB }
+func (db zDB) Driver() DriverType                           { return db.driver }
+func (db zDB) Ping(ctx context.Context) error               { return db.db.PingContext(ctx) }
+func (db zDB) Version(ctx context.Context) (Version, error) { return versionImpl(ctx) }
 
 func (db zDB) Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error) {
 	return prepareImpl(ctx, db, query, params...)
@@ -124,9 +125,10 @@ type zTX struct {
 
 func (db zTX) queryFiles() fs.FS { return db.parent.queryFiles() }
 
-func (db zTX) DBSQL() *sql.DB                 { return db.parent.DBSQL() }
-func (db zTX) Driver() DriverType             { return db.parent.driver }
-func (db zTX) Ping(ctx context.Context) error { return db.parent.Ping(ctx) }
+func (db zTX) DBSQL() *sql.DB                               { return db.parent.DBSQL() }
+func (db zTX) Driver() DriverType                           { return db.parent.driver }
+func (db zTX) Ping(ctx context.Context) error               { return db.parent.Ping(ctx) }
+func (db zTX) Version(ctx context.Context) (Version, error) { return db.parent.Version(ctx) }
 
 func (db zTX) Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error) {
 	return prepareImpl(ctx, db, query, params...)
@@ -189,6 +191,29 @@ func (db zTX) QueryxContext(ctx context.Context, query string, params ...interfa
 // ----------------------
 
 var stderr io.Writer = os.Stderr
+
+type Version string
+
+func (v Version) AtLeast(want Version) bool {
+	return want < v
+}
+
+func versionImpl(ctx context.Context) (Version, error) {
+	var (
+		v   string
+		err error
+	)
+	switch Driver(ctx) {
+	case DriverSQLite:
+		err = Get(ctx, &v, `select sqlite_version()`)
+	case DriverMariaDB:
+		err = Get(ctx, &v, `select version()`)
+		v = strings.TrimSuffix(v, "-MariaDB")
+	case DriverPostgreSQL:
+		err = Get(ctx, &v, `show server_version`)
+	}
+	return Version(v), err
+}
 
 func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}) (string, []interface{}, error) {
 	merged, named, dumpArgs, err := prepareParams(params)
@@ -362,8 +387,8 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 	if err != nil {
 		return 0, err
 	}
-	// TODO: On MySQL lastinsertID returns the FIRST insert id, not the LAST.
-	// This is a MySQL problem, not a Go problem.
+	// TODO: On MariaDB lastinsertID returns the FIRST insert id, not the LAST.
+	// This is a MariaDB problem, not a Go problem.
 	//
 	// MariaDB [test]> insert into test (v) values('asd'), ('asd');
 	//
@@ -395,7 +420,7 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 	// https://github.com/void-linux/void-packages/pull/25618
 	//
 	// Come to think of it, this should probably return a []int64 of all IDs,
-	// which can be done with PostgreSQL and SQLite, but not really with MySQL.
+	// which can be done with PostgreSQL and SQLite, but not really with MariaDB.
 	return r.LastInsertId()
 }
 

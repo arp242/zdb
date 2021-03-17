@@ -29,11 +29,11 @@ func SchemaTemplate(driver DriverType, tpl string) ([]byte, error) {
 }
 
 func tplFuncs(driver DriverType) template.FuncMap {
-	// TODO: MySQL for many of these.
+	// TODO: MariaDB for many of these.
 	f := template.FuncMap{
 		"sqlite": func(s string) string { return map[DriverType]string{DriverSQLite: s}[driver] },
 		"psql":   func(s string) string { return map[DriverType]string{DriverPostgreSQL: s}[driver] },
-		"mysql":  func(s string) string { return map[DriverType]string{DriverMySQL: s}[driver] },
+		"mysql":  func(s string) string { return map[DriverType]string{DriverMariaDB: s}[driver] },
 		"auto_increment": func() string {
 			return map[DriverType]string{
 				DriverPostgreSQL: "serial         primary key",

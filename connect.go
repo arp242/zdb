@@ -136,8 +136,8 @@ func Connect(opt ConnectOptions) (DB, error) {
 		dbx, exists, err = connectSQLite(conn, opt.Create, opt.SQLiteHook)
 		driver = DriverSQLite
 	case "mysql":
-		dbx, exists, err = connectMySQL(conn, opt.Create)
-		driver = DriverMySQL
+		dbx, exists, err = connectMariaDB(conn, opt.Create)
+		driver = DriverMariaDB
 	default:
 		err = fmt.Errorf("zdb.Connect: unrecognized database engine %q in connect string %q", proto, opt.Connect)
 	}
@@ -146,6 +146,30 @@ func Connect(opt ConnectOptions) (DB, error) {
 	}
 
 	db := &zDB{db: dbx, driver: driver}
+
+	// These versions are required for zdb.
+	v, err := db.Version(WithDB(context.Background(), db))
+	if err != nil {
+		return nil, fmt.Errorf("zdb.Connect: %w", err)
+	}
+	switch db.Driver() {
+	case DriverSQLite:
+		// Wait until go-sqlite3 is updated.
+		// if !v.AtLeast("3.35") {
+		// 	err = errors.New("zdb.Connect: zdb requires SQLite 3.35.0 or newer")
+		// }
+	case DriverMariaDB:
+		if !v.AtLeast("10.5") {
+			err = errors.New("zdb.Connect: zdb requires MariaDB 10.5.0 or newer")
+		}
+	case DriverPostgreSQL:
+		if !v.AtLeast("12.0") {
+			err = errors.New("zdb.Connect: zdb requires PostgreSQL 12.0 or newer")
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
 
 	// No files for DB creation and migration: can just return now.
 	if opt.Files == nil {
@@ -205,7 +229,7 @@ func insertDriver(db DB, name string) []string {
 		return []string{name + "-sqlite.sql", name + "-sqlite3.sql", name + ".sql"}
 	case DriverPostgreSQL:
 		return []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql", name + ".sql"}
-	case DriverMySQL:
+	case DriverMariaDB:
 		return []string{name + "-mysql.sql", name + ".sql"}
 	default:
 		return []string{name + "-" + db.DriverName() + ".sql", name + ".sql"}
@@ -277,10 +301,10 @@ func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
 	return db, true, nil
 }
 
-func connectMySQL(connect string, create bool) (*sqlx.DB, bool, error) {
+func connectMariaDB(connect string, create bool) (*sqlx.DB, bool, error) {
 	db, err := sqlx.Connect("mysql", connect)
 	if err != nil {
-		return nil, false, fmt.Errorf("connectMySQL: %w", err)
+		return nil, false, fmt.Errorf("connectMariaDB: %w", err)
 	}
 
 	return db, true, nil

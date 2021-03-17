@@ -97,3 +97,9 @@ func TestDate(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDriver(t *testing.T) {
+	ctx := StartTest(t)
+	db := MustGetDB(ctx)
+	t.Log(db.Driver())
+}

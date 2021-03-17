@@ -15,6 +15,41 @@ import (
 	"zgo.at/zstd/ztest"
 )
 
+func TestVersion(t *testing.T) {
+	ctx := StartTest(t)
+	db := MustGetDB(ctx)
+
+	v, err := db.Version(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(v)
+
+	for _, tt := range [][]Version{
+		{"3", "4"},
+		{"3.35.0", "4"},
+		{"3.35.0", "4.1.0"},
+		{"3.35.0", "3.35.1"},
+	} {
+		have, want := tt[0], tt[1]
+		if have.AtLeast(want) {
+			t.Errorf("is true: %s.AtLeast(%s)", have, want)
+		}
+	}
+
+	for _, tt := range [][]Version{
+		{"4.0.0", "4"},
+		{"4.1.0", "4"},
+		{"4.1", "4"},
+		{"4.0.1", "4"},
+	} {
+		have, want := tt[0], tt[1]
+		if !have.AtLeast(want) {
+			t.Errorf("is false: %s.AtLeast(%s)", have, want)
+		}
+	}
+}
+
 func TestPrepare(t *testing.T) {
 	date := time.Date(2020, 06, 18, 01, 02, 03, 04, time.UTC)
 
@@ -258,7 +293,7 @@ func TestInsertID(t *testing.T) {
 	if Driver(ctx) == DriverPostgreSQL {
 		tbl = `create table test (col_id serial primary key, v varchar)`
 	}
-	if Driver(ctx) == DriverMySQL {
+	if Driver(ctx) == DriverMariaDB {
 		tbl = `create table test (col_id integer auto_increment, v varchar(255), primary key(col_id))`
 	}
 	err := Exec(ctx, tbl, nil)

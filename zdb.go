@@ -23,6 +23,7 @@ type DB interface {
 	DBSQL() *sql.DB
 	Driver() DriverType
 	Ping(context.Context) error
+	Version(context.Context) (Version, error)
 
 	Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error)
 	Load(ctx context.Context, name string) (string, error)
@@ -56,11 +57,24 @@ type (
 	DriverType uint8
 )
 
+func (d DriverType) String() string {
+	switch d {
+	case DriverSQLite:
+		return "SQLite"
+	case DriverPostgreSQL:
+		return "PostgreSQL"
+	case DriverMariaDB:
+		return "MariaDB"
+	default:
+		return "(unknown)"
+	}
+}
+
 var (
 	DriverUnknown    DriverType = 0
 	DriverSQLite     DriverType = 1
 	DriverPostgreSQL DriverType = 2
-	DriverMySQL      DriverType = 3
+	DriverMariaDB    DriverType = 3
 )
 
 // ErrTransactionStarted is returned when a transaction is already started; this

@@ -17,6 +17,6 @@ func ErrUnique(err error) bool {
 		return true
 	}
 
-	// TODO: MySQL
+	// TODO: MariaDB
 	return false
 }
