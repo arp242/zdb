@@ -216,7 +216,7 @@ func versionImpl(ctx context.Context) (Version, error) {
 }
 
 func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}) (string, []interface{}, error) {
-	merged, named, dumpArgs, err := prepareParams(params)
+	merged, named, dumpArgs, dumpOut, err := prepareParams(params)
 	if err != nil {
 		return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
 	}
@@ -251,7 +251,10 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 	query = db.Rebind(query)
 
 	if dumpArgs > 0 {
-		Dump(ctx, stderr, query, append(qparams, dumpArgs)...)
+		if dumpOut == nil {
+			dumpOut = stderr
+		}
+		Dump(ctx, dumpOut, query, append(qparams, dumpArgs)...)
 	}
 
 	return query, qparams, nil
@@ -453,29 +456,14 @@ func queryImpl(ctx context.Context, db DB, query string, params ...interface{}) 
 }
 
 // Support multiple named parameters by merging the lot in a map.
-func prepareParams(params []interface{}) (interface{}, bool, DumpArg, error) {
+func prepareParams(params []interface{}) (interface{}, bool, DumpArg, io.Writer, error) {
 	if len(params) == 0 {
-		return nil, false, 0, nil
-	}
-
-	// No need to merge.
-	if len(params) == 1 {
-		if params[0] == nil {
-			return nil, false, 0, nil
-		}
-
-		var (
-			named = isNamed(typeOfElem(params[0]), params[0])
-			a     = params[0]
-		)
-		if !named {
-			a = []interface{}{params[0]}
-		}
-		return a, named, 0, nil
+		return nil, false, 0, nil, nil
 	}
 
 	var (
 		dumpArgs    DumpArg
+		dumpOut     io.Writer
 		mergedPos   []interface{}
 		mergedNamed = make(map[string]interface{})
 		named       bool
@@ -488,6 +476,12 @@ func prepareParams(params []interface{}) (interface{}, bool, DumpArg, error) {
 			dumpArgs |= d
 			continue
 		}
+		// TODO: maybe restrict this a bit more? What if you're passing a type
+		// which satisfies this interface?
+		if d, ok := param.(io.Writer); ok {
+			dumpOut = d
+			continue
+		}
 
 		t := typeOfElem(param)
 		switch t.Kind() {
@@ -498,13 +492,13 @@ func prepareParams(params []interface{}) (interface{}, bool, DumpArg, error) {
 			named = true
 			var m map[string]interface{}
 			if !t.ConvertibleTo(reflect.TypeOf(m)) {
-				return nil, false, dumpArgs, fmt.Errorf("unsupported map type: %T", param)
+				return nil, false, dumpArgs, nil, fmt.Errorf("unsupported map type: %T", param)
 			}
 
 			m = reflect.ValueOf(param).Convert(reflect.TypeOf(m)).Interface().(map[string]interface{})
 			for k, v := range m {
 				if _, ok := mergedNamed[k]; ok {
-					return nil, false, 0, fmt.Errorf("parameter given more than once: %q", k)
+					return nil, false, 0, nil, fmt.Errorf("parameter given more than once: %q", k)
 				}
 				mergedNamed[k] = v
 			}
@@ -519,7 +513,7 @@ func prepareParams(params []interface{}) (interface{}, bool, DumpArg, error) {
 			m := reflectx.NewMapperFunc("db", sqlx.NameMapper).FieldMap(reflect.ValueOf(param))
 			for k, v := range m {
 				if _, ok := mergedNamed[k]; ok {
-					return nil, false, 0, fmt.Errorf("parameter given more than once: %q", k)
+					return nil, false, 0, nil, fmt.Errorf("parameter given more than once: %q", k)
 				}
 				mergedNamed[k] = v.Interface()
 			}
@@ -528,11 +522,11 @@ func prepareParams(params []interface{}) (interface{}, bool, DumpArg, error) {
 
 	if named {
 		if len(mergedPos) > 0 {
-			return nil, false, dumpArgs, errors.New("can't mix named and positional parameters")
+			return nil, false, dumpArgs, dumpOut, errors.New("can't mix named and positional parameters")
 		}
-		return mergedNamed, named, dumpArgs, nil
+		return mergedNamed, named, dumpArgs, dumpOut, nil
 	}
-	return mergedPos, named, dumpArgs, nil
+	return mergedPos, named, dumpArgs, dumpOut, nil
 }
 
 func typeOfElem(i interface{}) reflect.Type {

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 	"text/tabwriter"
+	"text/template"
 	"time"
 
 	"zgo.at/zstd/zbyte"
@@ -58,6 +59,7 @@ const (
 	DumpVertical // Print query result in vertical columns instead of horizontal.
 	DumpCSV      // Print query result as CSV.
 	DumpJSON     // Print query result as JSON.
+	DumpHTML     // Print query result as a HTML table.
 	DumpAll      // Dump all we can.
 )
 
@@ -77,6 +79,7 @@ const (
 //   DumpVertical   Show vertical output instead of horizontal columns.
 //   DumpCSV        Show as CSV.
 //   DumpJSON       Show as an array of JSON objects.
+//   DumpHTML       Show as a HTML table.
 func Dump(ctx context.Context, out io.Writer, query string, params ...interface{}) {
 	var dump DumpArg
 	params = dump.extract(params)
@@ -175,6 +178,8 @@ func Dump(ctx context.Context, out io.Writer, query string, params ...interface{
 				return dumpCSV(buf, rows, cols)
 			case dump.has(DumpJSON):
 				return dumpJSON(buf, rows, cols)
+			case dump.has(DumpHTML):
+				return dumpHTML(buf, rows, cols)
 			}
 		}()
 		if err != nil {
@@ -273,6 +278,41 @@ func dumpJSON(buf *bytes.Buffer, rows *Rows, cols []string) error {
 		return err
 	}
 	buf.Write(out)
+	return nil
+}
+
+func dumpHTML(buf *bytes.Buffer, rows *Rows, cols []string) error {
+	buf.WriteString("<table><thead><tr>\n")
+	for _, c := range cols {
+		buf.WriteString("  <th>")
+		buf.WriteString(template.HTMLEscapeString(c))
+		buf.WriteString("</th>\n")
+	}
+	buf.WriteString("</tr></thead><tbody>\n")
+
+	for rows.Next() {
+		var row []interface{}
+		err := rows.Scan(&row)
+		if err != nil {
+			return err
+		}
+
+		buf.WriteString("<tr>\n")
+		for _, r := range row {
+			buf.WriteString("  <td>")
+			buf.WriteString(template.HTMLEscapeString(formatParam(r, false)))
+			buf.WriteString("</td>\n")
+		}
+		buf.WriteString("</tr>\n")
+	}
+
+	buf.WriteString("</tbody></table>\n")
+
+	// out, err := json.MarshalIndent(j, "", "\t")
+	// if err != nil {
+	// 	return err
+	// }
+	// buf.Write(out)
 	return nil
 }
 
