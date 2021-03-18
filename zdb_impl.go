@@ -39,6 +39,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"io"
@@ -484,17 +485,26 @@ func prepareParams(params []interface{}) (interface{}, bool, DumpArg, io.Writer,
 		}
 
 		t := typeOfElem(param)
+
+		// If this implements Value() then we never want to merge it with other
+		// structs or maps.
+		if t.Implements(reflect.TypeOf((*driver.Valuer)(nil)).Elem()) {
+			mergedPos = append(mergedPos, param)
+			continue
+		}
+
 		switch t.Kind() {
 		default:
 			mergedPos = append(mergedPos, param)
 
 		case reflect.Map:
-			named = true
 			var m map[string]interface{}
 			if !t.ConvertibleTo(reflect.TypeOf(m)) {
-				return nil, false, dumpArgs, nil, fmt.Errorf("unsupported map type: %T", param)
+				mergedPos = append(mergedPos, param)
+				continue
 			}
 
+			named = true
 			m = reflect.ValueOf(param).Convert(reflect.TypeOf(m)).Interface().(map[string]interface{})
 			for k, v := range m {
 				if _, ok := mergedNamed[k]; ok {
