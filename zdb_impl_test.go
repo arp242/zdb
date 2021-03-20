@@ -109,6 +109,13 @@ func TestPrepare(t *testing.T) {
 		{`select {{:xxx cond}} where 1=1`, L{P{"a": true}, struct{ XXX bool }{true}},
 			`select cond where 1=1`, L{}, ""},
 
+		// Negation with !
+		{`select {{:xxx! cond}} where 1=1`, L{P{"xxx": true}},
+			`select  where 1=1`, L{}, ""},
+		// Negation with !
+		{`select {{:xxx! cond}} where 1=1`, L{P{"xxx": false}},
+			`select cond where 1=1`, L{}, ""},
+
 		// False conditional from bool
 		{`select {{:xxx cond}} where 1=1`, L{P{"xxx": false}},
 			`select  where 1=1`, L{}, ""},

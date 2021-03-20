@@ -595,6 +595,11 @@ func replaceConditionals(query string, params ...interface{}) (string, error) {
 		}
 		name = name[:i]
 
+		negate := strings.HasSuffix(name, "!")
+		if negate {
+			name = name[:len(name)-1]
+		}
+
 		found := false
 		for _, param := range params {
 			// This is a bit inefficient, since it duplicates sqlx's NamedMapper
@@ -607,9 +612,14 @@ func replaceConditionals(query string, params ...interface{}) (string, error) {
 				continue
 			}
 			found = true
+			if negate {
+				include = !include
+			}
 			if include {
 				query = query[:s] + query[s+i+4:]     // Everything except "{{:word"
 				query = query[:e-i-4] + query[e-i-2:] // Everything except "}}"
+				if negate {
+				}
 			} else {
 				query = query[:s] + query[e+2:]
 			}
