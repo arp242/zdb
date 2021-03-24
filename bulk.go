@@ -22,7 +22,7 @@ func NewBulkInsert(ctx context.Context, table string, columns []string) BulkInse
 	return BulkInsert{
 		ctx: ctx,
 		// SQLITE_MAX_VARIABLE_NUMBER: https://www.sqlite.org/limits.html
-		Limit:   uint16(999/len(columns) - 1),
+		Limit:   uint16(32766/len(columns) - 1),
 		table:   table,
 		columns: columns,
 		insert:  newBuilder(table, columns...),
