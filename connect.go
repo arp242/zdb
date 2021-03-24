@@ -186,14 +186,15 @@ func Connect(opt ConnectOptions) (DB, error) {
 
 	// Create schema.
 	if !exists {
-		s, err := fs.ReadFile(opt.Files, "schema.gotxt")
-		if err == nil {
-			s, err = SchemaTemplate(db.Driver(), string(s))
-		} else {
-			s, err = findFile(opt.Files, insertDriver(db, "schema")...)
-		}
+		s, file, err := findFile(opt.Files, insertDriver(db, "schema")...)
 		if err != nil {
 			return nil, fmt.Errorf("zdb.Connect: %w", err)
+		}
+		if strings.HasSuffix(file, ".gotxt") {
+			s, err = SchemaTemplate(db.Driver(), string(s))
+			if err != nil {
+				return nil, fmt.Errorf("zdb.Connect: %w", err)
+			}
 		}
 
 		err = TX(WithDB(context.Background(), db), func(ctx context.Context) error {
@@ -226,24 +227,24 @@ func Connect(opt ConnectOptions) (DB, error) {
 func insertDriver(db DB, name string) []string {
 	switch db.Driver() {
 	case DriverSQLite:
-		return []string{name + "-sqlite.sql", name + "-sqlite3.sql", name + ".sql"}
+		return []string{name + "-sqlite.sql", name + "-sqlite3.sql", name + ".gotxt", name + ".sql"}
 	case DriverPostgreSQL:
-		return []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql", name + ".sql"}
+		return []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql", name + ".gotxt", name + ".sql"}
 	case DriverMariaDB:
-		return []string{name + "-mysql.sql", name + ".sql"}
+		return []string{name + "-mysql.sql", name + ".gotxt", name + ".sql"}
 	default:
-		return []string{name + "-" + db.DriverName() + ".sql", name + ".sql"}
+		return []string{name + "-" + db.DriverName() + ".sql", name + ".gotxt", name + ".sql"}
 	}
 }
 
-func findFile(files fs.FS, paths ...string) ([]byte, error) {
+func findFile(files fs.FS, paths ...string) ([]byte, string, error) {
 	for _, f := range paths {
 		s, err := fs.ReadFile(files, f)
 		if err == nil {
-			return s, nil
+			return s, f, nil
 		}
 	}
-	return nil, fmt.Errorf("could not load any of the files: %s", paths)
+	return nil, "", fmt.Errorf("could not load any of the files: %s", paths)
 }
 
 // NotExistError is returned when a database doesn't exist and Create is false

@@ -57,18 +57,20 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 
 	driver := m.db.Driver()
 	for _, f := range ls {
-		// TODO: mysql
-		if driver == DriverSQLite && zstring.HasSuffixes(f.Name(), "-postgres.sql", "-postgresql.sql", "-psql.sql") {
-			continue
+		isFor := DriverUnknown
+		if zstring.HasSuffixes(f.Name(), "-postgres.sql", "-postgresql.sql") {
+			isFor = DriverPostgreSQL
+		} else if zstring.HasSuffixes(f.Name(), "-sqlite3.sql", "-sqlite.sql") {
+			isFor = DriverSQLite
+		} else if zstring.HasSuffixes(f.Name(), "-mariadb.sql") {
+			isFor = DriverMariaDB
 		}
-		if driver == DriverPostgreSQL && zstring.HasSuffixes(f.Name(), "-sqlite3.sql", "-sqlite.sql") {
+		if isFor != DriverUnknown && isFor != driver {
 			continue
 		}
 
-		if strings.HasSuffix(f.Name(), ".sql") {
-			haveMig = append(haveMig, zstring.TrimSuffixes(f.Name(),
-				".sql", "-postgres", "-postgresql", "-psql.sql", "-sqlite3", "-sqlite"))
-		}
+		haveMig = append(haveMig, zstring.TrimSuffixes(f.Name(), ".sql", ".gotxt",
+			"-postgres", "-postgresql", "-sqlite3", "-sqlite", "-mariadb"))
 	}
 	for k := range m.gomig {
 		haveMig = append(haveMig, k)
@@ -89,10 +91,18 @@ func (m Migrate) Schema(name string) (string, error) {
 		return "", fmt.Errorf("%q is a Go migration", name)
 	}
 
-	b, err := findFile(m.files, insertDriver(m.db, strings.TrimSuffix(name, ".sql"))...)
+	b, file, err := findFile(m.files, insertDriver(m.db, zstring.TrimSuffixes(name, ".sql", ".gotxt"))...)
 	if err != nil {
 		return "", err
 	}
+
+	if strings.HasSuffix(file, ".gotxt") {
+		b, err = SchemaTemplate(m.db.Driver(), string(b))
+		if err != nil {
+			return "", err
+		}
+	}
+
 	return string(b), nil
 }
 
