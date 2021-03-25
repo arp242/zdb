@@ -57,6 +57,10 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 
 	driver := m.db.Driver()
 	for _, f := range ls {
+		if !zstring.HasSuffixes(f.Name(), ".sql", "gotxt") {
+			continue
+		}
+
 		isFor := DriverUnknown
 		if zstring.HasSuffixes(f.Name(), "-postgres.sql", "-postgresql.sql") {
 			isFor = DriverPostgreSQL
