@@ -7,7 +7,7 @@ import (
 	"zgo.at/zdb/testdata"
 )
 
-func TestMigrate(t *testing.T) {
+func TestMigrateList(t *testing.T) {
 	ctx := StartTest(t)
 
 	err := Exec(ctx, `create table version (name varchar)`)

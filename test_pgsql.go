@@ -16,15 +16,22 @@ func connectTest() string {
 	return "postgresql://"
 }
 
-func StartTest(t *testing.T) context.Context {
+func StartTest(t *testing.T, opt ...ConnectOptions) context.Context {
 	t.Helper()
+
+	if len(opt) > 1 {
+		t.Fatal("zdb.StartTest: can only add one ConnectOptions")
+	}
+	var o ConnectOptions
+	if len(opt) == 1 {
+		o = opt[0]
+	}
+	o.Connect = "postgresql://"
 
 	if _, ok := os.LookupEnv("PGDATABASE"); !ok {
 		os.Setenv("PGDATABASE", "zdb_test")
 	}
-	db, err := Connect(ConnectOptions{
-		Connect: "postgresql://",
-	})
+	db, err := Connect(o)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,7 +2,6 @@ package zdb
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -49,7 +48,11 @@ func NewMigrate(db DB, files fs.FS, gomig map[string]func(context.Context) error
 // This only gets called if the migration was run successfully.
 func (m *Migrate) Log(f func(name string)) { m.log = f }
 
-// Test sets the "test" flags: it won't commit any transactions.
+// Test sets the "test" flag: it won't commit any transactions.
+//
+// This will work correctly for SQLite and PostgreSQL, but not MariaDB as most
+// ALTER and CREATE commands will automatically imply COMMIT. See:
+// https://mariadb.com/kb/en/sql-statements-that-cause-an-implicit-commit/
 func (m *Migrate) Test(t bool) { m.test = t }
 
 // List all migrations we know about, and all migrations that have already been
@@ -165,45 +168,50 @@ func (m Migrate) Run(which ...string) error {
 			}
 		}
 
-		err := TX(ctx, func(ctx context.Context) error {
-			version := strings.TrimSuffix(filepath.Base(run), ".sql")
+		version := strings.TrimSuffix(filepath.Base(run), ".sql")
+		if zstring.Contains(ranMig, version) {
+			return fmt.Errorf("migration already run: %q (version entry: %q)", run, version)
+		}
 
-			// Go migration.
-			f := m.findGoMig(run)
-			if f != nil {
-				return f(ctx)
-			}
+		ctx, tx, err := m.db.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("zdb.Migrate.Run: %w", err)
+		}
+		defer tx.Rollback()
 
-			// SQL migration.
-			if zstring.Contains(ranMig, version) {
-				return fmt.Errorf("migration already run: %q (version entry: %q)", run, version)
-			}
-
+		ok, err := m.runGoMig(ctx, run)
+		if err != nil {
+			return fmt.Errorf("zdb.Migrate.Run: running %q: %w", run, err)
+		}
+		if !ok {
 			s, err := m.Schema(run)
 			if err != nil {
-				return err
+				return fmt.Errorf("zdb.Migrate.Run: running %q: %w", run, err)
 			}
-
 			err = Exec(ctx, s)
 			if err != nil {
-				return err
+				return fmt.Errorf("zdb.Migrate.Run: running %q: %w", run, err)
 			}
-			err = Exec(ctx, `insert into version (name) values (?)`, version)
-			if err != nil {
-				return err
-			}
-
-			if m.test {
-				return errors.New("TESTTEST")
-			}
-			return nil
-		})
-		if err != nil && !strings.HasSuffix(err.Error(), "TESTTEST") {
-			fmt.Printf("%q\n", err.Error())
-			return fmt.Errorf("zdb.Migrate.Run: error running %q: %w", run, err)
 		}
+
+		err = Exec(ctx, `insert into version (name) values (?)`, version)
+		if err != nil {
+			return fmt.Errorf("zdb.Migrate.Run: running %q: %w", run, err)
+		}
+
+		if !m.test {
+			err := tx.Commit()
+			if err != nil {
+				return fmt.Errorf("zdb.Migrate.Run: running %q: %w", run, err)
+			}
+		}
+
 		if m.log != nil {
-			m.log(run)
+			msg := run
+			if m.test {
+				msg += " (test mode; not committed)"
+			}
+			m.log(msg)
 		}
 	}
 
@@ -217,4 +225,13 @@ func (m Migrate) findGoMig(name string) func(context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (m Migrate) runGoMig(ctx context.Context, name string) (bool, error) {
+	for k, f := range m.gomig {
+		if k == name {
+			return true, f(ctx)
+		}
+	}
+	return false, nil
 }

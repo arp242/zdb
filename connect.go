@@ -31,8 +31,8 @@ type ConnectOptions struct {
 	// Database files; the following layout is assumed:
 	//
 	//   Schema       schema-{driver}.sql, schema.sql, or schema.gotxt
-	//   Migrations   migrate/foo-{schema}.sql or migrate/foo.sql
-	//   Queries      query/foo-{schema}.sql or query/foo.sql
+	//   Migrations   migrate/{name}-{driver}.sql, migrate/{name}.sql, or migrate/{name}.gotxt
+	//   Queries      query/{name}-{driver}.sql, query/{name}.sql, or query/{name}.gotxt
 	//
 	// It's okay if files are missing; e.g. no migrate directory simply means
 	// that it won't attempt to run migrations.
@@ -99,9 +99,6 @@ type ConnectOptions struct {
 // https://github.com/mattn/go-sqlite3/
 // https://github.com/lib/pq
 func Connect(opt ConnectOptions) (DB, error) {
-	// TODO: look at pgx, which is the recommended driver now. sqlx still uses
-	// pq though, but it's only referenced in tests.
-	// https://github.com/jackc/pgx
 	var proto, conn string
 	if i := strings.Index(opt.Connect, "://"); i > -1 {
 		proto = opt.Connect[:i]

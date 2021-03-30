@@ -1,4 +1,4 @@
-// +build testmariadb
+// +build testmaria
 
 package zdb
 
@@ -14,8 +14,17 @@ func connectTest() string {
 }
 
 // TODO: needs to be improved.
-func StartTest(t *testing.T) context.Context {
+func StartTest(t *testing.T, opt ...ConnectOptions) context.Context {
 	t.Helper()
+
+	if len(opt) > 1 {
+		t.Fatal("zdb.StartTest: can only add one ConnectOptions")
+	}
+	var o ConnectOptions
+	if len(opt) == 1 {
+		o = opt[0]
+	}
+	o.Connect = "mysql://root@unix(/var/run/mysqld/mysqld.sock)/zdb_test"
 
 	err := createdb()
 	if err != nil {
@@ -23,9 +32,7 @@ func StartTest(t *testing.T) context.Context {
 		return nil
 	}
 
-	db, err := Connect(ConnectOptions{
-		Connect: "mysql://root@unix(/var/run/mysqld/mysqld.sock)/zdb_test",
-	})
+	db, err := Connect(o)
 	if err != nil {
 		t.Fatal(err)
 	}

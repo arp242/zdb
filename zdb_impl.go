@@ -423,9 +423,6 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 	// MySQL doesn't support this (yet). I guess we'll have to just restrict
 	// "MySQL support" to "MariaDB support".
 	//
-	// But void is using 10.1 still, which isn't even supported any more :-/
-	// https://github.com/void-linux/void-packages/pull/25618
-	//
 	// Come to think of it, this should probably return a []int64 of all IDs,
 	// which can be done with PostgreSQL and SQLite, but not really with MariaDB.
 	return r.LastInsertId()
