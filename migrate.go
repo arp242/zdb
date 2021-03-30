@@ -2,6 +2,7 @@ package zdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -18,6 +19,7 @@ type Migrate struct {
 	files fs.FS
 	gomig map[string]func(context.Context) error
 	log   func(name string)
+	test  bool
 }
 
 // NewMigrate creates a new migration instance.
@@ -46,6 +48,9 @@ func NewMigrate(db DB, files fs.FS, gomig map[string]func(context.Context) error
 //
 // This only gets called if the migration was run successfully.
 func (m *Migrate) Log(f func(name string)) { m.log = f }
+
+// Test sets the "test" flags: it won't commit any transactions.
+func (m *Migrate) Test(t bool) { m.test = t }
 
 // List all migrations we know about, and all migrations that have already been
 // run.
@@ -147,12 +152,20 @@ func (m Migrate) Run(which ...string) error {
 		which = zstring.Difference(haveMig, ranMig)
 	}
 
+	ctx := WithDB(context.Background(), m.db)
 	for _, run := range which {
 		if run == "pending" {
 			continue
 		}
 
-		err := TX(WithDB(context.Background(), m.db), func(ctx context.Context) error {
+		if m.db.Driver() == DriverSQLite {
+			err := Exec(ctx, `pragma foreign_keys = off`)
+			if err != nil {
+				return fmt.Errorf("zdb.Migrate.Run: %w", err)
+			}
+		}
+
+		err := TX(ctx, func(ctx context.Context) error {
 			version := strings.TrimSuffix(filepath.Base(run), ".sql")
 
 			// Go migration.
@@ -171,14 +184,22 @@ func (m Migrate) Run(which ...string) error {
 				return err
 			}
 
-			//l.Field("name", run).Print("SQL migration")
 			err = Exec(ctx, s)
 			if err != nil {
 				return err
 			}
-			return Exec(ctx, `insert into version (name) values (?)`, version)
+			err = Exec(ctx, `insert into version (name) values (?)`, version)
+			if err != nil {
+				return err
+			}
+
+			if m.test {
+				return errors.New("TESTTEST")
+			}
+			return nil
 		})
-		if err != nil {
+		if err != nil && !strings.HasSuffix(err.Error(), "TESTTEST") {
+			fmt.Printf("%q\n", err.Error())
 			return fmt.Errorf("zdb.Migrate.Run: error running %q: %w", run, err)
 		}
 		if m.log != nil {
