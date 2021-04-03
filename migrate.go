@@ -161,6 +161,14 @@ func (m Migrate) Run(which ...string) error {
 			continue
 		}
 
+		if m.log != nil {
+			msg := run
+			if m.test {
+				msg += " (test mode; not committing)"
+			}
+			m.log(msg)
+		}
+
 		if m.db.Driver() == DriverSQLite {
 			err := Exec(ctx, `pragma foreign_keys = off`)
 			if err != nil {
@@ -204,14 +212,6 @@ func (m Migrate) Run(which ...string) error {
 			if err != nil {
 				return fmt.Errorf("zdb.Migrate.Run: running %q: %w", run, err)
 			}
-		}
-
-		if m.log != nil {
-			msg := run
-			if m.test {
-				msg += " (test mode; not committed)"
-			}
-			m.log(msg)
 		}
 	}
 
