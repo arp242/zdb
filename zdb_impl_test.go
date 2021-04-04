@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -597,6 +598,52 @@ func TestTX(t *testing.T) {
 			t.Errorf("\ngot:  %q\nwant: %q", got, want)
 		}
 	})
+}
+
+func TestPrepareIn(t *testing.T) {
+	ctx := StartTest(t)
+
+	tests := []struct {
+		query  string
+		params []interface{}
+		want   string
+	}{
+		{``, nil, ` []interface {}(nil)`},
+		{
+			`select * from t where a=? and c in (?)`,
+			[]interface{}{1, []string{"A", "B"}},
+			`select * from t where a=? and c in (?, ?) []interface {}{1, "A", "B"}`,
+		},
+		{
+			`select * from t where a=? and c in (?)`,
+			[]interface{}{1, []int{1, 2}},
+			`select * from t where a=? and c in (1, 2) []interface {}{1}`,
+		},
+		{
+			`select * from t where a=? and c in (?)`,
+			[]interface{}{1, []int64{1, 2}},
+			`select * from t where a=? and c in (1, 2) []interface {}{1}`,
+		},
+		{
+			`? ? ? ? ? ?`,
+			[]interface{}{1, 2, 3, []int64{4}, 5, []int64{6}},
+			`? ? ? 4 ? 6 []interface {}{1, 2, 3, 5}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			query, params, err := Prepare(ctx, tt.query, tt.params...)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			have := fmt.Sprintf("%s %#v", query, params)
+			if have != tt.want {
+				t.Errorf("\nhave: %#v\nwant: %#v", have, tt.want)
+			}
+		})
+	}
 }
 
 func BenchmarkPrepare(b *testing.B) {

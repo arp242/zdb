@@ -73,10 +73,8 @@ func tplFuncs(driver DriverType) template.FuncMap {
 			}[driver]
 		},
 	}
-	if SchemaFuncMap != nil {
-		for k, v := range SchemaFuncMap {
-			f[k] = v
-		}
+	for k, v := range SchemaFuncMap {
+		f[k] = v
 	}
 	return f
 }

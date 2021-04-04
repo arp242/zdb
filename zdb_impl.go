@@ -51,6 +51,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/reflectx"
+	"zgo.at/zstd/zint"
 	"zgo.at/zstd/zstring"
 )
 
@@ -245,6 +246,34 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 		}
 	}
 
+	// Sprintf SQL types and []int slices directly in the query. This solves two
+	// cases:
+	// - IN (...) with a lot of parameters.
+	// - Things like generated SQL (i.e. "interval ...") that shouldn't be escaped.
+	var rm []int
+	for i := len(qparams) - 1; i >= 0; i-- {
+		if s, ok := qparams[i].(SQL); ok {
+			query, err = replaceParam(query, i, s)
+			if err != nil {
+				return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
+			}
+			rm = append(rm, i)
+			continue
+		}
+
+		if s, ok := zint.ToIntSlice(qparams[i]); ok {
+			query, err = replaceParam(query, i, SQL(zint.Join(s, ", ")))
+			if err != nil {
+				return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
+			}
+			rm = append(rm, i)
+		}
+	}
+
+	for _, i := range rm {
+		qparams = append(qparams[:i], qparams[i+1:]...)
+	}
+
 	query, qparams, err = sqlx.In(query, qparams...)
 	if err != nil {
 		return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
@@ -259,6 +288,15 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 	}
 
 	return query, qparams, nil
+}
+
+func replaceParam(query string, n int, param SQL) (string, error) {
+	i := zstring.IndexN(query, "?", uint(n+1))
+	if i == -1 {
+		return "", fmt.Errorf("not enough parameters")
+	}
+
+	return query[:i] + string(param) + query[i+1:], nil
 }
 
 // TODO: this could be cached, but if the FS is an os.DirFS then it may have
@@ -456,7 +494,11 @@ func queryImpl(ctx context.Context, db DB, query string, params ...interface{}) 
 	return &Rows{r}, nil
 }
 
-// Support multiple named parameters by merging the lot in a map.
+// Prepare the paramers:
+//
+//  - Multiple named parameters are merged in a single map.
+//  - DumpArgs are removed.
+//  - Any io.Writer is removed.
 func prepareParams(params []interface{}) (interface{}, bool, DumpArg, io.Writer, error) {
 	if len(params) == 0 {
 		return nil, false, 0, nil, nil
@@ -618,8 +660,6 @@ func replaceConditionals(query string, params ...interface{}) (string, error) {
 			if include {
 				query = query[:s] + query[s+i+4:]     // Everything except "{{:word"
 				query = query[:e-i-4] + query[e-i-2:] // Everything except "}}"
-				if negate {
-				}
 			} else {
 				query = query[:s] + query[e+2:]
 			}

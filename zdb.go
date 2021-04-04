@@ -54,6 +54,16 @@ type (
 	// L ("list") is an alias for []interface.
 	L []interface{}
 
+	// SQL represents a safe SQL string that will be directly inserted in the
+	// query without any modification, rather than passed as a parameter.
+	//
+	// Use with wisdom! Careless use of this can open you to SQL injections.
+	// Generally speaking you rarely want to use this, except in some rare cases
+	// where 1) parameters won't work, and 2) you're really really sure this
+	// value is safe.
+	SQL string
+
+	// DriverType is the SQL driver.
 	DriverType uint8
 )
 
