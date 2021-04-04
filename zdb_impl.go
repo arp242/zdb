@@ -682,6 +682,8 @@ func isTruthy(name string, cond interface{}) (bool, error) {
 		return len(c) > 0, nil
 	case []int64:
 		return len(c) > 0, nil
+	case time.Time:
+		return !c.IsZero(), nil
 	default:
 		return false, fmt.Errorf("unsupported conditional type %T for %q", c, name)
 	}
