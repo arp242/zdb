@@ -629,6 +629,15 @@ func TestPrepareIn(t *testing.T) {
 			[]interface{}{1, 2, 3, []int64{4}, 5, []int64{6}},
 			`? ? ? 4 ? 6 []interface {}{1, 2, 3, 5}`,
 		},
+
+		// Note this is kinda wrong (or at least, unexpected), but this is how
+		// sqlx.In() does it. There is no real way to know this is a []rune
+		// rather than a []int32 :-/
+		{
+			`? (?) ?`,
+			[]interface{}{[]byte("ABC"), []rune("ZXC"), "C"},
+			`? (?, ?, ?) ? []interface {}{[]uint8{0x41, 0x42, 0x43}, 90, 88, 67, "C"}`,
+		},
 	}
 
 	for _, tt := range tests {

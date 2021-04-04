@@ -252,6 +252,15 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 	// - Things like generated SQL (i.e. "interval ...") that shouldn't be escaped.
 	var rm []int
 	for i := len(qparams) - 1; i >= 0; i-- {
+		// These are aliases of []uint8 and []int32; there isn't really any way
+		// to detect which is which AFAIK.
+		if _, ok := qparams[i].([]byte); ok {
+			continue
+		}
+		if _, ok := qparams[i].([]rune); ok {
+			continue
+		}
+
 		if s, ok := qparams[i].(SQL); ok {
 			query, err = replaceParam(query, i, s)
 			if err != nil {
@@ -295,7 +304,6 @@ func replaceParam(query string, n int, param SQL) (string, error) {
 	if i == -1 {
 		return "", fmt.Errorf("not enough parameters")
 	}
-
 	return query[:i] + string(param) + query[i+1:], nil
 }
 
