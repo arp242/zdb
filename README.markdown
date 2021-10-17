@@ -11,6 +11,6 @@ Right now only PostgreSQL and SQLite are supported. Adding MariaDB or other
 engines wouldn't be hard, but I don't use it myself so didn't bother adding (and
 testing!) it. Just need someone to write a patch 😅
 
-Full reference documentation: https://pkg.go.dev/zgo.at/zdb#pkg-index
+Full reference documentation: https://godocs.io/zgo.at/zdb#pkg-index
 
 [sqlx]: https://github.com/jmoiron/sqlx
