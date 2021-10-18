@@ -1,9 +1,9 @@
 zdb.LogDB: [1mlog_test.go:XX[0m
-  SCAN TABLE x
+  SCAN x
   Time: 0.1 ms
 
 zdb.LogDB: [1mlog_test.go:XX[0m
-  SCAN TABLE x
+  SCAN x
   Time: 0.15 ms
 
 ---

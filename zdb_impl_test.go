@@ -255,7 +255,7 @@ func TestPrepareDump(t *testing.T) {
 		out := buf.String()
 		want := `
 			[1mEXPLAIN[0m:
-			  SCAN TABLE tbl
+			  SCAN tbl
 			  Time: 0.016 ms
 			[1mRESULT[0m:
 			  col1   col2

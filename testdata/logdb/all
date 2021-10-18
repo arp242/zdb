@@ -2,7 +2,7 @@ zdb.LogDB: [1mlog_test.go:XX[0m
   [1mQUERY[0m:
     select i from x where i<3;
   [1mEXPLAIN[0m:
-    SCAN TABLE x
+    SCAN x
     Time: XXX ms
   [1mRESULT[0m:
     i
@@ -13,7 +13,7 @@ zdb.LogDB: [1mlog_test.go:XX[0m
   [1mQUERY[0m:
     select i from x where i<4;
   [1mEXPLAIN[0m:
-    SCAN TABLE x
+    SCAN x
     Time: XXX ms
   [1mRESULT[0m:
     i
