@@ -121,9 +121,16 @@ func Connect(opt ConnectOptions) (DB, error) {
 		//   "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"
 		//   "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"
 		//
-		// We don't know which style is being used as zdb.Connect() always uses
+		// We don't know which style is being used as zdb.Connect() already uses
 		// "postgresql://" prefix to determine the driver, so we just try to
 		// connect with both.
+		//
+		// TODO: I hate how this works, and the errors it reports on invalid
+		// connections (i.e. wrong dbname) are horrible.
+		//
+		// Maybe just tell people to use "postgres://postgres://[..]"? That's
+		// pretty ugly though. Could shorten it to "postgres://://[..]",
+		// "postgres://:[..]", or maybe something else.
 		dbx, exists, err = connectPostgreSQL(conn, opt.Create) // k/v style
 		if err != nil {
 			dbx, exists, err = connectPostgreSQL(opt.Connect, opt.Create) // URL-style
@@ -151,10 +158,9 @@ func Connect(opt ConnectOptions) (DB, error) {
 	}
 	switch db.Driver() {
 	case DriverSQLite:
-		// Wait until go-sqlite3 is updated.
-		// if !v.AtLeast("3.35") {
-		// 	err = errors.New("zdb.Connect: zdb requires SQLite 3.35.0 or newer")
-		// }
+		if !v.AtLeast("3.35") {
+			err = errors.New("zdb.Connect: zdb requires SQLite 3.35.0 or newer")
+		}
 	case DriverMariaDB:
 		if !v.AtLeast("10.5") {
 			err = errors.New("zdb.Connect: zdb requires MariaDB 10.5.0 or newer")
@@ -173,13 +179,22 @@ func Connect(opt ConnectOptions) (DB, error) {
 		return db, nil
 	}
 
-	// Accept both "go:embed db/*" from the toplevel, and "go:embbed *" from the
+	// Accept both "go:embed db/*" from the toplevel, and "go:embed *" from the
 	// db package.
 	opt.Files, err = zfs.SubIfExists(opt.Files, "db")
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
 	db.queryFS, _ = fs.Sub(opt.Files, "query") // Optional, okay to ignore error.
+
+	// The database can exist, but be empty. Consider a database to "exist" only
+	// if there's more than one table (any table).
+	if exists {
+		exists, err = hasTables(db)
+		if err != nil {
+			return nil, fmt.Errorf("zdb.Connect: %w", err)
+		}
+	}
 
 	// Create schema.
 	if !exists {
@@ -258,6 +273,7 @@ func (err NotExistError) Error() string {
 }
 
 func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
+	exists := true
 	db, err := sqlx.Connect("postgres", connect)
 	if err != nil {
 		var (
@@ -265,15 +281,33 @@ func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
 			pqErr  *pq.Error
 		)
 		if errors.As(err, &pqErr) && pqErr.Code == "3D000" {
+			// TODO: rather ugly way to get database name :-/ pq doesn't expose
+			// any way to parse the connection string :-/
+			//
+			// This would also allow us to get rid of the "createdb" shell
+			// command; we can connect with the same credentials to the
+			// "postgres" database and try "create database [wantdb]", using
+			// "createdb" only as a fallback. But to do this we need more
+			// information.
+			//
+			// https://github.com/jackc/pgx does expose this, and it the
+			// "recommended library" according to the pg readme, but this pulls
+			// in a slew of 34 dependencies, so meh. There's a few issues about
+			// this; might get fixed in v5.
+			//
+			// pg is in "maintainence mode" with many unmerged PRs; it works,
+			// but is on its way out. Should really look into this. Maybe do a
+			// "fork" which just fixed a bit of the dependency stuff(?) We don't
+			// need all the logadapter stuff, can vendor the jackc/pg* things,
+			// and maybe do some other simple automated changes.
 			x := regexp.MustCompile(`pq: database "(.+?)" does not exist`).FindStringSubmatch(pqErr.Error())
 			if len(x) >= 2 {
 				dbname = x[1]
+				exists = true
 			}
 		}
 
 		if create && dbname != "" {
-			// AFAIK using the "createdb" shell command is the only way to
-			// create a database. I don't really like it though :-/
 			out, cerr := exec.Command("createdb", dbname).CombinedOutput()
 			if cerr != nil {
 				return nil, false, fmt.Errorf("connectPostgreSQL: %w: %s", cerr, out)
@@ -296,7 +330,7 @@ func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(25)
 
-	return db, true, nil
+	return db, exists, nil
 }
 
 func connectMariaDB(connect string, create bool) (*sqlx.DB, bool, error) {
@@ -401,4 +435,23 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 	db.SetMaxIdleConns(4)
 
 	return db, exists, nil
+}
+
+func hasTables(db DB) (bool, error) {
+	var (
+		has int
+		err error
+	)
+	switch db.Driver() {
+	case DriverPostgreSQL:
+		err = db.Get(context.Background(), &has, `select
+			(select count(*) from pg_views where schemaname = current_schema()) +
+			(select count(*) from pg_tables where schemaname = current_schema())`)
+	case DriverSQLite:
+		err = db.Get(context.Background(), &has, `select count(*) from sqlite_schema`)
+	case DriverMariaDB:
+		// TODO: views?
+		err = db.Get(context.Background(), &has, `select count(*) from information_schema.TABLES`)
+	}
+	return has > 0, err
 }
