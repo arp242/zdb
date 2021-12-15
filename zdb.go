@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jmoiron/sqlx"
+	"zgo.at/zdb/internal/sqlx"
 )
 
 // DB is an interface to the database; this can be a regular connection, a

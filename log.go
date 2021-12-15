@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
+	"zgo.at/zdb/internal/sqlx"
 )
 
 type logDB struct {

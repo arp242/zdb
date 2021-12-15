@@ -49,8 +49,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-	"github.com/jmoiron/sqlx/reflectx"
+	"zgo.at/zdb/internal/sqlx"
+	"zgo.at/zdb/internal/sqlx/reflectx"
 	"zgo.at/zstd/zint"
 	"zgo.at/zstd/zstring"
 )

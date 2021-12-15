@@ -14,9 +14,9 @@ import (
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
+	"zgo.at/zdb/internal/sqlx"
 	"zgo.at/zstd/zfs"
 )
 
