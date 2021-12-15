@@ -198,6 +198,10 @@ func Connect(opt ConnectOptions) (DB, error) {
 
 	// Create schema.
 	if !exists {
+		if !opt.Create {
+			return nil, &NotExistError{Driver: driver.String(), Connect: conn}
+		}
+
 		s, file, err := findFile(opt.Files, insertDriver(db, "schema")...)
 		if err != nil {
 			return nil, fmt.Errorf("zdb.Connect: %w", err)
@@ -268,6 +272,10 @@ type NotExistError struct {
 }
 
 func (err NotExistError) Error() string {
+	if err.Driver == "" {
+		return fmt.Sprintf("%s database exists but is empty (from connection string %q)",
+			err.Driver, err.Driver+"://"+err.Connect)
+	}
 	return fmt.Sprintf("%s database %q doesn't exist (from connection string %q)",
 		err.Driver, err.DB, err.Driver+"://"+err.Connect)
 }
