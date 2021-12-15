@@ -446,11 +446,12 @@ func hasTables(db DB) (bool, error) {
 	case DriverPostgreSQL:
 		err = db.Get(context.Background(), &has, `select
 			(select count(*) from pg_views where schemaname = current_schema()) +
-			(select count(*) from pg_tables where schemaname = current_schema())`)
+			(select count(*) from pg_tables where schemaname = current_schema() and tablename != 'version')`)
 	case DriverSQLite:
-		err = db.Get(context.Background(), &has, `select count(*) from sqlite_schema`)
+		err = db.Get(context.Background(), &has, `select count(*) from sqlite_schema where tbl_name != 'version'`)
 	case DriverMariaDB:
 		// TODO: views?
+		// TODO: exclude version; I don't have MariaDB running atm.
 		err = db.Get(context.Background(), &has, `select count(*) from information_schema.TABLES`)
 	}
 	return has > 0, err
