@@ -91,12 +91,11 @@ var (
 // can often be treated as a non-fatal error.
 var ErrTransactionStarted = errors.New("transaction already started")
 
-// Prepare a query for sendoff to the database.
+// Prepare a query to send to the database.
 //
 // Named parameters (:name) are used if params contains a map or struct;
-// positional parameters (? or $1) are used if it's doesn't. You can add
-// multiple structs or maps, but mixing named and positional parameters is not
-// allowed.
+// positional parameters (? or $1) are used if it doesn't. You can add multiple
+// structs or maps, but mixing named and positional parameters is not allowed.
 //
 // Everything between {{:name ..}} is parsed as a conditional; for example
 // {{:foo query}} will only be added if "foo" from params is true or not a zero
@@ -105,13 +104,18 @@ var ErrTransactionStarted = errors.New("transaction already started")
 // If the query starts with "load:" then it's loaded from the filesystem or
 // embedded files; see Load() for details.
 //
-// Additional DumpArgs can be added to dump the results of the query to stderr
-// for testing and debugging:
+// Additional DumpArgs can be added to "dump" information to stderr for testing
+// and debugging:
 //
+//    DumpLocation   Show location of Dump call.
 //    DumpQuery      Show the query
 //    DumpExplain    Show query plain (WILL RUN QUERY TWICE!)
 //    DumpResult     Show the query result (WILL RUN QUERY TWICE!)
 //    DumpVertical   Show results in vertical format.
+//    DumpCSV        Print query result as CSV.
+//    DumpJSON       Print query result as JSON.
+//    DumpHTML       Print query result as a HTML table.
+//    DumpAll        Dump all we can.
 //
 // Running the query twice for a select is usually safe (just slower), but
 // running insert, update, or delete twice may cause problems.
@@ -121,19 +125,15 @@ func Prepare(ctx context.Context, query string, params ...interface{}) (string, 
 
 // Load a query from the filesystem or embeded files.
 //
-// Queries are loaded from "db/query/{name}-{driver}.sql" or
-// "db/query/{name}.sql". Every query will have the file name inserted in the
-// first line; for example with "db/query/select-x.sql":
+// Queries are loaded from the "db/query/" directory, as "{name}-{driver}.sql"
+// or "db/query/{name}.sql".
 //
-//   select x from y;
-//
-// Then the actual query will be:
+// To allow identifying queries in logging and statistics such as
+// pg_stat_statements every query will have the file name inserted in the first
+// line; for example for "db/query/select-x.sql" the query sent to the database:
 //
 //   /* select-x */
 //   select x from y;
-//
-// This allows identifying queries in logging and statistics such as
-// pg_stat_statements.
 //
 // Typical usage with Query() is to use "load:name", instead of calling this
 // directly:
@@ -194,7 +194,6 @@ func NumRows(ctx context.Context, query string, params ...interface{}) (int64, e
 // InsertID runs a INSERT query and returns the ID column idColumn.
 //
 // If multiple rows are inserted it will return the ID of the last inserted row.
-// This works for both PostgreSQL and SQLite.
 //
 // This uses Prepare(), and all the documentation from there applies here too.
 func InsertID(ctx context.Context, idColumn, query string, params ...interface{}) (int64, error) {
@@ -203,7 +202,7 @@ func InsertID(ctx context.Context, idColumn, query string, params ...interface{}
 
 // Select one or more rows; dest needs to be a pointer to a slice.
 //
-// Returns nil if there are no rows.
+// Returns nil (and no error) if there are no rows.
 //
 // This uses Prepare(), and all the documentation from there applies here too.
 func Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
@@ -220,15 +219,18 @@ func Get(ctx context.Context, dest interface{}, query string, params ...interfac
 // Query the database without immediately loading the result.
 //
 // This gives more flexibility over Select(), and won't load the entire result
-// in memory and allows fetching the result one row at a time.
+// in memory to allow fetching the result one row at a time.
 //
 // This won't return an error if there are no rows.
+// TODO: will it return nil or Rows which just does nothing? Make sure this is
+// tested and documented.
 //
 // This uses Prepare(), and all the documentation from there applies here too.
 func Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
 	return queryImpl(ctx, MustGetDB(ctx), query, params...)
 }
 
+// TODO: document.
 type Rows struct{ r *sqlx.Rows }
 
 func (r *Rows) Next() bool                              { return r.r.Next() }
@@ -284,21 +286,23 @@ func MustGetDB(ctx context.Context) DB {
 	return db
 }
 
-// Unwrap this database, removing any of the zdb wrappers and returning the
-// underlying sqlx.DB or sqlx.Tx.
+// Unwrap this database, removing all zdb wrappers and returning the underlying
+// database (which may be a transaction).
 //
 // To wrap a zdb.DB object embed the zdb.DB interface, which contains the parent
-// DB connection.
+// DB connection. The Unwrap() method is expected to return the parent DB.
 //
-// The Unwrap() method is expected to return the parent DB.
-//
-// Then implement override whatever you want; usually you will want to implement
-// the dbImpl interface, which contains the methods that actually interact with
-// the database. All the DB methods call this under the hood. This way you don't
+// Then implement whatever you want; usually you will want to implement the
+// dbImpl interface, which contains the methods that actually interact with the
+// database. All the DB methods call this under the hood. This way you don't
 // have to wrap all the methods on DB, but just five.
 //
 // In Begin() you will want to return a new wrapped DB instance with the
 // transaction attached.
+//
+// See logDB and metricDB in log.go and metric.go for examples.
+//
+// TODO: document wrapping a bit better.
 func Unwrap(db DB) DB {
 	uw, ok := db.(interface {
 		Unwrap() DB
@@ -315,4 +319,6 @@ func ErrNoRows(err error) bool {
 }
 
 // Driver gets the SQL driver.
-func Driver(ctx context.Context) DriverType { return MustGetDB(ctx).Driver() }
+func Driver(ctx context.Context) DriverType {
+	return MustGetDB(ctx).Driver()
+}

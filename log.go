@@ -32,8 +32,6 @@ type logDB struct {
 // significant performance impact and DATA MODIFICATION STATEMENTS ARE ALSO RUN
 // TWICE. Some SQL engines may also run the query on EXPLAIN (e.g. PostgreSQL
 // does).
-//
-//
 func NewLogDB(db DB, out io.Writer, logWhat DumpArg, filter string) DB {
 	if logWhat == 0 {
 		logWhat = DumpQuery

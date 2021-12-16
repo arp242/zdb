@@ -7,22 +7,22 @@ import (
 	"text/template"
 )
 
-// SchemaFuncMap are additional template functions for SchemaTemplate().
-// Existing functions may be overridden.
-var SchemaFuncMap template.FuncMap
+// TemplateFuncMap are additional template functions for Template(). Existing
+// functions may be overridden.
+var TemplateFuncMap template.FuncMap
 
-// SchemaTemplate runs text/template on the database schema to make writing
-// compatible schemas a bit easier.
-func SchemaTemplate(driver DriverType, tpl string) ([]byte, error) {
+// Template runs text/template on SQL to make writing compatible schemas a bit
+// easier.
+func Template(driver DriverType, tpl string) ([]byte, error) {
 	t, err := template.New("").Funcs(tplFuncs(driver)).Parse(tpl)
 	if err != nil {
-		return nil, fmt.Errorf("zdb.SchemaTemplate: %w", err)
+		return nil, fmt.Errorf("zdb.Template: %w", err)
 	}
 
 	buf := new(bytes.Buffer)
 	err = t.Execute(buf, nil)
 	if err != nil {
-		return nil, fmt.Errorf("zdb.SchemaTemplate: %w", err)
+		return nil, fmt.Errorf("zdb.Template: %w", err)
 	}
 	b := regexp.MustCompile(` +\n`).ReplaceAll(buf.Bytes(), []byte("\n"))
 	return b, nil
@@ -73,7 +73,7 @@ func tplFuncs(driver DriverType) template.FuncMap {
 			}[driver]
 		},
 	}
-	for k, v := range SchemaFuncMap {
+	for k, v := range TemplateFuncMap {
 		f[k] = v
 	}
 	return f

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestSchemaTemplate(t *testing.T) {
+func TestTemplate(t *testing.T) {
 	const testSchema = `
 create table x (
 	x_id        {{auto_increment}},
@@ -39,7 +39,7 @@ PSQL
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			got, err := SchemaTemplate(tt.driver, testSchema)
+			got, err := Template(tt.driver, testSchema)
 			if err != nil {
 				t.Fatal(err)
 			}

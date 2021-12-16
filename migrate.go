@@ -109,7 +109,7 @@ func (m Migrate) Schema(name string) (string, error) {
 	}
 
 	if strings.HasSuffix(file, ".gotxt") {
-		b, err = SchemaTemplate(m.db.Driver(), string(b))
+		b, err = Template(m.db.Driver(), string(b))
 		if err != nil {
 			return "", err
 		}

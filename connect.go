@@ -20,6 +20,7 @@ import (
 	"zgo.at/zstd/zfs"
 )
 
+// ConnectOptions are options for Connect().
 type ConnectOptions struct {
 	Connect string   // Connect string.
 	Create  bool     // Create database if it doesn't exist yet.
@@ -61,17 +62,17 @@ type ConnectOptions struct {
 // Connect to a database.
 //
 // The database will be created automatically if the database doesn't exist and
-// Schema is in ConnectOptions. It looks for the following files, in this order:
+// Create is true. It looks for the following files, in this order:
 //
-//   schema.gotxt           Run zdb.SchemaTemplate first.
+//   schema.gotxt           Run zdb.Template first.
 //   schema-{driver}.sql    Driver-specific schema.
 //   schema.sql
 //
 // This will set the maximum number of open and idle connections to 25 each for
-// PostgreSQL, and 16 and 4 for SQLite, instead of Go's default of 0 and 2.
+// PostgreSQL, and 16 and 4 for SQLite, instead of Go's default of 0 and 2. To
+// change this, you can use:
 //
-// To change this, you can use:
-//   db.DBSQL().SetMaxOpenConns(100)
+//    db.DBSQL().SetMaxOpenConns(100)
 //
 // Several connection parameters are set to different defaults in SQLite:
 //
@@ -94,10 +95,12 @@ type ConnectOptions struct {
 // You can still use "?_journal_mode=something_else" in the connection string to
 // set something different.
 //
-// For details on the connection string, see the documentation for go-sqlite3
-// and pq:
-// https://github.com/mattn/go-sqlite3/
-// https://github.com/lib/pq
+// For details on the connection string, see the documentation for go-sqlite3,
+// pq, or myself:
+//
+//   - https://github.com/mattn/go-sqlite3/
+//   - https://github.com/lib/pq
+//   - https://github.com/go-sql-driver/mysql
 func Connect(opt ConnectOptions) (DB, error) {
 	var proto, conn string
 	if i := strings.Index(opt.Connect, "://"); i > -1 {
@@ -131,6 +134,14 @@ func Connect(opt ConnectOptions) (DB, error) {
 		// Maybe just tell people to use "postgres://postgres://[..]"? That's
 		// pretty ugly though. Could shorten it to "postgres://://[..]",
 		// "postgres://:[..]", or maybe something else.
+		//
+		//   -db sqlite3:file.foo
+		//   -db sqlite:file.foo
+		//   -db psql:...
+		//   -db pgsql:...
+		//   -db pg:...
+		//   -db postgres:..
+		//   -db postgresql:..
 		dbx, exists, err = connectPostgreSQL(conn, opt.Create) // k/v style
 		if err != nil {
 			dbx, exists, err = connectPostgreSQL(opt.Connect, opt.Create) // URL-style
@@ -207,7 +218,7 @@ func Connect(opt ConnectOptions) (DB, error) {
 			return nil, fmt.Errorf("zdb.Connect: %w", err)
 		}
 		if strings.HasSuffix(file, ".gotxt") {
-			s, err = SchemaTemplate(db.Driver(), string(s))
+			s, err = Template(db.Driver(), string(s))
 			if err != nil {
 				return nil, fmt.Errorf("zdb.Connect: %w", err)
 			}

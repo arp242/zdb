@@ -5,12 +5,12 @@ package zdb
 // How this works:
 //
 // - We use sqlx.DB internally, but everything we return is a "zDB" or zTX". For
-//   all public appearances, there is no sqlx.
+//   users of zdb, there is no sqlx.
 //
 // - Most of the actual implementations are in the *Impl() functions (the name
 //   avoids some conflicts with keywords, packages, and common variables).
 //
-// - The top-level Get(), zDB.Get(), and zTX.Get() all call these *Impl()
+// - zDB.Get(), zTX.Get(), and the package-level Get() all call these *Impl()
 //   functions.
 //
 // This is a little bit convoluted, but it solves some issues:
@@ -25,15 +25,12 @@ package zdb
 //   easier.
 //
 // - Wrapping a sqlx.DB is easy, for example for logging or whatnot, but also
-//   making this wrapper work on transaction is hard, because of the above
+//   making this wrapper work on transaction is harder, because of the above
 //   issue.
 //
 // - For zDB.Load() / zdb.Load() we need a fs.FS, but I don't really like the
 //   idea of having to pass that around all the time, and I also don't really want
 //   to add it to the context. But we can add it to the zDB.
-//
-// Perhaps we should just stop using sqlx or fork locally. It's not
-// super-maintained anyway.
 
 import (
 	"bytes"
@@ -194,11 +191,11 @@ func (db zTX) QueryxContext(ctx context.Context, query string, params ...interfa
 
 var stderr io.Writer = os.Stderr
 
+// Version represents a database version.
 type Version string
 
-func (v Version) AtLeast(want Version) bool {
-	return want < v
-}
+// AtLeast reports if this version is at least version want.
+func (v Version) AtLeast(want Version) bool { return want < v }
 
 func versionImpl(ctx context.Context) (Version, error) {
 	var (
@@ -311,8 +308,8 @@ func replaceParam(query string, n int, param SQL) (string, error) {
 // changes on the filesystem (being able to change queries w/o recompile is
 // nice).
 //
-// TODO: implement .gotxt support here too? The {{ .. }} from our own syntax
-// will clash though.
+// TODO: implement .gotxt support here too? The {{ .. }} from our own
+// mini-template syntax will clash though.
 func loadImpl(ctx context.Context, db DB, name string) (string, error) {
 	name = strings.TrimSuffix(name, ".sql")
 	q, _, err := findFile(db.(interface{ queryFiles() fs.FS }).queryFiles(), insertDriver(db, name)...)
@@ -423,8 +420,7 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 	}
 
 	// TODO: SQLite 3.35 (March 2021) also supports returning; probably better
-	// to use this for SQLite as well as it's more flexible. Need to make sure
-	// that people are using SQLite 3.35 though.
+	// to use this for SQLite as well as it's more flexible.
 	//
 	// https://sqlite.org/lang_returning.html
 	if Driver(ctx) == DriverPostgreSQL {
@@ -440,6 +436,7 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 	if err != nil {
 		return 0, err
 	}
+
 	// TODO: On MariaDB lastinsertID returns the FIRST insert id, not the LAST.
 	// This is a MariaDB problem, not a Go problem.
 	//
@@ -460,17 +457,13 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 	// |      2 | asd  |
 	// +--------+------+
 	//
-	// It also doesn't support "returning", the best we can do is max(col_id) or
-	// some such? This isn't thread-safe though.
-	//
-	// Actually, MariaDB 10.5 supports this:
+	// MariaDB 10.5 supports this returning, so use that:
 	// https://mariadb.com/kb/en/insertreturning/
 	//
 	// MySQL doesn't support this (yet). I guess we'll have to just restrict
 	// "MySQL support" to "MariaDB support".
 	//
-	// Come to think of it, this should probably return a []int64 of all IDs,
-	// which can be done with PostgreSQL and SQLite, but not really with MariaDB.
+	// Come to think of it, this should probably return a []int64 of all IDs.
 	return r.LastInsertId()
 }
 
@@ -507,6 +500,8 @@ func queryImpl(ctx context.Context, db DB, query string, params ...interface{}) 
 //  - Multiple named parameters are merged in a single map.
 //  - DumpArgs are removed.
 //  - Any io.Writer is removed.
+//
+// TODO: document in Prepare() that you can pass a io.Writer.
 func prepareParams(params []interface{}) (interface{}, bool, DumpArg, io.Writer, error) {
 	if len(params) == 0 {
 		return nil, false, 0, nil, nil
@@ -590,7 +585,6 @@ func prepareParams(params []interface{}) (interface{}, bool, DumpArg, io.Writer,
 }
 
 func typeOfElem(i interface{}) reflect.Type {
-	//v := reflect.TypeOf(i)
 	var t reflect.Type
 	for t = reflect.TypeOf(i); t.Kind() == reflect.Ptr; {
 		t = t.Elem()
@@ -620,19 +614,19 @@ func isNamed(t reflect.Type, a interface{}) bool {
 
 // TODO: it would be nice if this would deal with whitespace a bit better.
 //
-// This has two spaces:
+// This has two spaces in the resulting SQL:
 //
-//    where {{:x x = :x}} order by a → where  order by a
+//    "where {{:x x = :x}} order by a" → "where  order by a"
 //
 // And with newlines it's even worse:
 //
-//    where
-//		{{:x x = :x}}
-//	  order by a
-//	  →
-//	  where
+//     where
+//	     {{:x x = :x}}
+//	   order by a
+//   →
+//	   where
 //
-//	  order by a
+//	   order by a
 func replaceConditionals(query string, params ...interface{}) (string, error) {
 	for _, p := range zstring.IndexPairs(query, "{{:", "}}") {
 		s := p[0]
