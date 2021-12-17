@@ -56,14 +56,14 @@ var ctxkey = &struct{ n string }{"zdb"}
 
 type zDB struct {
 	db      *sqlx.DB
-	driver  DriverType
+	dialect Dialect
 	queryFS fs.FS
 }
 
 func (db zDB) queryFiles() fs.FS { return db.queryFS }
 
 func (db zDB) DBSQL() *sql.DB                               { return db.db.DB }
-func (db zDB) Driver() DriverType                           { return db.driver }
+func (db zDB) SQLDialect() Dialect                          { return db.dialect }
 func (db zDB) Ping(ctx context.Context) error               { return db.db.PingContext(ctx) }
 func (db zDB) Version(ctx context.Context) (Version, error) { return versionImpl(ctx) }
 
@@ -125,7 +125,7 @@ type zTX struct {
 func (db zTX) queryFiles() fs.FS { return db.parent.queryFiles() }
 
 func (db zTX) DBSQL() *sql.DB                               { return db.parent.DBSQL() }
-func (db zTX) Driver() DriverType                           { return db.parent.driver }
+func (db zTX) SQLDialect() Dialect                          { return db.parent.dialect }
 func (db zTX) Ping(ctx context.Context) error               { return db.parent.Ping(ctx) }
 func (db zTX) Version(ctx context.Context) (Version, error) { return db.parent.Version(ctx) }
 
@@ -202,13 +202,13 @@ func versionImpl(ctx context.Context) (Version, error) {
 		v   string
 		err error
 	)
-	switch Driver(ctx) {
-	case DriverSQLite:
+	switch SQLDialect(ctx) {
+	case DialectSQLite:
 		err = Get(ctx, &v, `select sqlite_version()`)
-	case DriverMariaDB:
+	case DialectMariaDB:
 		err = Get(ctx, &v, `select version()`)
 		v = strings.TrimSuffix(v, "-MariaDB")
-	case DriverPostgreSQL:
+	case DialectPostgreSQL:
 		err = Get(ctx, &v, `show server_version`)
 	}
 	return Version(v), err
@@ -312,7 +312,7 @@ func replaceParam(query string, n int, param SQL) (string, error) {
 // mini-template syntax will clash though.
 func loadImpl(ctx context.Context, db DB, name string) (string, error) {
 	name = strings.TrimSuffix(name, ".sql")
-	q, _, err := findFile(db.(interface{ queryFiles() fs.FS }).queryFiles(), insertDriver(db, name)...)
+	q, _, err := findFile(db.(interface{ queryFiles() fs.FS }).queryFiles(), insertDialect(db, name)...)
 	if err != nil {
 		return "", fmt.Errorf("zdb.Load: %w", err)
 	}

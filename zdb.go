@@ -21,7 +21,8 @@ import (
 // See documentation on the top-level functions for more details on the methods.
 type DB interface {
 	DBSQL() *sql.DB
-	Driver() DriverType
+	SQLDialect() Dialect
+	DriverName() string
 	Ping(context.Context) error
 	Version(context.Context) (Version, error)
 
@@ -37,7 +38,6 @@ type DB interface {
 
 	BindNamed(query string, param interface{}) (newquery string, params []interface{}, err error)
 	Rebind(query string) string
-	DriverName() string
 	Close() error
 
 	TX(context.Context, func(context.Context) error) error
@@ -63,28 +63,29 @@ type (
 	// value is safe.
 	SQL string
 
-	// DriverType is the SQL driver.
-	DriverType uint8
+	// Dialect is an SQL dialect. This can be represented by multiple drivers;
+	// for example for PostgreSQL "pq" and "pgx" are both DialectPostgreSQL.
+	Dialect uint8
 )
 
-func (d DriverType) String() string {
+func (d Dialect) String() string {
 	switch d {
-	case DriverSQLite:
+	case DialectSQLite:
 		return "SQLite"
-	case DriverPostgreSQL:
+	case DialectPostgreSQL:
 		return "PostgreSQL"
-	case DriverMariaDB:
+	case DialectMariaDB:
 		return "MariaDB"
 	default:
 		return "(unknown)"
 	}
 }
 
-var (
-	DriverUnknown    DriverType = 0
-	DriverSQLite     DriverType = 1
-	DriverPostgreSQL DriverType = 2
-	DriverMariaDB    DriverType = 3
+const (
+	DialectUnknown Dialect = iota
+	DialectSQLite
+	DialectPostgreSQL
+	DialectMariaDB
 )
 
 // ErrTransactionStarted is returned when a transaction is already started; this
@@ -318,7 +319,7 @@ func ErrNoRows(err error) bool {
 	return errors.Is(err, sql.ErrNoRows)
 }
 
-// Driver gets the SQL driver.
-func Driver(ctx context.Context) DriverType {
-	return MustGetDB(ctx).Driver()
+// SQLDialect gets the SQL dialect.
+func SQLDialect(ctx context.Context) Dialect {
+	return MustGetDB(ctx).SQLDialect()
 }

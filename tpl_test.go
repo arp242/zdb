@@ -17,17 +17,17 @@ create table x (
 `
 
 	tests := []struct {
-		driver DriverType
+		driver Dialect
 		want   string
 	}{
-		{DriverSQLite, `
+		{DialectSQLite, `
 create table x (
 	x_id        integer        primary key autoincrement,
 	created_at  timestamp      check(created_at = strftime('%Y-%m-%d', created_at))
 );
 SQLITE
 	`},
-		{DriverPostgreSQL, `
+		{DialectPostgreSQL, `
 create table x (
 	x_id        serial         primary key,
 	created_at  timestamp

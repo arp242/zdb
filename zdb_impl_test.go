@@ -261,7 +261,7 @@ func TestPrepareDump(t *testing.T) {
 			  col1   col2
 			  hello  1`
 
-		if Driver(ctx) == DriverPostgreSQL {
+		if SQLDialect(ctx) == DialectPostgreSQL {
 			want = `
 			[1mEXPLAIN[0m:
 			  Seq Scan on tbl  (cost=0.00..25.88 rows=6 width=36) (actual time=0.005..0.015 rows=1 loops=1)
@@ -284,7 +284,7 @@ func TestPrepareDump(t *testing.T) {
 
 func prep(ctx context.Context, got, want string) (string, string) {
 	re := []string{`([0-9]+.[0-9]+) ms`, `log_test\.go:(\d\d)`}
-	if Driver(ctx) == DriverPostgreSQL {
+	if SQLDialect(ctx) == DialectPostgreSQL {
 		re = append(re, `(?:cost|time)=([0-9.]+)\.\.([0-9.]+) `)
 	}
 
@@ -298,10 +298,10 @@ func TestInsertID(t *testing.T) {
 	ctx := StartTest(t)
 
 	tbl := `create table test (col_id integer primary key autoincrement, v varchar)`
-	if Driver(ctx) == DriverPostgreSQL {
+	if SQLDialect(ctx) == DialectPostgreSQL {
 		tbl = `create table test (col_id serial primary key, v varchar)`
 	}
-	if Driver(ctx) == DriverMariaDB {
+	if SQLDialect(ctx) == DialectMariaDB {
 		tbl = `create table test (col_id integer auto_increment, v varchar(255), primary key(col_id))`
 	}
 	err := Exec(ctx, tbl, nil)

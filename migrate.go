@@ -63,21 +63,21 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 		return nil, nil, fmt.Errorf("read migrations: %w", err)
 	}
 
-	driver := m.db.Driver()
+	dialect := m.db.SQLDialect()
 	for _, f := range ls {
 		if !zstring.HasSuffixes(f.Name(), ".sql", "gotxt") {
 			continue
 		}
 
-		isFor := DriverUnknown
+		isFor := DialectUnknown
 		if zstring.HasSuffixes(f.Name(), "-postgres.sql", "-postgresql.sql") {
-			isFor = DriverPostgreSQL
+			isFor = DialectPostgreSQL
 		} else if zstring.HasSuffixes(f.Name(), "-sqlite3.sql", "-sqlite.sql") {
-			isFor = DriverSQLite
+			isFor = DialectSQLite
 		} else if zstring.HasSuffixes(f.Name(), "-mariadb.sql") {
-			isFor = DriverMariaDB
+			isFor = DialectMariaDB
 		}
-		if isFor != DriverUnknown && isFor != driver {
+		if isFor != DialectUnknown && isFor != dialect {
 			continue
 		}
 
@@ -103,13 +103,13 @@ func (m Migrate) Schema(name string) (string, error) {
 		return "", fmt.Errorf("%q is a Go migration", name)
 	}
 
-	b, file, err := findFile(m.files, insertDriver(m.db, zstring.TrimSuffixes(name, ".sql", ".gotxt"))...)
+	b, file, err := findFile(m.files, insertDialect(m.db, zstring.TrimSuffixes(name, ".sql", ".gotxt"))...)
 	if err != nil {
 		return "", err
 	}
 
 	if strings.HasSuffix(file, ".gotxt") {
-		b, err = Template(m.db.Driver(), string(b))
+		b, err = Template(m.db.SQLDialect(), string(b))
 		if err != nil {
 			return "", err
 		}
@@ -169,7 +169,7 @@ func (m Migrate) Run(which ...string) error {
 			m.log(msg)
 		}
 
-		if m.db.Driver() == DriverSQLite {
+		if m.db.SQLDialect() == DialectSQLite {
 			err := Exec(ctx, `pragma foreign_keys = off`)
 			if err != nil {
 				return fmt.Errorf("zdb.Migrate.Run: %w", err)

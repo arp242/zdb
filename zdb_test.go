@@ -98,8 +98,8 @@ func TestDate(t *testing.T) {
 	}
 }
 
-func TestDriver(t *testing.T) {
+func TestDialect(t *testing.T) {
 	ctx := StartTest(t)
 	db := MustGetDB(ctx)
-	t.Log(db.Driver())
+	t.Log(db.SQLDialect())
 }

@@ -127,14 +127,14 @@ func Dump(ctx context.Context, out io.Writer, query string, params ...interface{
 			explain []string
 			err     error
 		)
-		switch Driver(ctx) {
+		switch SQLDialect(ctx) {
 		default:
-			err = errors.New("zdb.LogDB: unsupported driver for LogExplain " + MustGetDB(ctx).DriverName())
-		case DriverPostgreSQL:
+			err = errors.New("zdb.LogDB: unsupported driver for LogExplain " + SQLDialect(ctx).String())
+		case DialectPostgreSQL:
 			err = Select(ctx, &explain, `explain analyze `+query, params...)
-		case DriverMariaDB:
+		case DialectMariaDB:
 			// TODO
-		case DriverSQLite:
+		case DialectSQLite:
 			var sqe []struct {
 				ID, Parent, Notused int
 				Detail              string

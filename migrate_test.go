@@ -46,7 +46,7 @@ func TestMigrateList(t *testing.T) {
 			t.Fatal(err)
 		}
 		want := "select 'migrate-sqlite';\n"
-		if Driver(ctx) == DriverPostgreSQL {
+		if SQLDialect(ctx) == DialectPostgreSQL {
 			want = "select 'migrate-pgsql';\n"
 		}
 		if got != want {
@@ -58,7 +58,7 @@ func TestMigrateList(t *testing.T) {
 			t.Fatal(err)
 		}
 		want = "select 'migrate-sqlite';\n"
-		if Driver(ctx) == DriverPostgreSQL {
+		if SQLDialect(ctx) == DialectPostgreSQL {
 			want = "select 'migrate-pgsql';\n"
 		}
 		if got != want {

@@ -59,7 +59,7 @@ func TestLogDB(t *testing.T) {
 
 				want := string(ztest.Read(t, "testdata/logdb", tt.file))
 				if i := strings.Index(want, "\n---\n"); i >= 0 {
-					if Driver(ctx) == DriverPostgreSQL {
+					if SQLDialect(ctx) == DialectPostgreSQL {
 						want = want[i+5:]
 					} else {
 						want = want[:i]

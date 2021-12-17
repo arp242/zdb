@@ -111,10 +111,10 @@ func Connect(opt ConnectOptions) (DB, error) {
 	}
 
 	var (
-		dbx    *sqlx.DB
-		driver DriverType
-		exists bool
-		err    error
+		dbx     *sqlx.DB
+		dialect Dialect
+		exists  bool
+		err     error
 	)
 	switch proto {
 	case "postgresql", "postgres":
@@ -146,13 +146,13 @@ func Connect(opt ConnectOptions) (DB, error) {
 		if err != nil {
 			dbx, exists, err = connectPostgreSQL(opt.Connect, opt.Create) // URL-style
 		}
-		driver = DriverPostgreSQL
+		dialect = DialectPostgreSQL
 	case "sqlite", "sqlite3":
 		dbx, exists, err = connectSQLite(conn, opt.Create, opt.SQLiteHook)
-		driver = DriverSQLite
+		dialect = DialectSQLite
 	case "mysql":
 		dbx, exists, err = connectMariaDB(conn, opt.Create)
-		driver = DriverMariaDB
+		dialect = DialectMariaDB
 	default:
 		err = fmt.Errorf("zdb.Connect: unrecognized database engine %q in connect string %q", proto, opt.Connect)
 	}
@@ -160,23 +160,23 @@ func Connect(opt ConnectOptions) (DB, error) {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
 
-	db := &zDB{db: dbx, driver: driver}
+	db := &zDB{db: dbx, dialect: dialect}
 
 	// These versions are required for zdb.
 	v, err := db.Version(WithDB(context.Background(), db))
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
-	switch db.Driver() {
-	case DriverSQLite:
+	switch db.SQLDialect() {
+	case DialectSQLite:
 		if !v.AtLeast("3.35") {
 			err = errors.New("zdb.Connect: zdb requires SQLite 3.35.0 or newer")
 		}
-	case DriverMariaDB:
+	case DialectMariaDB:
 		if !v.AtLeast("10.5") {
 			err = errors.New("zdb.Connect: zdb requires MariaDB 10.5.0 or newer")
 		}
-	case DriverPostgreSQL:
+	case DialectPostgreSQL:
 		if !v.AtLeast("12.0") {
 			err = errors.New("zdb.Connect: zdb requires PostgreSQL 12.0 or newer")
 		}
@@ -210,15 +210,15 @@ func Connect(opt ConnectOptions) (DB, error) {
 	// Create schema.
 	if !exists {
 		if !opt.Create {
-			return nil, &NotExistError{Driver: driver.String(), Connect: conn}
+			return nil, &NotExistError{Driver: dialect.String(), Connect: conn}
 		}
 
-		s, file, err := findFile(opt.Files, insertDriver(db, "schema")...)
+		s, file, err := findFile(opt.Files, insertDialect(db, "schema")...)
 		if err != nil {
 			return nil, fmt.Errorf("zdb.Connect: %w", err)
 		}
 		if strings.HasSuffix(file, ".gotxt") {
-			s, err = Template(db.Driver(), string(s))
+			s, err = Template(db.SQLDialect(), string(s))
 			if err != nil {
 				return nil, fmt.Errorf("zdb.Connect: %w", err)
 			}
@@ -251,16 +251,16 @@ func Connect(opt ConnectOptions) (DB, error) {
 	return db, nil
 }
 
-func insertDriver(db DB, name string) []string {
-	switch db.Driver() {
-	case DriverSQLite:
+func insertDialect(db DB, name string) []string {
+	switch db.SQLDialect() {
+	case DialectSQLite:
 		return []string{name + "-sqlite.sql", name + "-sqlite3.sql", name + ".gotxt", name + ".sql"}
-	case DriverPostgreSQL:
+	case DialectPostgreSQL:
 		return []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql", name + ".gotxt", name + ".sql"}
-	case DriverMariaDB:
+	case DialectMariaDB:
 		return []string{name + "-mysql.sql", name + ".gotxt", name + ".sql"}
 	default:
-		return []string{name + "-" + db.DriverName() + ".sql", name + ".gotxt", name + ".sql"}
+		return []string{name + ".gotxt", name + ".sql"}
 	}
 }
 
@@ -461,14 +461,14 @@ func hasTables(db DB) (bool, error) {
 		has int
 		err error
 	)
-	switch db.Driver() {
-	case DriverPostgreSQL:
+	switch db.SQLDialect() {
+	case DialectPostgreSQL:
 		err = db.Get(context.Background(), &has, `select
 			(select count(*) from pg_views where schemaname = current_schema()) +
 			(select count(*) from pg_tables where schemaname = current_schema() and tablename != 'version')`)
-	case DriverSQLite:
+	case DialectSQLite:
 		err = db.Get(context.Background(), &has, `select count(*) from sqlite_schema where tbl_name != 'version'`)
-	case DriverMariaDB:
+	case DialectMariaDB:
 		// TODO: views?
 		// TODO: exclude version; I don't have MariaDB running atm.
 		err = db.Get(context.Background(), &has, `select count(*) from information_schema.TABLES`)
