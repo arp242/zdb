@@ -70,9 +70,6 @@ func (db zDB) SQLDialect() Dialect                          { return db.dialect 
 func (db zDB) Info(ctx context.Context) (ServerInfo, error) { return infoImpl(ctx, db) }
 func (db zDB) Close() error                                 { return db.db.Close() }
 
-func (db zDB) Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error) {
-	return prepareImpl(ctx, db, query, params...)
-}
 func (db zDB) Load(ctx context.Context, name string) (string, error) { return loadImpl(ctx, db, name) }
 
 func (db zDB) Exec(ctx context.Context, query string, params ...interface{}) error {
@@ -137,9 +134,6 @@ func (db zTX) Close() error {
 	return db.parent.Close()
 }
 
-func (db zTX) Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error) {
-	return prepareImpl(ctx, db, query, params...)
-}
 func (db zTX) Load(ctx context.Context, name string) (string, error) { return loadImpl(ctx, db, name) }
 
 func (db zTX) Exec(ctx context.Context, query string, params ...interface{}) error {

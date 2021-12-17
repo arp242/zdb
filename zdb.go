@@ -1,3 +1,32 @@
+// Package zdb provides a nice API to interact with SQL databases in Go.
+//
+// All query functions (Exec, NumRows, InsertID Get, Select, Query) use named
+// parameters (:name) are used if params contains a map or struct; positional
+// parameters (? or $1) are used if it doesn't. You can add multiple structs or
+// maps, but mixing named and positional parameters is not allowed.
+//
+// Everything between {{:name ..}} is parsed as a conditional; for example
+// {{:foo query}} will only be added if "foo" from params is true or not a zero
+// type. Conditionals only work with named parameters.
+//
+// If the query starts with "load:" then it's loaded from the filesystem or
+// embedded files; see Load() for details.
+//
+// Additional DumpArgs can be added to "dump" information to stderr for testing
+// and debugging:
+//
+//    DumpLocation   Show location of Dump call.
+//    DumpQuery      Show the query
+//    DumpExplain    Show query plain (WILL RUN QUERY TWICE!)
+//    DumpResult     Show the query result (WILL RUN QUERY TWICE!)
+//    DumpVertical   Show results in vertical format.
+//    DumpCSV        Print query result as CSV.
+//    DumpJSON       Print query result as JSON.
+//    DumpHTML       Print query result as a HTML table.
+//    DumpAll        Dump all we can.
+//
+// Running the query twice for a select is usually safe (just slower), but
+// running insert, update, or delete twice may cause problems.
 package zdb
 
 // This file contains the public API and all documentation.
@@ -25,7 +54,6 @@ type DB interface {
 	Info(context.Context) (ServerInfo, error)
 	Close() error
 
-	Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error)
 	Load(ctx context.Context, name string) (string, error)
 
 	Exec(ctx context.Context, query string, params ...interface{}) error
@@ -93,38 +121,6 @@ func Info(ctx context.Context) (ServerInfo, error) {
 	return infoImpl(ctx, MustGetDB(ctx))
 }
 
-// Prepare a query to send to the database.
-//
-// Named parameters (:name) are used if params contains a map or struct;
-// positional parameters (? or $1) are used if it doesn't. You can add multiple
-// structs or maps, but mixing named and positional parameters is not allowed.
-//
-// Everything between {{:name ..}} is parsed as a conditional; for example
-// {{:foo query}} will only be added if "foo" from params is true or not a zero
-// type. Conditionals only work with named parameters.
-//
-// If the query starts with "load:" then it's loaded from the filesystem or
-// embedded files; see Load() for details.
-//
-// Additional DumpArgs can be added to "dump" information to stderr for testing
-// and debugging:
-//
-//    DumpLocation   Show location of Dump call.
-//    DumpQuery      Show the query
-//    DumpExplain    Show query plain (WILL RUN QUERY TWICE!)
-//    DumpResult     Show the query result (WILL RUN QUERY TWICE!)
-//    DumpVertical   Show results in vertical format.
-//    DumpCSV        Print query result as CSV.
-//    DumpJSON       Print query result as JSON.
-//    DumpHTML       Print query result as a HTML table.
-//    DumpAll        Dump all we can.
-//
-// Running the query twice for a select is usually safe (just slower), but
-// running insert, update, or delete twice may cause problems.
-func Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error) {
-	return prepareImpl(ctx, MustGetDB(ctx), query, params...)
-}
-
 // Load a query from the filesystem or embeded files.
 //
 // Queries are loaded from the "db/query/" directory, as "{name}-{driver}.sql"
@@ -180,15 +176,11 @@ func TX(ctx context.Context, fn func(context.Context) error) error {
 }
 
 // Exec executes a query without returning the result.
-//
-// This uses Prepare(), and all the documentation from there applies here too.
 func Exec(ctx context.Context, query string, params ...interface{}) error {
 	return execImpl(ctx, MustGetDB(ctx), query, params...)
 }
 
 // NumRows executes a query and returns the number of affected rows.
-//
-// This uses Prepare(), and all the documentation from there applies here too.
 func NumRows(ctx context.Context, query string, params ...interface{}) (int64, error) {
 	return numRowsImpl(ctx, MustGetDB(ctx), query, params...)
 }
@@ -196,8 +188,6 @@ func NumRows(ctx context.Context, query string, params ...interface{}) (int64, e
 // InsertID runs a INSERT query and returns the ID column idColumn.
 //
 // If multiple rows are inserted it will return the ID of the last inserted row.
-//
-// This uses Prepare(), and all the documentation from there applies here too.
 func InsertID(ctx context.Context, idColumn, query string, params ...interface{}) (int64, error) {
 	return insertIDImpl(ctx, MustGetDB(ctx), idColumn, query, params...)
 }
@@ -205,15 +195,11 @@ func InsertID(ctx context.Context, idColumn, query string, params ...interface{}
 // Select one or more rows; dest needs to be a pointer to a slice.
 //
 // Returns nil (and no error) if there are no rows.
-//
-// This uses Prepare(), and all the documentation from there applies here too.
 func Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
 	return selectImpl(ctx, MustGetDB(ctx), dest, query, params...)
 }
 
 // Get one row, returning sql.ErrNoRows if there are no rows.
-//
-// This uses Prepare(), and all the documentation from there applies here too.
 func Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
 	return getImpl(ctx, MustGetDB(ctx), dest, query, params...)
 }
@@ -226,8 +212,6 @@ func Get(ctx context.Context, dest interface{}, query string, params ...interfac
 // This won't return an error if there are no rows.
 // TODO: will it return nil or Rows which just does nothing? Make sure this is
 // tested and documented.
-//
-// This uses Prepare(), and all the documentation from there applies here too.
 func Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
 	return queryImpl(ctx, MustGetDB(ctx), query, params...)
 }

@@ -173,7 +173,7 @@ func TestPrepare(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			ctx := StartTest(t)
 
-			query, args, err := Prepare(ctx, tt.query, tt.args...)
+			query, args, err := prepareImpl(ctx, MustGetDB(ctx), tt.query, tt.args...)
 			query = sqlx.Rebind(sqlx.DOLLAR, query) // Always use $-binds for tests
 			if !ztest.ErrorContains(err, tt.wantErr) {
 				t.Fatal(err)
@@ -645,7 +645,7 @@ func TestPrepareIn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			query, params, err := Prepare(ctx, tt.query, tt.params...)
+			query, params, err := prepareImpl(ctx, MustGetDB(ctx), tt.query, tt.params...)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -684,7 +684,7 @@ func BenchmarkPrepare(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		_, _, _ = Prepare(WithDB(context.Background(), db), query, arg)
+		_, _, _ = prepareImpl(WithDB(context.Background(), db), db, query, arg)
 	}
 }
 
