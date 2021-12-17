@@ -89,7 +89,7 @@ func (db zDB) Select(ctx context.Context, dest interface{}, query string, params
 func (db zDB) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
 	return queryImpl(ctx, db, query, params...)
 }
-func (db zDB) Rebind(query string) string { return db.db.Rebind(query) }
+func (db zDB) rebind(query string) string { return db.db.Rebind(query) }
 func (db zDB) DriverName() string         { return db.db.DriverName() }
 func (db zDB) Close() error               { return db.db.Close() }
 func (db zDB) Begin(ctx context.Context, opts ...beginOpt) (context.Context, DB, error) {
@@ -148,7 +148,7 @@ func (db zTX) Select(ctx context.Context, dest interface{}, query string, params
 func (db zTX) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
 	return queryImpl(ctx, db, query, params...)
 }
-func (db zTX) Rebind(query string) string { return db.db.Rebind(query) }
+func (db zTX) rebind(query string) string { return db.db.Rebind(query) }
 func (db zTX) DriverName() string         { return db.db.DriverName() }
 func (db zTX) Close() error {
 	err := db.Rollback() // Not sure if this is actually needed, but can't hurt.
@@ -278,7 +278,7 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 	if err != nil {
 		return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
 	}
-	query = db.Rebind(query)
+	query = Unwrap(db).(interface{ rebind(string) string }).rebind(query)
 
 	if dumpArgs > 0 {
 		if dumpOut == nil {

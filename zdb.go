@@ -22,8 +22,21 @@ import (
 type DB interface {
 	DBSQL() *sql.DB
 	SQLDialect() Dialect
-	DriverName() string
+	Close() error
+
+	// TODO: merge these three to Info():
+	//
+	// type ServerInfo {
+	//     Version    Version
+	//     DriverName string
+	//     Dialect    Dialect
+	//     // Maybe some more?
+	// }
+	//
+	// func Info() (ServerInfo, error) {
+	// }
 	Ping(context.Context) error
+	DriverName() string
 	Version(context.Context) (Version, error)
 
 	Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error)
@@ -35,9 +48,6 @@ type DB interface {
 	Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error
 	Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error
 	Query(ctx context.Context, query string, params ...interface{}) (*Rows, error)
-
-	Rebind(query string) string
-	Close() error
 
 	TX(context.Context, func(context.Context) error) error
 	Begin(context.Context, ...beginOpt) (context.Context, DB, error)
