@@ -54,8 +54,6 @@ type DB interface {
 	Info(context.Context) (ServerInfo, error)
 	Close() error
 
-	Load(ctx context.Context, name string) (string, error)
-
 	Exec(ctx context.Context, query string, params ...interface{}) error
 	NumRows(ctx context.Context, query string, params ...interface{}) (int64, error)
 	InsertID(ctx context.Context, idColumn, query string, params ...interface{}) (int64, error)
@@ -139,8 +137,8 @@ func Info(ctx context.Context) (ServerInfo, error) {
 //   zdb.QueryGet(ctx, "load:select-x", &foo, zdb.P{
 //       "param": "foo",
 //   })
-func Load(ctx context.Context, name string) (string, error) {
-	return loadImpl(ctx, MustGetDB(ctx), name)
+func Load(db DB, name string) (string, error) {
+	return loadImpl(db, name)
 }
 
 // Begin a new transaction.

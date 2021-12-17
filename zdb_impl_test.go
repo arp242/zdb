@@ -452,10 +452,9 @@ func TestLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	ctx := WithDB(context.Background(), db)
 
 	{
-		got, err := Load(ctx, "select-1")
+		got, err := Load(db, "select-1")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -467,7 +466,7 @@ func TestLoad(t *testing.T) {
 
 	{
 		for _, n := range []string{"comment", "comment.sql"} {
-			got, err := Load(ctx, n)
+			got, err := Load(db, n)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -697,11 +696,10 @@ func BenchmarkLoad(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer db.Close()
-	ctx := WithDB(context.Background(), db)
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		_, _ = Load(ctx, "hit_list.GetTotalCount")
+		_, _ = Load(db, "hit_list.GetTotalCount")
 	}
 }

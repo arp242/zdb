@@ -70,8 +70,6 @@ func (db zDB) SQLDialect() Dialect                          { return db.dialect 
 func (db zDB) Info(ctx context.Context) (ServerInfo, error) { return infoImpl(ctx, db) }
 func (db zDB) Close() error                                 { return db.db.Close() }
 
-func (db zDB) Load(ctx context.Context, name string) (string, error) { return loadImpl(ctx, db, name) }
-
 func (db zDB) Exec(ctx context.Context, query string, params ...interface{}) error {
 	return execImpl(ctx, db, query, params...)
 }
@@ -133,8 +131,6 @@ func (db zTX) Close() error {
 	}
 	return db.parent.Close()
 }
-
-func (db zTX) Load(ctx context.Context, name string) (string, error) { return loadImpl(ctx, db, name) }
 
 func (db zTX) Exec(ctx context.Context, query string, params ...interface{}) error {
 	return execImpl(ctx, db, query, params...)
@@ -242,7 +238,7 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 	}
 
 	if strings.HasPrefix(query, "load:") {
-		query, err = Load(ctx, query[5:])
+		query, err = loadImpl(db, query[5:])
 		if err != nil {
 			return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
 		}
@@ -331,7 +327,7 @@ func replaceParam(query string, n int, param SQL) (string, error) {
 //
 // TODO: implement .gotxt support here too? The {{ .. }} from our own
 // mini-template syntax will clash though.
-func loadImpl(ctx context.Context, db DB, name string) (string, error) {
+func loadImpl(db DB, name string) (string, error) {
 	name = strings.TrimSuffix(name, ".sql")
 	q, _, err := findFile(db.(interface{ queryFiles() fs.FS }).queryFiles(), insertDialect(db, name)...)
 	if err != nil {
