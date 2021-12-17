@@ -36,7 +36,6 @@ type DB interface {
 	Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error
 	Query(ctx context.Context, query string, params ...interface{}) (*Rows, error)
 
-	BindNamed(query string, param interface{}) (newquery string, params []interface{}, err error)
 	Rebind(query string) string
 	Close() error
 

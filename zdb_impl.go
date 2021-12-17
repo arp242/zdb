@@ -89,9 +89,6 @@ func (db zDB) Select(ctx context.Context, dest interface{}, query string, params
 func (db zDB) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
 	return queryImpl(ctx, db, query, params...)
 }
-func (db zDB) BindNamed(query string, param interface{}) (newquery string, params []interface{}, err error) {
-	return db.db.BindNamed(query, param)
-}
 func (db zDB) Rebind(query string) string { return db.db.Rebind(query) }
 func (db zDB) DriverName() string         { return db.db.DriverName() }
 func (db zDB) Close() error               { return db.db.Close() }
@@ -150,9 +147,6 @@ func (db zTX) Select(ctx context.Context, dest interface{}, query string, params
 }
 func (db zTX) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
 	return queryImpl(ctx, db, query, params...)
-}
-func (db zTX) BindNamed(query string, param interface{}) (newquery string, params []interface{}, err error) {
-	return db.db.BindNamed(query, param)
 }
 func (db zTX) Rebind(query string) string { return db.db.Rebind(query) }
 func (db zTX) DriverName() string         { return db.db.DriverName() }
