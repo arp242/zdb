@@ -18,7 +18,7 @@ func TestSQLiteHook(t *testing.T) {
 		return c.RegisterFunc("hook2", func() string { return "hook2" }, true)
 	}
 
-	var driver1, driver2, driver3 string
+	var driver1, driver2, driver3 ServerInfo
 	{
 		db, err := Connect(ConnectOptions{
 			Connect:    "sqlite://:memory:",
@@ -37,7 +37,7 @@ func TestSQLiteHook(t *testing.T) {
 		if o != "hook1" {
 			t.Error(o)
 		}
-		driver1 = db.DriverName()
+		driver1, _ = db.Info(ctx)
 	}
 
 	{
@@ -58,7 +58,7 @@ func TestSQLiteHook(t *testing.T) {
 		if o != "hook2" {
 			t.Error(o)
 		}
-		driver2 = db.DriverName()
+		driver2, _ = db.Info(ctx)
 	}
 
 	{
@@ -79,14 +79,13 @@ func TestSQLiteHook(t *testing.T) {
 		if o != "hook1" {
 			t.Error(o)
 		}
-		driver3 = db.DriverName()
+		driver3, _ = db.Info(ctx)
 	}
 
-	if driver1 != driver3 {
+	if driver1.DriverName != driver3.DriverName {
 		t.Error()
 	}
-	if driver2 == driver1 {
+	if driver2.DriverName == driver1.DriverName {
 		t.Error()
-
 	}
 }

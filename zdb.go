@@ -22,22 +22,8 @@ import (
 type DB interface {
 	DBSQL() *sql.DB
 	SQLDialect() Dialect
+	Info(context.Context) (ServerInfo, error)
 	Close() error
-
-	// TODO: merge these three to Info():
-	//
-	// type ServerInfo {
-	//     Version    Version
-	//     DriverName string
-	//     Dialect    Dialect
-	//     // Maybe some more?
-	// }
-	//
-	// func Info() (ServerInfo, error) {
-	// }
-	Ping(context.Context) error
-	DriverName() string
-	Version(context.Context) (Version, error)
 
 	Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error)
 	Load(ctx context.Context, name string) (string, error)
@@ -90,6 +76,7 @@ func (d Dialect) String() string {
 	}
 }
 
+// SQL dialects.
 const (
 	DialectUnknown Dialect = iota
 	DialectSQLite
@@ -100,6 +87,11 @@ const (
 // ErrTransactionStarted is returned when a transaction is already started; this
 // can often be treated as a non-fatal error.
 var ErrTransactionStarted = errors.New("transaction already started")
+
+// Info gets information about the SQL server.
+func Info(ctx context.Context) (ServerInfo, error) {
+	return infoImpl(ctx, MustGetDB(ctx))
+}
 
 // Prepare a query to send to the database.
 //

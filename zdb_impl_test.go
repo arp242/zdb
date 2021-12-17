@@ -16,17 +16,17 @@ import (
 	"zgo.at/zstd/ztest"
 )
 
-func TestVersion(t *testing.T) {
+func TestInfo(t *testing.T) {
 	ctx := StartTest(t)
 	db := MustGetDB(ctx)
 
-	v, err := db.Version(ctx)
+	v, err := db.Info(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log(v)
 
-	for _, tt := range [][]Version{
+	for _, tt := range [][]ServerVersion{
 		{"3", "4"},
 		{"3.35.0", "4"},
 		{"3.35.0", "4.1.0"},
@@ -38,7 +38,7 @@ func TestVersion(t *testing.T) {
 		}
 	}
 
-	for _, tt := range [][]Version{
+	for _, tt := range [][]ServerVersion{
 		{"4.0.0", "4"},
 		{"4.1.0", "4"},
 		{"4.1", "4"},

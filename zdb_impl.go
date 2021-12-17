@@ -60,17 +60,21 @@ type zDB struct {
 	queryFS fs.FS
 }
 
-func (db zDB) queryFiles() fs.FS { return db.queryFS }
+func (db zDB) queryFiles() fs.FS              { return db.queryFS }
+func (db zDB) rebind(query string) string     { return db.db.Rebind(query) }
+func (db zDB) ping(ctx context.Context) error { return db.db.PingContext(ctx) }
+func (db zDB) driverName() string             { return db.db.DriverName() }
 
 func (db zDB) DBSQL() *sql.DB                               { return db.db.DB }
 func (db zDB) SQLDialect() Dialect                          { return db.dialect }
-func (db zDB) Ping(ctx context.Context) error               { return db.db.PingContext(ctx) }
-func (db zDB) Version(ctx context.Context) (Version, error) { return versionImpl(ctx) }
+func (db zDB) Info(ctx context.Context) (ServerInfo, error) { return infoImpl(ctx, db) }
+func (db zDB) Close() error                                 { return db.db.Close() }
 
 func (db zDB) Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error) {
 	return prepareImpl(ctx, db, query, params...)
 }
 func (db zDB) Load(ctx context.Context, name string) (string, error) { return loadImpl(ctx, db, name) }
+
 func (db zDB) Exec(ctx context.Context, query string, params ...interface{}) error {
 	return execImpl(ctx, db, query, params...)
 }
@@ -89,17 +93,15 @@ func (db zDB) Select(ctx context.Context, dest interface{}, query string, params
 func (db zDB) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
 	return queryImpl(ctx, db, query, params...)
 }
-func (db zDB) rebind(query string) string { return db.db.Rebind(query) }
-func (db zDB) DriverName() string         { return db.db.DriverName() }
-func (db zDB) Close() error               { return db.db.Close() }
-func (db zDB) Begin(ctx context.Context, opts ...beginOpt) (context.Context, DB, error) {
-	return beginImpl(ctx, &db, opts...)
-}
-func (db zDB) Commit() error   { return errors.New("cannot commit, as this is not a transaction") }
-func (db zDB) Rollback() error { return errors.New("cannot rollback, as this is not a transaction") }
+
 func (db zDB) TX(ctx context.Context, fn func(context.Context) error) error {
 	return txImpl(ctx, db, fn)
 }
+func (db zDB) Begin(ctx context.Context, opts ...beginOpt) (context.Context, DB, error) {
+	return beginImpl(ctx, &db, opts...)
+}
+func (db zDB) Rollback() error { return errors.New("cannot rollback, as this is not a transaction") }
+func (db zDB) Commit() error   { return errors.New("cannot commit, as this is not a transaction") }
 
 func (db zDB) ExecContext(ctx context.Context, query string, params ...interface{}) (sql.Result, error) {
 	return db.db.ExecContext(ctx, query, params...)
@@ -119,17 +121,27 @@ type zTX struct {
 	parent *zDB // Needed for Close() and queryFiles()
 }
 
-func (db zTX) queryFiles() fs.FS { return db.parent.queryFiles() }
+func (db zTX) queryFiles() fs.FS              { return db.parent.queryFiles() }
+func (db zTX) rebind(query string) string     { return db.parent.rebind(query) }
+func (db zTX) ping(ctx context.Context) error { return db.parent.ping(ctx) }
+func (db zTX) driverName() string             { return db.parent.driverName() }
 
 func (db zTX) DBSQL() *sql.DB                               { return db.parent.DBSQL() }
 func (db zTX) SQLDialect() Dialect                          { return db.parent.dialect }
-func (db zTX) Ping(ctx context.Context) error               { return db.parent.Ping(ctx) }
-func (db zTX) Version(ctx context.Context) (Version, error) { return db.parent.Version(ctx) }
+func (db zTX) Info(ctx context.Context) (ServerInfo, error) { return db.parent.Info(ctx) }
+func (db zTX) Close() error {
+	err := db.Rollback() // Not sure if this is actually needed, but can't hurt.
+	if err != nil {
+		return err
+	}
+	return db.parent.Close()
+}
 
 func (db zTX) Prepare(ctx context.Context, query string, params ...interface{}) (string, []interface{}, error) {
 	return prepareImpl(ctx, db, query, params...)
 }
 func (db zTX) Load(ctx context.Context, name string) (string, error) { return loadImpl(ctx, db, name) }
+
 func (db zTX) Exec(ctx context.Context, query string, params ...interface{}) error {
 	return execImpl(ctx, db, query, params...)
 }
@@ -148,24 +160,15 @@ func (db zTX) Select(ctx context.Context, dest interface{}, query string, params
 func (db zTX) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
 	return queryImpl(ctx, db, query, params...)
 }
-func (db zTX) rebind(query string) string { return db.db.Rebind(query) }
-func (db zTX) DriverName() string         { return db.db.DriverName() }
-func (db zTX) Close() error {
-	err := db.Rollback() // Not sure if this is actually needed, but can't hurt.
-	if err != nil {
-		return err
-	}
-	return db.parent.Close()
-}
 
-func (db zTX) Begin(ctx context.Context, opt ...beginOpt) (context.Context, DB, error) {
-	return ctx, db, ErrTransactionStarted
-}
-func (db zTX) Commit() error   { return db.db.Commit() }
-func (db zTX) Rollback() error { return db.db.Rollback() }
 func (db zTX) TX(ctx context.Context, fn func(context.Context) error) error {
 	return ErrTransactionStarted
 }
+func (db zTX) Begin(ctx context.Context, opt ...beginOpt) (context.Context, DB, error) {
+	return ctx, db, ErrTransactionStarted
+}
+func (db zTX) Rollback() error { return db.db.Rollback() }
+func (db zTX) Commit() error   { return db.db.Commit() }
 
 func (db zTX) ExecContext(ctx context.Context, query string, params ...interface{}) (sql.Result, error) {
 	return db.db.ExecContext(ctx, query, params...)
@@ -185,18 +188,42 @@ func (db zTX) QueryxContext(ctx context.Context, query string, params ...interfa
 
 var stderr io.Writer = os.Stderr
 
-// Version represents a database version.
-type Version string
+type (
+	// ServerInfo contains information about the SQL server.
+	ServerInfo struct {
+		Version    ServerVersion
+		DriverName string
+		Dialect    Dialect
+		// Maybe some more?
+	}
+	// ServerVersion represents a database version.
+	ServerVersion string
+)
 
 // AtLeast reports if this version is at least version want.
-func (v Version) AtLeast(want Version) bool { return want < v }
+func (v ServerVersion) AtLeast(want ServerVersion) bool { return want < v }
 
-func versionImpl(ctx context.Context) (Version, error) {
+func infoImpl(ctx context.Context, db DB) (ServerInfo, error) {
+	udb := Unwrap(db)
+	info := ServerInfo{Dialect: SQLDialect(ctx)}
+
+	p, ok := udb.(interface{ ping(context.Context) error })
+	if ok {
+		err := p.ping(ctx)
+		if err != nil {
+			return ServerInfo{}, nil
+		}
+	}
+
+	if d, ok := udb.(interface{ driverName() string }); ok {
+		info.DriverName = d.driverName()
+	}
+
 	var (
 		v   string
 		err error
 	)
-	switch SQLDialect(ctx) {
+	switch db.SQLDialect() {
 	case DialectSQLite:
 		err = Get(ctx, &v, `select sqlite_version()`)
 	case DialectMariaDB:
@@ -205,7 +232,13 @@ func versionImpl(ctx context.Context) (Version, error) {
 	case DialectPostgreSQL:
 		err = Get(ctx, &v, `show server_version`)
 	}
-	return Version(v), err
+	if err != nil {
+		return ServerInfo{}, nil
+	}
+
+	info.Version = ServerVersion(v)
+
+	return info, nil
 }
 
 func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}) (string, []interface{}, error) {

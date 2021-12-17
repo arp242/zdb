@@ -163,21 +163,21 @@ func Connect(opt ConnectOptions) (DB, error) {
 	db := &zDB{db: dbx, dialect: dialect}
 
 	// These versions are required for zdb.
-	v, err := db.Version(WithDB(context.Background(), db))
+	info, err := db.Info(WithDB(context.Background(), db))
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
 	switch db.SQLDialect() {
 	case DialectSQLite:
-		if !v.AtLeast("3.35") {
+		if !info.Version.AtLeast("3.35") {
 			err = errors.New("zdb.Connect: zdb requires SQLite 3.35.0 or newer")
 		}
 	case DialectMariaDB:
-		if !v.AtLeast("10.5") {
+		if !info.Version.AtLeast("10.5") {
 			err = errors.New("zdb.Connect: zdb requires MariaDB 10.5.0 or newer")
 		}
 	case DialectPostgreSQL:
-		if !v.AtLeast("12.0") {
+		if !info.Version.AtLeast("12.0") {
 			err = errors.New("zdb.Connect: zdb requires PostgreSQL 12.0 or newer")
 		}
 	}
