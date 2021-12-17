@@ -419,52 +419,12 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 		return 0, err
 	}
 
-	// TODO: SQLite 3.35 (March 2021) also supports returning; probably better
-	// to use this for SQLite as well as it's more flexible.
-	//
-	// https://sqlite.org/lang_returning.html
-	if Driver(ctx) == DriverPostgreSQL {
-		var id []int64
-		err := db.(dbImpl).SelectContext(ctx, &id, query+" returning "+idColumn, params...)
-		if err != nil {
-			return 0, err
-		}
-		return id[len(id)-1], nil
-	}
-
-	r, err := db.(dbImpl).ExecContext(ctx, query, params...)
+	var id []int64
+	err = db.(dbImpl).SelectContext(ctx, &id, query+" returning "+idColumn, params...)
 	if err != nil {
 		return 0, err
 	}
-
-	// TODO: On MariaDB lastinsertID returns the FIRST insert id, not the LAST.
-	// This is a MariaDB problem, not a Go problem.
-	//
-	// MariaDB [test]> insert into test (v) values('asd'), ('asd');
-	//
-	// MariaDB [test]> select last_insert_id();
-	// +------------------+
-	// | last_insert_id() |
-	// +------------------+
-	// |                1 |
-	// +------------------+
-	//
-	// MariaDB [test]> select * from test;
-	// +--------+------+
-	// | col_id | v    |
-	// +--------+------+
-	// |      1 | asd  |
-	// |      2 | asd  |
-	// +--------+------+
-	//
-	// MariaDB 10.5 supports this returning, so use that:
-	// https://mariadb.com/kb/en/insertreturning/
-	//
-	// MySQL doesn't support this (yet). I guess we'll have to just restrict
-	// "MySQL support" to "MariaDB support".
-	//
-	// Come to think of it, this should probably return a []int64 of all IDs.
-	return r.LastInsertId()
+	return id[len(id)-1], nil
 }
 
 func selectImpl(ctx context.Context, db DB, dest interface{}, query string, params ...interface{}) error {
