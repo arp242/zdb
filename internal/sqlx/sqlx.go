@@ -66,13 +66,6 @@ func isScannable(t reflect.Type) bool {
 	return len(mapper().TypeMap(t).Index) == 0
 }
 
-// ColScanner is an interface used by MapScan and SliceScan
-type ColScanner interface {
-	Columns() ([]string, error)
-	Scan(dest ...interface{}) error
-	Err() error
-}
-
 // determine if any of our extensions are unsafe
 func isUnsafe(i interface{}) bool {
 	switch v := i.(type) {
@@ -240,7 +233,7 @@ func (db *DB) MapperFunc(mf func(string) string) {
 
 // Rebind transforms a query from QUESTION to the DB driver's bindvar type.
 func (db *DB) Rebind(query string) string {
-	return Rebind(BindType(db.driverName), query)
+	return Rebind(Placeholder(db.driverName), query)
 }
 
 // Unsafe returns a version of DB which will silently succeed to scan when
@@ -253,7 +246,7 @@ func (db *DB) Unsafe() *DB {
 
 // BindNamed binds a query using the DB driver's bindvar type.
 func (db *DB) BindNamed(query string, arg interface{}) (string, []interface{}, error) {
-	return bindNamedMapper(BindType(db.driverName), query, arg, db.Mapper)
+	return bindNamedMapper(Placeholder(db.driverName), query, arg, db.Mapper)
 }
 
 // Beginx begins a transaction and returns an *sqlx.Tx instead of an *sql.Tx.
@@ -288,7 +281,7 @@ func (tx *Tx) DriverName() string {
 
 // Rebind a query within a transaction's bindvar type.
 func (tx *Tx) Rebind(query string) string {
-	return Rebind(BindType(tx.driverName), query)
+	return Rebind(Placeholder(tx.driverName), query)
 }
 
 // Unsafe returns a version of Tx which will silently succeed to scan when
@@ -299,7 +292,7 @@ func (tx *Tx) Unsafe() *Tx {
 
 // BindNamed binds a query within a transaction's bindvar type.
 func (tx *Tx) BindNamed(query string, arg interface{}) (string, []interface{}, error) {
-	return bindNamedMapper(BindType(tx.driverName), query, arg, tx.Mapper)
+	return bindNamedMapper(Placeholder(tx.driverName), query, arg, tx.Mapper)
 }
 
 // Stmt is an sqlx wrapper around sql.Stmt with extra functionality
@@ -365,31 +358,6 @@ func ConnectContext(ctx context.Context, driverName, dataSourceName string) (*DB
 	}
 	err = db.PingContext(ctx)
 	return db, err
-}
-
-// QueryerContext is an interface used by GetContext and SelectContext
-type QueryerContext interface {
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryxContext(ctx context.Context, query string, args ...interface{}) (*Rows, error)
-	QueryRowxContext(ctx context.Context, query string, args ...interface{}) *Row
-}
-
-// PreparerContext is an interface used by PreparexContext.
-type PreparerContext interface {
-	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
-}
-
-// ExecerContext is an interface used by LoadFileContext
-type ExecerContext interface {
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-}
-
-// ExtContext is a union interface which can bind, query, and exec, with Context
-// used by NamedQueryContext and NamedExecContext.
-type ExtContext interface {
-	binder
-	QueryerContext
-	ExecerContext
 }
 
 // SelectContext executes a query using the provided Queryer, and StructScans
@@ -458,16 +426,16 @@ func (db *DB) PrepareNamedContext(ctx context.Context, query string) (*NamedStmt
 	return prepareNamedContext(ctx, db, query)
 }
 
-// NamedQueryContext using this DB.
+// NamedQuery using this DB.
 // Any named placeholder parameters are replaced with fields from arg.
-func (db *DB) NamedQueryContext(ctx context.Context, query string, arg interface{}) (*Rows, error) {
-	return NamedQueryContext(ctx, db, query, arg)
+func (db *DB) NamedQuery(ctx context.Context, query string, arg interface{}) (*Rows, error) {
+	return NamedQuery(ctx, db, query, arg)
 }
 
-// NamedExecContext using this DB.
+// NamedExec using this DB.
 // Any named placeholder parameters are replaced with fields from arg.
-func (db *DB) NamedExecContext(ctx context.Context, query string, arg interface{}) (sql.Result, error) {
-	return NamedExecContext(ctx, db, query, arg)
+func (db *DB) NamedExec(ctx context.Context, query string, arg interface{}) (sql.Result, error) {
+	return NamedExec(ctx, db, query, arg)
 }
 
 // SelectContext using this DB.
@@ -588,7 +556,7 @@ func (c *Conn) QueryRowxContext(ctx context.Context, query string, args ...inter
 
 // Rebind a query within a Conn's bindvar type.
 func (c *Conn) Rebind(query string) string {
-	return Rebind(BindType(c.driverName), query)
+	return Rebind(Placeholder(c.driverName), query)
 }
 
 // StmtxContext returns a version of the prepared statement which runs within a
@@ -661,10 +629,10 @@ func (tx *Tx) QueryRowxContext(ctx context.Context, query string, args ...interf
 	return &Row{rows: rows, err: err, unsafe: tx.unsafe, Mapper: tx.Mapper}
 }
 
-// NamedExecContext using this Tx.
+// NamedExec using this Tx.
 // Any named placeholder parameters are replaced with fields from arg.
-func (tx *Tx) NamedExecContext(ctx context.Context, query string, arg interface{}) (sql.Result, error) {
-	return NamedExecContext(ctx, tx, query, arg)
+func (tx *Tx) NamedExec(ctx context.Context, query string, arg interface{}) (sql.Result, error) {
+	return NamedExec(ctx, tx, query, arg)
 }
 
 // SelectContext using the prepared statement.

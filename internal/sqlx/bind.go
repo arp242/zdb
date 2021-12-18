@@ -1,7 +1,6 @@
 package sqlx
 
 import (
-	"bytes"
 	"database/sql/driver"
 	"errors"
 	"reflect"
@@ -12,78 +11,73 @@ import (
 	"zgo.at/zdb/internal/sqlx/reflectx"
 )
 
-// Bindvar types supported by Rebind, BindMap and BindStruct.
+// PlaceholderStyle controls which placeholders to use parametrized queries.
+type PlaceholderStyle uint8
+
+// Placeholders styles we know about.
 const (
-	UNKNOWN = iota
-	QUESTION
-	DOLLAR
-	NAMED
-	AT
+	PlaceholderUnknown  PlaceholderStyle = iota // Fall back to PlaceholderQuestion
+	PlaceholderQuestion                         // ?
+	PlaceholderDollar                           // $1, $2
+	PlaceholderNamed                            // :arg1, :arg2
+	PlaceholderAt                               // @p1, @p2
 )
 
-// Binder is an interface for something which can bind queries (Tx, DB)
-type binder interface {
-	DriverName() string
-	Rebind(string) string
-	BindNamed(string, interface{}) (string, []interface{}, error)
-}
-
-var defaultBinds = map[int][]string{
-	DOLLAR:   []string{"postgres", "pgx", "pq-timeouts", "cloudsqlpostgres", "ql", "nrpostgres", "cockroach"},
-	QUESTION: []string{"mysql", "sqlite3", "nrmysql", "nrsqlite3"},
-	NAMED:    []string{"oci8", "ora", "goracle", "godror"},
-	AT:       []string{"sqlserver"},
-}
-
-var binds sync.Map
+var placeholders sync.Map
 
 func init() {
-	for bind, drivers := range defaultBinds {
-		for _, driver := range drivers {
-			BindDriver(driver, bind)
+	for p, drivers := range map[PlaceholderStyle][]string{
+		PlaceholderDollar:   []string{"postgres", "pgx", "pq-timeouts", "cloudsqlpostgres", "ql", "nrpostgres", "cockroach"},
+		PlaceholderQuestion: []string{"mysql", "sqlite3", "nrmysql", "nrsqlite3"},
+		PlaceholderNamed:    []string{"oci8", "ora", "goracle", "godror"},
+		PlaceholderAt:       []string{"sqlserver"},
+	} {
+		for _, d := range drivers {
+			PlaceholderRegister(d, p)
 		}
 	}
 
 }
 
-// BindType returns the bindtype for a given database given a drivername.
-func BindType(driverName string) int {
-	itype, ok := binds.Load(driverName)
+// PlaceholderRegister sets the placeholder style for a SQL driver.
+func PlaceholderRegister(driver string, style PlaceholderStyle) {
+	placeholders.Store(driver, style)
+}
+
+// Placeholder returns the placeholder style for a SQL driver.
+func Placeholder(driver string) PlaceholderStyle {
+	p, ok := placeholders.Load(driver)
 	if !ok {
-		return UNKNOWN
+		return PlaceholderUnknown
 	}
-	return itype.(int)
+	return p.(PlaceholderStyle)
 }
 
-// BindDriver sets the BindType for driverName to bindType.
-func BindDriver(driverName string, bindType int) {
-	binds.Store(driverName, bindType)
-}
+// Rebind a query from the default placeholder style (PlaceholderQuestion) to
+// the target placeholder style.
+func Rebind(style PlaceholderStyle, query string) string {
+	// TODO: this should be able to be tolerant of escaped ?'s in queries
+	// without losing much speed, and should be to avoid confusion.
 
-// FIXME: this should be able to be tolerant of escaped ?'s in queries without
-// losing much speed, and should be to avoid confusion.
-
-// Rebind a query from the default bindtype (QUESTION) to the target bindtype.
-func Rebind(bindType int, query string) string {
-	switch bindType {
-	case QUESTION, UNKNOWN:
+	switch style {
+	case PlaceholderQuestion, PlaceholderUnknown:
 		return query
 	}
 
 	// Add space enough for 10 params before we have to allocate
-	rqb := make([]byte, 0, len(query)+10)
-
-	var i, j int
-
+	var (
+		rqb  = make([]byte, 0, len(query)+10)
+		i, j int
+	)
 	for i = strings.Index(query, "?"); i != -1; i = strings.Index(query, "?") {
 		rqb = append(rqb, query[:i]...)
 
-		switch bindType {
-		case DOLLAR:
+		switch style {
+		case PlaceholderDollar:
 			rqb = append(rqb, '$')
-		case NAMED:
+		case PlaceholderNamed:
 			rqb = append(rqb, ':', 'a', 'r', 'g')
-		case AT:
+		case PlaceholderAt:
 			rqb = append(rqb, '@', 'p')
 		}
 
@@ -96,71 +90,29 @@ func Rebind(bindType int, query string) string {
 	return string(append(rqb, query...))
 }
 
-// Experimental implementation of Rebind which uses a bytes.Buffer.  The code is
-// much simpler and should be more resistant to odd unicode, but it is twice as
-// slow.  Kept here for benchmarking purposes and to possibly replace Rebind if
-// problems arise with its somewhat naive handling of unicode.
-func rebindBuff(bindType int, query string) string {
-	if bindType != DOLLAR {
-		return query
-	}
-
-	b := make([]byte, 0, len(query))
-	rqb := bytes.NewBuffer(b)
-	j := 1
-	for _, r := range query {
-		if r == '?' {
-			rqb.WriteRune('$')
-			rqb.WriteString(strconv.Itoa(j))
-			j++
-		} else {
-			rqb.WriteRune(r)
-		}
-	}
-
-	return rqb.String()
-}
-
-func asSliceForIn(i interface{}) (v reflect.Value, ok bool) {
-	if i == nil {
-		return reflect.Value{}, false
-	}
-
-	v = reflect.ValueOf(i)
-	t := reflectx.Deref(v.Type())
-
-	// Only expand slices
-	if t.Kind() != reflect.Slice {
-		return reflect.Value{}, false
-	}
-
-	// []byte is a driver.Value type so it should not be expanded
-	if t == reflect.TypeOf([]byte{}) {
-		return reflect.Value{}, false
-
-	}
-
-	return v, true
-}
-
-// In expands slice values in args, returning the modified query string
-// and a new arg list that can be executed by a database. The `query` should
-// use the `?` bindVar.  The return value uses the `?` bindVar.
+// In expands slice values in args, returning the modified query string and a
+// new arg list that can be executed by a database.
+//
+// The query should use the "?" placeholder style, and the return value the
+// return value also uses the "?" style.
 func In(query string, args ...interface{}) (string, []interface{}, error) {
-	// argMeta stores reflect.Value and length for slices and
-	// the value itself for non-slice arguments
+	// TODO: automatically expand slices for a single ?, like zdb already does.
+	// Then we can remove/unexport this.
+
+	// argMeta stores reflect.Value and length for slices and the value itself
+	// for non-slice arguments
 	type argMeta struct {
 		v      reflect.Value
 		i      interface{}
 		length int
 	}
 
-	var flatArgsCount int
-	var anySlices bool
-
-	var stackMeta [32]argMeta
-
-	var meta []argMeta
+	var (
+		flatArgsCount int
+		anySlices     bool
+		stackMeta     [32]argMeta
+		meta          []argMeta
+	)
 	if len(args) <= len(stackMeta) {
 		meta = stackMeta[:len(args)]
 	} else {
@@ -184,7 +136,7 @@ func In(query string, args ...interface{}) (string, []interface{}, error) {
 			flatArgsCount += meta[i].length
 
 			if meta[i].length == 0 {
-				return "", nil, errors.New("empty slice passed to 'in' query")
+				return "", nil, errors.New("sqlx.In: empty slice passed to 'in' query")
 			}
 		} else {
 			meta[i].i = arg
@@ -204,14 +156,13 @@ func In(query string, args ...interface{}) (string, []interface{}, error) {
 	buf.Grow(len(query) + len(", ?")*flatArgsCount)
 
 	var arg, offset int
-
 	for i := strings.IndexByte(query[offset:], '?'); i != -1; i = strings.IndexByte(query[offset:], '?') {
 		if arg >= len(meta) {
 			// if an argument wasn't passed, lets return an error;  this is
 			// not actually how database/sql Exec/Query works, but since we are
 			// creating an argument list programmatically, we want to be able
 			// to catch these programmer errors earlier.
-			return "", nil, errors.New("number of bindVars exceeds arguments")
+			return "", nil, errors.New("sqlx.In: more placeholders than arguments")
 		}
 
 		argMeta := meta[arg]
@@ -244,10 +195,33 @@ func In(query string, args ...interface{}) (string, []interface{}, error) {
 	buf.WriteString(query)
 
 	if arg < len(meta) {
-		return "", nil, errors.New("number of bindVars less than number arguments")
+		return "", nil, errors.New("sqlx.In: more arguments than placeholders")
 	}
 
 	return buf.String(), newArgs, nil
+}
+
+func asSliceForIn(i interface{}) (reflect.Value, bool) {
+	if i == nil {
+		return reflect.Value{}, false
+	}
+
+	v := reflect.ValueOf(i)
+	t := reflectx.Deref(v.Type())
+
+	// Only expand slices
+	// TODO: probably also array?
+	if t.Kind() != reflect.Slice {
+		return reflect.Value{}, false
+	}
+
+	// []byte is a driver.Value type so it should not be expanded
+	if t == reflect.TypeOf([]byte{}) {
+		return reflect.Value{}, false
+
+	}
+
+	return v, true
 }
 
 func appendReflectSlice(args []interface{}, v reflect.Value, vlen int) []interface{} {

@@ -7,7 +7,6 @@
 // Set any of these variables to 'skip' to skip them.  Note that for MySQL,
 // the string '?parseTime=True' will be appended to the DSN if it's not there
 // already.
-//
 package sqlx
 
 import (
@@ -16,7 +15,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -26,19 +24,19 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
-	"zgo.at/zdb/internal/sqlx/reflectx"
 )
 
-/* compile time checks that Db, Tx, Stmt (qStmt) implement expected interfaces */
 var _, _ ColScanner = &Row{}, &Rows{}
 
-var TestPostgres = true
-var TestSqlite = true
-var TestMysql = true
+var (
+	TestPostgres = true
+	TestSqlite   = true
+	TestMysql    = true
 
-var sldb *DB
-var pgdb *DB
-var mysqldb *DB
+	sldb    *DB
+	pgdb    *DB
+	mysqldb *DB
+)
 
 func init() {
 	ConnectAll()
@@ -62,7 +60,7 @@ func ConnectAll() {
 	if TestPostgres {
 		pgdb, err = ConnectContext(context.TODO(), "postgres", pgdsn)
 		if err != nil {
-			fmt.Printf("Disabling PG tests:\n    %v\n", err)
+			fmt.Printf("Disabling PG tests: %v\n", err)
 			TestPostgres = false
 		}
 	} else {
@@ -72,7 +70,7 @@ func ConnectAll() {
 	if TestMysql {
 		mysqldb, err = ConnectContext(context.TODO(), "mysql", mydsn)
 		if err != nil {
-			fmt.Printf("Disabling MySQL tests:\n    %v", err)
+			fmt.Printf("Disabling MySQL tests: %v\n", err)
 			TestMysql = false
 		}
 	} else {
@@ -82,7 +80,7 @@ func ConnectAll() {
 	if TestSqlite {
 		sldb, err = ConnectContext(context.TODO(), "sqlite3", sqdsn)
 		if err != nil {
-			fmt.Printf("Disabling SQLite:\n    %v", err)
+			fmt.Printf("Disabling SQLite: %v", err)
 			TestSqlite = false
 		}
 	} else {
@@ -202,13 +200,13 @@ type SliceMember struct {
 // if we've used Place already somewhere in sqlx
 type CPlace Place
 
-func MultiExec(e ExecerContext, query string) {
+func MultiExec(ctx context.Context, e ExecerContext, query string) {
 	stmts := strings.Split(query, ";\n")
 	if len(strings.Trim(stmts[len(stmts)-1], " \n\t\r")) == 0 {
 		stmts = stmts[:len(stmts)-1]
 	}
 	for _, s := range stmts {
-		_, err := e.ExecContext(context.TODO(), s)
+		_, err := e.ExecContext(ctx, s)
 		if err != nil {
 			fmt.Println(err, s)
 		}
@@ -218,10 +216,10 @@ func MultiExec(e ExecerContext, query string) {
 func RunWithSchema(schema Schema, t *testing.T, test func(db *DB, t *testing.T, now string)) {
 	runner := func(db *DB, t *testing.T, create, drop, now string) {
 		defer func() {
-			MultiExecContext(context.TODO(), db, drop)
+			MultiExec(context.TODO(), db, drop)
 		}()
 
-		MultiExecContext(context.TODO(), db, create)
+		MultiExec(context.TODO(), db, create)
 		test(db, t, now)
 	}
 
@@ -601,237 +599,6 @@ func TestNilReceiver(t *testing.T) {
 	})
 }
 
-func TestNamedQuery(t *testing.T) {
-	var schema = Schema{
-		create: `
-			CREATE TABLE place (
-				id integer PRIMARY KEY,
-				name text NULL
-			);
-			CREATE TABLE person (
-				first_name text NULL,
-				last_name text NULL,
-				email text NULL
-			);
-			CREATE TABLE placeperson (
-				first_name text NULL,
-				last_name text NULL,
-				email text NULL,
-				place_id integer NULL
-			);
-			CREATE TABLE jsperson (
-				"FIRST" text NULL,
-				last_name text NULL,
-				"EMAIL" text NULL
-			);`,
-		drop: `
-			drop table person;
-			drop table jsperson;
-			drop table place;
-			drop table placeperson;
-			`,
-	}
-
-	RunWithSchema(schema, t, func(db *DB, t *testing.T, now string) {
-		type Person struct {
-			FirstName sql.NullString `db:"first_name"`
-			LastName  sql.NullString `db:"last_name"`
-			Email     sql.NullString
-		}
-
-		p := Person{
-			FirstName: sql.NullString{String: "ben", Valid: true},
-			LastName:  sql.NullString{String: "doe", Valid: true},
-			Email:     sql.NullString{String: "ben@doe.com", Valid: true},
-		}
-
-		q1 := `INSERT INTO person (first_name, last_name, email) VALUES (:first_name, :last_name, :email)`
-		_, err := db.NamedExecContext(context.TODO(), q1, p)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		p2 := &Person{}
-		rows, err := db.NamedQueryContext(context.TODO(), "SELECT * FROM person WHERE first_name=:first_name", p)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for rows.Next() {
-			err = rows.StructScan(p2)
-			if err != nil {
-				t.Error(err)
-			}
-			if p2.FirstName.String != "ben" {
-				t.Error("Expected first name of `ben`, got " + p2.FirstName.String)
-			}
-			if p2.LastName.String != "doe" {
-				t.Error("Expected first name of `doe`, got " + p2.LastName.String)
-			}
-		}
-
-		// these are tests for #73;  they verify that named queries work if you've
-		// changed the db mapper.  This code checks both NamedQuery "ad-hoc" style
-		// queries and NamedStmt queries, which use different code paths internally.
-		old := *db.Mapper
-
-		type JSONPerson struct {
-			FirstName sql.NullString `json:"FIRST"`
-			LastName  sql.NullString `json:"last_name"`
-			Email     sql.NullString
-		}
-
-		jp := JSONPerson{
-			FirstName: sql.NullString{String: "ben", Valid: true},
-			LastName:  sql.NullString{String: "smith", Valid: true},
-			Email:     sql.NullString{String: "ben@smith.com", Valid: true},
-		}
-
-		db.Mapper = reflectx.NewMapperFunc("json", strings.ToUpper)
-
-		// prepare queries for case sensitivity to test our ToUpper function.
-		// postgres and sqlite accept "", but mysql uses ``;  since Go's multi-line
-		// strings are `` we use "" by default and swap out for MySQL
-		pdb := func(s string, db *DB) string {
-			if db.DriverName() == "mysql" {
-				return strings.Replace(s, `"`, "`", -1)
-			}
-			return s
-		}
-
-		q1 = `INSERT INTO jsperson ("FIRST", last_name, "EMAIL") VALUES (:FIRST, :last_name, :EMAIL)`
-		_, err = db.NamedExecContext(context.TODO(), pdb(q1, db), jp)
-		if err != nil {
-			t.Fatal(err, db.DriverName())
-		}
-
-		// Checks that a person pulled out of the db matches the one we put in
-		check := func(t *testing.T, rows *Rows) {
-			jp = JSONPerson{}
-			for rows.Next() {
-				err = rows.StructScan(&jp)
-				if err != nil {
-					t.Error(err)
-				}
-				if jp.FirstName.String != "ben" {
-					t.Errorf("Expected first name of `ben`, got `%s` (%s) ", jp.FirstName.String, db.DriverName())
-				}
-				if jp.LastName.String != "smith" {
-					t.Errorf("Expected LastName of `smith`, got `%s` (%s)", jp.LastName.String, db.DriverName())
-				}
-				if jp.Email.String != "ben@smith.com" {
-					t.Errorf("Expected first name of `doe`, got `%s` (%s)", jp.Email.String, db.DriverName())
-				}
-			}
-		}
-
-		ns, err := db.PrepareNamedContext(context.TODO(), pdb(`
-			SELECT * FROM jsperson
-			WHERE
-				"FIRST"=:FIRST AND
-				last_name=:last_name AND
-				"EMAIL"=:EMAIL
-		`, db))
-
-		if err != nil {
-			t.Fatal(err)
-		}
-		rows, err = ns.QueryxContext(context.TODO(), jp)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		check(t, rows)
-
-		// Check exactly the same thing, but with db.NamedQuery, which does not go
-		// through the PrepareNamed/NamedStmt path.
-		rows, err = db.NamedQueryContext(context.TODO(), pdb(`
-			SELECT * FROM jsperson
-			WHERE
-				"FIRST"=:FIRST AND
-				last_name=:last_name AND
-				"EMAIL"=:EMAIL
-		`, db), jp)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		check(t, rows)
-
-		db.Mapper = &old
-
-		// Test nested structs
-		type Place struct {
-			ID   int            `db:"id"`
-			Name sql.NullString `db:"name"`
-		}
-		type PlacePerson struct {
-			FirstName sql.NullString `db:"first_name"`
-			LastName  sql.NullString `db:"last_name"`
-			Email     sql.NullString
-			Place     Place `db:"place"`
-		}
-
-		pl := Place{
-			Name: sql.NullString{String: "myplace", Valid: true},
-		}
-
-		pp := PlacePerson{
-			FirstName: sql.NullString{String: "ben", Valid: true},
-			LastName:  sql.NullString{String: "doe", Valid: true},
-			Email:     sql.NullString{String: "ben@doe.com", Valid: true},
-		}
-
-		q2 := `INSERT INTO place (id, name) VALUES (1, :name)`
-		_, err = db.NamedExecContext(context.TODO(), q2, pl)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		id := 1
-		pp.Place.ID = id
-
-		q3 := `INSERT INTO placeperson (first_name, last_name, email, place_id) VALUES (:first_name, :last_name, :email, :place.id)`
-		_, err = db.NamedExecContext(context.TODO(), q3, pp)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		pp2 := &PlacePerson{}
-		rows, err = db.NamedQueryContext(context.TODO(), `
-			SELECT
-				first_name,
-				last_name,
-				email,
-				place.id AS "place.id",
-				place.name AS "place.name"
-			FROM placeperson
-			INNER JOIN place ON place.id = placeperson.place_id
-			WHERE
-				place.id=:place.id`, pp)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for rows.Next() {
-			err = rows.StructScan(pp2)
-			if err != nil {
-				t.Error(err)
-			}
-			if pp2.FirstName.String != "ben" {
-				t.Error("Expected first name of `ben`, got " + pp2.FirstName.String)
-			}
-			if pp2.LastName.String != "doe" {
-				t.Error("Expected first name of `doe`, got " + pp2.LastName.String)
-			}
-			if pp2.Place.Name.String != "myplace" {
-				t.Error("Expected place name of `myplace`, got " + pp2.Place.Name.String)
-			}
-			if pp2.Place.ID != pp.Place.ID {
-				t.Errorf("Expected place name of %v, got %v", pp.Place.ID, pp2.Place.ID)
-			}
-		}
-	})
-}
-
 func TestNilInserts(t *testing.T) {
 	var schema = Schema{
 		create: `
@@ -868,7 +635,7 @@ func TestNilInserts(t *testing.T) {
 		// as reflectx.FieldByIndexes attempts to allocate nil pointer receivers for
 		// writing.  This was fixed by creating & using the reflectx.FieldByIndexesReadOnly
 		// function.  This next line is important as it provides the only coverage for this.
-		db.NamedExecContext(context.TODO(), `INSERT INTO tt (id, value) VALUES (:id, :value)`, v)
+		db.NamedExec(context.TODO(), `INSERT INTO tt (id, value) VALUES (:id, :value)`, v)
 
 		db.GetContext(context.TODO(), &v2, r(`SELECT * FROM tt WHERE id=2`))
 		if v.ID != v2.ID {
@@ -1127,7 +894,7 @@ func TestUsage(t *testing.T) {
 
 		// test advanced querying
 		// test that NamedExec works with a map as well as a struct
-		_, err = db.NamedExecContext(context.TODO(), "INSERT INTO person (first_name, last_name, email) VALUES (:first, :last, :email)", map[string]interface{}{
+		_, err = db.NamedExec(context.TODO(), "INSERT INTO person (first_name, last_name, email) VALUES (:first, :last, :email)", map[string]interface{}{
 			"first": "Bin",
 			"last":  "Smuth",
 			"email": "bensmith@allblacks.nz",
@@ -1138,7 +905,7 @@ func TestUsage(t *testing.T) {
 
 		// ensure that if the named param happens right at the end it still works
 		// ensure that NamedQuery works with a map[string]interface{}
-		rows, err = db.NamedQueryContext(context.TODO(), "SELECT * FROM person WHERE first_name=:first", map[string]interface{}{"first": "Bin"})
+		rows, err = db.NamedQuery(context.TODO(), "SELECT * FROM person WHERE first_name=:first", map[string]interface{}{"first": "Bin"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1162,13 +929,13 @@ func TestUsage(t *testing.T) {
 		ben.Email = "binsmuth@allblacks.nz"
 
 		// Insert via a named query using the struct
-		_, err = db.NamedExecContext(context.TODO(), "INSERT INTO person (first_name, last_name, email) VALUES (:first_name, :last_name, :email)", ben)
+		_, err = db.NamedExec(context.TODO(), "INSERT INTO person (first_name, last_name, email) VALUES (:first_name, :last_name, :email)", ben)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		rows, err = db.NamedQueryContext(context.TODO(), "SELECT * FROM person WHERE first_name=:first_name", ben)
+		rows, err = db.NamedQuery(context.TODO(), "SELECT * FROM person WHERE first_name=:first_name", ben)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1319,10 +1086,6 @@ func TestUsage(t *testing.T) {
 	})
 }
 
-type Product struct {
-	ProductID int
-}
-
 // tests that sqlx will not panic when the wrong driver is passed because
 // of an automatic nil dereference in sqlx.Open(), which was fixed.
 func TestDoNotPanicOnConnect(t *testing.T) {
@@ -1332,80 +1095,6 @@ func TestDoNotPanicOnConnect(t *testing.T) {
 	}
 	if db != nil {
 		t.Errorf("Should not return the db on a connect failure")
-	}
-}
-
-func TestRebind(t *testing.T) {
-	q1 := `INSERT INTO foo (a, b, c, d, e, f, g, h, i) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	q2 := `INSERT INTO foo (a, b, c) VALUES (?, ?, "foo"), ("Hi", ?, ?)`
-
-	s1 := Rebind(DOLLAR, q1)
-	s2 := Rebind(DOLLAR, q2)
-
-	if s1 != `INSERT INTO foo (a, b, c, d, e, f, g, h, i) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)` {
-		t.Errorf("q1 failed")
-	}
-
-	if s2 != `INSERT INTO foo (a, b, c) VALUES ($1, $2, "foo"), ("Hi", $3, $4)` {
-		t.Errorf("q2 failed")
-	}
-
-	s1 = Rebind(AT, q1)
-	s2 = Rebind(AT, q2)
-
-	if s1 != `INSERT INTO foo (a, b, c, d, e, f, g, h, i) VALUES (@p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10)` {
-		t.Errorf("q1 failed")
-	}
-
-	if s2 != `INSERT INTO foo (a, b, c) VALUES (@p1, @p2, "foo"), ("Hi", @p3, @p4)` {
-		t.Errorf("q2 failed")
-	}
-
-	s1 = Rebind(NAMED, q1)
-	s2 = Rebind(NAMED, q2)
-
-	ex1 := `INSERT INTO foo (a, b, c, d, e, f, g, h, i) VALUES ` +
-		`(:arg1, :arg2, :arg3, :arg4, :arg5, :arg6, :arg7, :arg8, :arg9, :arg10)`
-	if s1 != ex1 {
-		t.Error("q1 failed on Named params")
-	}
-
-	ex2 := `INSERT INTO foo (a, b, c) VALUES (:arg1, :arg2, "foo"), ("Hi", :arg3, :arg4)`
-	if s2 != ex2 {
-		t.Error("q2 failed on Named params")
-	}
-}
-
-func TestBindMap(t *testing.T) {
-	// Test that it works..
-	q1 := `INSERT INTO foo (a, b, c, d) VALUES (:name, :age, :first, :last)`
-	am := map[string]interface{}{
-		"name":  "Jason Moiron",
-		"age":   30,
-		"first": "Jason",
-		"last":  "Moiron",
-	}
-
-	bq, args, _ := bindMap(QUESTION, q1, am)
-	expect := `INSERT INTO foo (a, b, c, d) VALUES (?, ?, ?, ?)`
-	if bq != expect {
-		t.Errorf("Interpolation of query failed: got `%v`, expected `%v`\n", bq, expect)
-	}
-
-	if args[0].(string) != "Jason Moiron" {
-		t.Errorf("Expected `Jason Moiron`, got %v\n", args[0])
-	}
-
-	if args[1].(int) != 30 {
-		t.Errorf("Expected 30, got %v\n", args[1])
-	}
-
-	if args[2].(string) != "Jason" {
-		t.Errorf("Expected Jason, got %v\n", args[2])
-	}
-
-	if args[3].(string) != "Moiron" {
-		t.Errorf("Expected Moiron, got %v\n", args[3])
 	}
 }
 
@@ -1458,7 +1147,7 @@ func TestEmbeddedMaps(t *testing.T) {
 		}
 		q1 := `INSERT INTO message (string, properties) VALUES (:string, :properties);`
 		for _, m := range messages {
-			_, err := db.NamedExecContext(context.TODO(), q1, m)
+			_, err := db.NamedExec(context.TODO(), q1, m)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1524,192 +1213,6 @@ func TestIssue197(t *testing.T) {
 	})
 }
 
-func TestIn(t *testing.T) {
-	// some quite normal situations
-	type tr struct {
-		q    string
-		args []interface{}
-		c    int
-	}
-	tests := []tr{
-		{"SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?",
-			[]interface{}{"foo", []int{0, 5, 7, 2, 9}, "bar"},
-			7},
-		{"SELECT * FROM foo WHERE x in (?)",
-			[]interface{}{[]int{1, 2, 3, 4, 5, 6, 7, 8}},
-			8},
-		{"SELECT * FROM foo WHERE x = ? AND y in (?)",
-			[]interface{}{[]byte("foo"), []int{0, 5, 3}},
-			4},
-		{"SELECT * FROM foo WHERE x = ? AND y IN (?)",
-			[]interface{}{sql.NullString{Valid: false}, []string{"a", "b"}},
-			3},
-	}
-	for _, test := range tests {
-		q, a, err := In(test.q, test.args...)
-		if err != nil {
-			t.Error(err)
-		}
-		if len(a) != test.c {
-			t.Errorf("Expected %d args, but got %d (%+v)", test.c, len(a), a)
-		}
-		if strings.Count(q, "?") != test.c {
-			t.Errorf("Expected %d bindVars, got %d", test.c, strings.Count(q, "?"))
-		}
-	}
-
-	// too many bindVars, but no slices, so short circuits parsing
-	// i'm not sure if this is the right behavior;  this query/arg combo
-	// might not work, but we shouldn't parse if we don't need to
-	{
-		orig := "SELECT * FROM foo WHERE x = ? AND y = ?"
-		q, a, err := In(orig, "foo", "bar", "baz")
-		if err != nil {
-			t.Error(err)
-		}
-		if len(a) != 3 {
-			t.Errorf("Expected 3 args, but got %d (%+v)", len(a), a)
-		}
-		if q != orig {
-			t.Error("Expected unchanged query.")
-		}
-	}
-
-	tests = []tr{
-		// too many bindvars;  slice present so should return error during parse
-		{"SELECT * FROM foo WHERE x = ? and y = ?",
-			[]interface{}{"foo", []int{1, 2, 3}, "bar"},
-			0},
-		// empty slice, should return error before parse
-		{"SELECT * FROM foo WHERE x = ?",
-			[]interface{}{[]int{}},
-			0},
-		// too *few* bindvars, should return an error
-		{"SELECT * FROM foo WHERE x = ? AND y in (?)",
-			[]interface{}{[]int{1, 2, 3}},
-			0},
-	}
-	for _, test := range tests {
-		_, _, err := In(test.q, test.args...)
-		if err == nil {
-			t.Error("Expected an error, but got nil.")
-		}
-	}
-	RunWithSchema(defaultSchema, t, func(db *DB, t *testing.T, now string) {
-		loadDefaultFixture(db, t)
-		//tx.ExecContext(context.TODO(),tx.Rebind("INSERT INTO place (country, city, telcode) VALUES (?, ?, ?)"), "United States", "New York", "1")
-		//tx.ExecContext(context.TODO(),tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Hong Kong", "852")
-		//tx.ExecContext(context.TODO(),tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Singapore", "65")
-		telcodes := []int{852, 65}
-		q := "SELECT * FROM place WHERE telcode IN(?) ORDER BY telcode"
-		query, args, err := In(q, telcodes)
-		if err != nil {
-			t.Error(err)
-		}
-		query = db.Rebind(query)
-		places := []Place{}
-		err = db.SelectContext(context.TODO(), &places, query, args...)
-		if err != nil {
-			t.Error(err)
-		}
-		if len(places) != 2 {
-			t.Fatalf("Expecting 2 results, got %d", len(places))
-		}
-		if places[0].TelCode != 65 {
-			t.Errorf("Expecting singapore first, but got %#v", places[0])
-		}
-		if places[1].TelCode != 852 {
-			t.Errorf("Expecting hong kong second, but got %#v", places[1])
-		}
-	})
-}
-
-func TestBindStruct(t *testing.T) {
-	var err error
-
-	q1 := `INSERT INTO foo (a, b, c, d) VALUES (:name, :age, :first, :last)`
-
-	type tt struct {
-		Name  string
-		Age   int
-		First string
-		Last  string
-	}
-
-	type tt2 struct {
-		Field1 string `db:"field_1"`
-		Field2 string `db:"field_2"`
-	}
-
-	type tt3 struct {
-		tt2
-		Name string
-	}
-
-	am := tt{"Jason Moiron", 30, "Jason", "Moiron"}
-
-	bq, args, _ := bindStruct(QUESTION, q1, am, mapper())
-	expect := `INSERT INTO foo (a, b, c, d) VALUES (?, ?, ?, ?)`
-	if bq != expect {
-		t.Errorf("Interpolation of query failed: got `%v`, expected `%v`\n", bq, expect)
-	}
-
-	if args[0].(string) != "Jason Moiron" {
-		t.Errorf("Expected `Jason Moiron`, got %v\n", args[0])
-	}
-
-	if args[1].(int) != 30 {
-		t.Errorf("Expected 30, got %v\n", args[1])
-	}
-
-	if args[2].(string) != "Jason" {
-		t.Errorf("Expected Jason, got %v\n", args[2])
-	}
-
-	if args[3].(string) != "Moiron" {
-		t.Errorf("Expected Moiron, got %v\n", args[3])
-	}
-
-	am2 := tt2{"Hello", "World"}
-	bq, args, _ = bindStruct(QUESTION, "INSERT INTO foo (a, b) VALUES (:field_2, :field_1)", am2, mapper())
-	expect = `INSERT INTO foo (a, b) VALUES (?, ?)`
-	if bq != expect {
-		t.Errorf("Interpolation of query failed: got `%v`, expected `%v`\n", bq, expect)
-	}
-
-	if args[0].(string) != "World" {
-		t.Errorf("Expected 'World', got %s\n", args[0].(string))
-	}
-	if args[1].(string) != "Hello" {
-		t.Errorf("Expected 'Hello', got %s\n", args[1].(string))
-	}
-
-	am3 := tt3{Name: "Hello!"}
-	am3.Field1 = "Hello"
-	am3.Field2 = "World"
-
-	bq, args, err = bindStruct(QUESTION, "INSERT INTO foo (a, b, c) VALUES (:name, :field_1, :field_2)", am3, mapper())
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expect = `INSERT INTO foo (a, b, c) VALUES (?, ?, ?)`
-	if bq != expect {
-		t.Errorf("Interpolation of query failed: got `%v`, expected `%v`\n", bq, expect)
-	}
-
-	if args[0].(string) != "Hello!" {
-		t.Errorf("Expected 'Hello!', got %s\n", args[0].(string))
-	}
-	if args[1].(string) != "Hello" {
-		t.Errorf("Expected 'Hello', got %s\n", args[1].(string))
-	}
-	if args[2].(string) != "World" {
-		t.Errorf("Expected 'World', got %s\n", args[0].(string))
-	}
-}
-
 func TestEmbeddedLiterals(t *testing.T) {
 	var schema = Schema{
 		create: `
@@ -1755,161 +1258,88 @@ func TestEmbeddedLiterals(t *testing.T) {
 	})
 }
 
-func BenchmarkBindStruct(b *testing.B) {
-	b.StopTimer()
-	q1 := `INSERT INTO foo (a, b, c, d) VALUES (:name, :age, :first, :last)`
-	type t struct {
-		Name  string
-		Age   int
-		First string
-		Last  string
-	}
-	am := t{"Jason Moiron", 30, "Jason", "Moiron"}
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		bindStruct(DOLLAR, q1, am, mapper())
-	}
-}
-
-func TestBindNamedMapper(t *testing.T) {
-	type A map[string]interface{}
-	m := reflectx.NewMapperFunc("db", NameMapper)
-	query, args, err := bindNamedMapper(DOLLAR, `select :x`, A{
-		"x": "X!",
-	}, m)
-	if err != nil {
-		t.Fatal(err)
+func TestConn(t *testing.T) {
+	var schema = Schema{
+		create: `
+			CREATE TABLE tt_conn (
+				id integer,
+				value text NULL DEFAULT NULL
+			);`,
+		drop: "drop table tt_conn;",
 	}
 
-	got := fmt.Sprintf("%s %s", query, args)
-	want := `select $1 [X!]`
-	if got != want {
-		t.Errorf("\ngot:  %q\nwant: %q", got, want)
-	}
+	RunWithSchema(schema, t, func(db *DB, t *testing.T, now string) {
+		ctx := context.Background()
 
-	_, _, err = bindNamedMapper(DOLLAR, `select :x`, map[string]string{
-		"x": "X!",
-	}, m)
-	if err == nil {
-		t.Fatal("err is nil")
-	}
-	if !strings.Contains(err.Error(), "unsupported map type") {
-		t.Errorf("wrong error: %s", err)
-	}
-}
-
-func BenchmarkBindMap(b *testing.B) {
-	b.StopTimer()
-	q1 := `INSERT INTO foo (a, b, c, d) VALUES (:name, :age, :first, :last)`
-	am := map[string]interface{}{
-		"name":  "Jason Moiron",
-		"age":   30,
-		"first": "Jason",
-		"last":  "Moiron",
-	}
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		bindMap(DOLLAR, q1, am)
-	}
-}
-
-func BenchmarkIn(b *testing.B) {
-	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
-
-	for i := 0; i < b.N; i++ {
-		_, _, _ = In(q, []interface{}{"foo", []int{0, 5, 7, 2, 9}, "bar"}...)
-	}
-}
-
-func BenchmarkIn1k(b *testing.B) {
-	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
-
-	var vals [1000]interface{}
-
-	for i := 0; i < b.N; i++ {
-		_, _, _ = In(q, []interface{}{"foo", vals[:], "bar"}...)
-	}
-}
-
-func BenchmarkIn1kInt(b *testing.B) {
-	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
-
-	var vals [1000]int
-
-	for i := 0; i < b.N; i++ {
-		_, _, _ = In(q, []interface{}{"foo", vals[:], "bar"}...)
-	}
-}
-
-func BenchmarkIn1kString(b *testing.B) {
-	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
-
-	var vals [1000]string
-
-	for i := 0; i < b.N; i++ {
-		_, _, _ = In(q, []interface{}{"foo", vals[:], "bar"}...)
-	}
-}
-
-func BenchmarkRebind(b *testing.B) {
-	b.StopTimer()
-	q1 := `INSERT INTO foo (a, b, c, d, e, f, g, h, i) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	q2 := `INSERT INTO foo (a, b, c) VALUES (?, ?, "foo"), ("Hi", ?, ?)`
-	b.StartTimer()
-
-	for i := 0; i < b.N; i++ {
-		Rebind(DOLLAR, q1)
-		Rebind(DOLLAR, q2)
-	}
-}
-
-func BenchmarkRebindBuffer(b *testing.B) {
-	b.StopTimer()
-	q1 := `INSERT INTO foo (a, b, c, d, e, f, g, h, i) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	q2 := `INSERT INTO foo (a, b, c) VALUES (?, ?, "foo"), ("Hi", ?, ?)`
-	b.StartTimer()
-
-	for i := 0; i < b.N; i++ {
-		rebindBuff(DOLLAR, q1)
-		rebindBuff(DOLLAR, q2)
-	}
-}
-
-func TestIn130Regression(t *testing.T) {
-	t.Run("[]interface{}{}", func(t *testing.T) {
-		q, args, err := In("SELECT * FROM people WHERE name IN (?)", []interface{}{[]string{"gopher"}}...)
+		conn, err := db.Connx(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if q != "SELECT * FROM people WHERE name IN (?)" {
-			t.Errorf("got=%v", q)
-		}
-		t.Log(args)
-		for _, a := range args {
-			switch aa := a.(type) {
-			case string:
-				t.Log("ok: string", a)
-			case *string:
-				t.Error("ng: string pointer", a, *aa)
-			}
-		}
-	})
-
-	t.Run("[]string{}", func(t *testing.T) {
-		q, args, err := In("SELECT * FROM people WHERE name IN (?)", []string{"gopher"})
+		defer conn.Close()
 		if err != nil {
 			t.Fatal(err)
 		}
-		if q != "SELECT * FROM people WHERE name IN (?)" {
-			t.Errorf("got=%v", q)
+
+		_, err = conn.ExecContext(ctx, conn.Rebind(`INSERT INTO tt_conn (id, value) VALUES (?, ?), (?, ?)`), 1, "a", 2, "b")
+		if err != nil {
+			t.Fatal(err)
 		}
-		t.Log(args)
-		for _, a := range args {
-			switch aa := a.(type) {
-			case string:
-				t.Log("ok: string", a)
-			case *string:
-				t.Error("ng: string pointer", a, aa)
+
+		type s struct {
+			ID    int    `db:"id"`
+			Value string `db:"value"`
+		}
+
+		v := []s{}
+
+		err = conn.SelectContext(ctx, &v, "SELECT * FROM tt_conn ORDER BY id ASC")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if v[0].ID != 1 {
+			t.Errorf("Expecting ID of 1, got %d", v[0].ID)
+		}
+
+		v1 := s{}
+		err = conn.GetContext(ctx, &v1, conn.Rebind("SELECT * FROM tt_conn WHERE id=?"), 1)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v1.ID != 1 {
+			t.Errorf("Expecting to get back 1, but got %v\n", v1.ID)
+		}
+
+		stmt, err := conn.PreparexContext(ctx, conn.Rebind("SELECT * FROM tt_conn WHERE id=?"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		v1 = s{}
+		tx, err := conn.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tstmt := tx.StmtxContext(context.TODO(), stmt)
+		row := tstmt.QueryRowxContext(context.TODO(), 1)
+		err = row.StructScan(&v1)
+		if err != nil {
+			t.Error(err)
+		}
+		tx.Commit()
+		if v1.ID != 1 {
+			t.Errorf("Expecting to get back 1, but got %v\n", v1.ID)
+		}
+
+		rows, err := conn.QueryxContext(ctx, "SELECT * FROM tt_conn")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for rows.Next() {
+			err = rows.StructScan(&v1)
+			if err != nil {
+				t.Fatal(err)
 			}
 		}
 	})

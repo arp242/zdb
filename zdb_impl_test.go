@@ -174,7 +174,7 @@ func TestPrepare(t *testing.T) {
 			ctx := StartTest(t)
 
 			query, args, err := prepareImpl(ctx, MustGetDB(ctx), tt.query, tt.args...)
-			query = sqlx.Rebind(sqlx.DOLLAR, query) // Always use $-binds for tests
+			query = sqlx.Rebind(sqlx.PlaceholderDollar, query) // Always use $-binds for tests
 			if !ztest.ErrorContains(err, tt.wantErr) {
 				t.Fatal(err)
 			}
