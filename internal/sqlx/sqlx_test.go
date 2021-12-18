@@ -58,7 +58,7 @@ func ConnectAll() {
 	}
 
 	if TestPostgres {
-		pgdb, err = ConnectContext(context.TODO(), "postgres", pgdsn)
+		pgdb, err = Connect(context.TODO(), "postgres", pgdsn)
 		if err != nil {
 			fmt.Printf("Disabling PG tests: %v\n", err)
 			TestPostgres = false
@@ -68,7 +68,7 @@ func ConnectAll() {
 	}
 
 	if TestMysql {
-		mysqldb, err = ConnectContext(context.TODO(), "mysql", mydsn)
+		mysqldb, err = Connect(context.TODO(), "mysql", mydsn)
 		if err != nil {
 			fmt.Printf("Disabling MySQL tests: %v\n", err)
 			TestMysql = false
@@ -78,7 +78,7 @@ func ConnectAll() {
 	}
 
 	if TestSqlite {
-		sldb, err = ConnectContext(context.TODO(), "sqlite3", sqdsn)
+		sldb, err = Connect(context.TODO(), "sqlite3", sqdsn)
 		if err != nil {
 			fmt.Printf("Disabling SQLite: %v", err)
 			TestSqlite = false
@@ -200,7 +200,7 @@ type SliceMember struct {
 // if we've used Place already somewhere in sqlx
 type CPlace Place
 
-func MultiExec(ctx context.Context, e ExecerContext, query string) {
+func MultiExec(ctx context.Context, e Execer, query string) {
 	stmts := strings.Split(query, ";\n")
 	if len(strings.Trim(stmts[len(stmts)-1], " \n\t\r")) == 0 {
 		stmts = stmts[:len(stmts)-1]
@@ -343,7 +343,7 @@ func TestMissingNames(t *testing.T) {
 		if !isUnsafe(db) {
 			t.Error("Expected db to be unsafe, but it isn't")
 		}
-		nstmt, err := db.PrepareNamedContext(context.TODO(), `SELECT * FROM person WHERE first_name != :name`)
+		nstmt, err := db.PrepareNamed(context.TODO(), `SELECT * FROM person WHERE first_name != :name`)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -365,7 +365,7 @@ func TestMissingNames(t *testing.T) {
 		if isUnsafe(db) {
 			t.Error("expected db to be safe but it isn't")
 		}
-		nstmt, err = db.PrepareNamedContext(context.TODO(), `SELECT * FROM person WHERE first_name != :name`)
+		nstmt, err = db.PrepareNamed(context.TODO(), `SELECT * FROM person WHERE first_name != :name`)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -748,7 +748,7 @@ func TestUsage(t *testing.T) {
 
 		// The following tests check statement reuse, which was actually a problem
 		// due to copying being done when creating Stmt's which was eventually removed
-		stmt1, err := db.PreparexContext(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
+		stmt1, err := db.Preparex(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -768,7 +768,7 @@ func TestUsage(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		stmt2, err := db.PreparexContext(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
+		stmt2, err := db.Preparex(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -777,7 +777,7 @@ func TestUsage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		tstmt2 := tx.StmtxContext(context.TODO(), stmt2)
+		tstmt2 := tx.Stmtx(context.TODO(), stmt2)
 		row2 := tstmt2.QueryRowxContext(context.TODO(), "Jason")
 		err = row2.StructScan(&jason)
 		if err != nil {
@@ -832,7 +832,7 @@ func TestUsage(t *testing.T) {
 			t.Errorf("Expected integer telcodes to work, got %#v", places)
 		}
 
-		stmt, err := db.PreparexContext(context.TODO(), db.Rebind("SELECT country, telcode FROM place WHERE telcode > ? ORDER BY telcode ASC"))
+		stmt, err := db.Preparex(context.TODO(), db.Rebind("SELECT country, telcode FROM place WHERE telcode > ? ORDER BY telcode ASC"))
 		if err != nil {
 			t.Error(err)
 		}
@@ -960,7 +960,7 @@ func TestUsage(t *testing.T) {
 
 		// lets test prepared statements some more
 
-		stmt, err = db.PreparexContext(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
+		stmt, err = db.Preparex(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -982,7 +982,7 @@ func TestUsage(t *testing.T) {
 		}
 
 		john = Person{}
-		stmt, err = db.PreparexContext(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
+		stmt, err = db.Preparex(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
 		if err != nil {
 			t.Error(err)
 		}
@@ -1089,7 +1089,7 @@ func TestUsage(t *testing.T) {
 // tests that sqlx will not panic when the wrong driver is passed because
 // of an automatic nil dereference in sqlx.Open(), which was fixed.
 func TestDoNotPanicOnConnect(t *testing.T) {
-	db, err := ConnectContext(context.TODO(), "bogus", "hehe")
+	db, err := Connect(context.TODO(), "bogus", "hehe")
 	if err == nil {
 		t.Errorf("Should return error when using bogus driverName")
 	}
@@ -1311,7 +1311,7 @@ func TestConn(t *testing.T) {
 			t.Errorf("Expecting to get back 1, but got %v\n", v1.ID)
 		}
 
-		stmt, err := conn.PreparexContext(ctx, conn.Rebind("SELECT * FROM tt_conn WHERE id=?"))
+		stmt, err := conn.Preparex(ctx, conn.Rebind("SELECT * FROM tt_conn WHERE id=?"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1320,7 +1320,7 @@ func TestConn(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		tstmt := tx.StmtxContext(context.TODO(), stmt)
+		tstmt := tx.Stmtx(context.TODO(), stmt)
 		row := tstmt.QueryRowxContext(context.TODO(), 1)
 		err = row.StructScan(&v1)
 		if err != nil {

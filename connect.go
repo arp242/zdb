@@ -294,7 +294,7 @@ func (err NotExistError) Error() string {
 
 func connectPostgreSQL(ctx context.Context, connect string, create bool) (*sqlx.DB, bool, error) {
 	exists := true
-	db, err := sqlx.ConnectContext(ctx, "postgres", connect)
+	db, err := sqlx.Connect(ctx, "postgres", connect)
 	if err != nil {
 		var (
 			dbname string
@@ -333,7 +333,7 @@ func connectPostgreSQL(ctx context.Context, connect string, create bool) (*sqlx.
 				return nil, false, fmt.Errorf("connectPostgreSQL: %w: %s", cerr, out)
 			}
 
-			db, err = sqlx.ConnectContext(ctx, "postgres", connect)
+			db, err = sqlx.Connect(ctx, "postgres", connect)
 			if err != nil {
 				return nil, false, fmt.Errorf("connectPostgreSQL: %w", err)
 			}
@@ -354,7 +354,7 @@ func connectPostgreSQL(ctx context.Context, connect string, create bool) (*sqlx.
 }
 
 func connectMariaDB(ctx context.Context, connect string, create bool) (*sqlx.DB, bool, error) {
-	db, err := sqlx.ConnectContext(ctx, "mysql", connect)
+	db, err := sqlx.Connect(ctx, "mysql", connect)
 	if err != nil {
 		return nil, false, fmt.Errorf("connectMariaDB: %w", err)
 	}
@@ -446,7 +446,7 @@ func connectSQLite(ctx context.Context, connect string, create bool, hook func(c
 		}
 	}
 
-	db, err := sqlx.ConnectContext(ctx, driver, connect)
+	db, err := sqlx.Connect(ctx, driver, connect)
 	if err != nil {
 		return nil, false, fmt.Errorf("connectSQLite: %w", err)
 	}

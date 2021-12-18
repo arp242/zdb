@@ -58,7 +58,7 @@ var namedParseConfigs = func() []sqltoken.Config {
 // provided Ext (sqlx.Tx, sqlx.Db).
 //
 // It works with both structs and with map[string]interface{} types.
-func NamedQuery(ctx context.Context, e ExtContext, query string, arg interface{}) (*Rows, error) {
+func NamedQuery(ctx context.Context, e Ext, query string, arg interface{}) (*Rows, error) {
 	q, args, err := bindNamedMapper(Placeholder(e.DriverName()), query, arg, mapperFor(e))
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func NamedQuery(ctx context.Context, e ExtContext, query string, arg interface{}
 // NamedExec uses BindStruct to get a query executable by the driver and then
 // runs Exec on the result.  Returns an error from the binding or the query
 // execution itself.
-func NamedExec(ctx context.Context, e ExtContext, query string, arg interface{}) (sql.Result, error) {
+func NamedExec(ctx context.Context, e Ext, query string, arg interface{}) (sql.Result, error) {
 	q, args, err := bindNamedMapper(Placeholder(e.DriverName()), query, arg, mapperFor(e))
 	if err != nil {
 		return nil, err
@@ -471,13 +471,13 @@ func bindNamedMapper(bindType PlaceholderStyle, query string, arg interface{}, m
 	}
 }
 
-func prepareNamedContext(ctx context.Context, p namedPreparerContext, query string) (*NamedStmt, error) {
+func prepareNamed(ctx context.Context, p namedPreparer, query string) (*NamedStmt, error) {
 	bindType := Placeholder(p.DriverName())
 	q, args, err := compileNamedQuery([]byte(query), bindType)
 	if err != nil {
 		return nil, err
 	}
-	stmt, err := PreparexContext(ctx, p, q)
+	stmt, err := Preparex(ctx, p, q)
 	if err != nil {
 		return nil, err
 	}

@@ -270,24 +270,24 @@ func TestNamedQueries(t *testing.T) {
 		)
 
 		// Check that invalid preparations fail
-		_, err = db.PrepareNamedContext(ctx, "SELECT * FROM person WHERE first_name=:first:name")
+		_, err = db.PrepareNamed(ctx, "SELECT * FROM person WHERE first_name=:first:name")
 		if err == nil {
 			t.Error("Expected an error with invalid prepared statement.")
 		}
 
-		_, err = db.PrepareNamedContext(ctx, "invalid sql")
+		_, err = db.PrepareNamed(ctx, "invalid sql")
 		if err == nil {
 			t.Error("Expected an error with invalid prepared statement.")
 		}
 
 		// Check closing works as anticipated
-		ns, err = db.PrepareNamedContext(ctx, "SELECT * FROM person WHERE first_name=:first_name")
+		ns, err = db.PrepareNamed(ctx, "SELECT * FROM person WHERE first_name=:first_name")
 		test.Error(err)
 
 		err = ns.Close()
 		test.Error(err)
 
-		ns, err = db.PrepareNamedContext(ctx, `
+		ns, err = db.PrepareNamed(ctx, `
 			SELECT first_name, last_name, email 
 			FROM person WHERE first_name=:first_name AND email=:email`)
 		test.Error(err)
@@ -376,7 +376,7 @@ func TestNamedQueries(t *testing.T) {
 		}
 
 		// test Exec
-		ns, err = db.PrepareNamedContext(ctx, `
+		ns, err = db.PrepareNamed(ctx, `
 			INSERT INTO person (first_name, last_name, email)
 			VALUES (:first_name, :last_name, :email)`)
 		test.Error(err)
@@ -401,7 +401,7 @@ func TestNamedQueries(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		txns := tx.NamedStmtContext(ctx, ns)
+		txns := tx.NamedStmt(ctx, ns)
 
 		// We're going to add Steven in this txn
 		sl := Person{
@@ -425,7 +425,7 @@ func TestNamedQueries(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		txns = tx.NamedStmtContext(ctx, ns)
+		txns = tx.NamedStmt(ctx, ns)
 		_, err = txns.ExecContext(ctx, sl)
 		test.Error(err)
 		tx.Commit()
@@ -563,7 +563,7 @@ func TestNamedQuery(t *testing.T) {
 			}
 		}
 
-		ns, err := db.PrepareNamedContext(context.TODO(), pdb(`
+		ns, err := db.PrepareNamed(context.TODO(), pdb(`
 			SELECT * FROM jsperson
 			WHERE
 				"FIRST"=:FIRST AND

@@ -5,12 +5,12 @@ import (
 	"database/sql"
 )
 
-// ExtContext is a union interface which can bind, query, and exec, with Context
-// used by NamedQueryContext and NamedExecContext.
-type ExtContext interface {
+// Ext is a union interface which can bind, query, and exec, used by NamedQuery
+// and NamedExec.
+type Ext interface {
 	binder
-	QueryerContext
-	ExecerContext
+	Queryer
+	Execer
 }
 
 // ColScanner is an interface used by MapScan and SliceScan
@@ -20,27 +20,27 @@ type ColScanner interface {
 	Err() error
 }
 
-// QueryerContext is an interface used by GetContext and SelectContext
-type QueryerContext interface {
+// Queryer is an interface used by Get and Select
+type Queryer interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	QueryxContext(ctx context.Context, query string, args ...interface{}) (*Rows, error)
 	QueryRowxContext(ctx context.Context, query string, args ...interface{}) *Row
 }
 
-// PreparerContext is an interface used by PreparexContext.
-type PreparerContext interface {
+// Preparer is an interface used by Preparex.
+type Preparer interface {
 	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
 }
 
-// ExecerContext is an interface used by LoadFileContext
-type ExecerContext interface {
+// Execer is an interface used by LoadFile.
+type Execer interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
 // A union interface of contextPreparer and binder, required to be able to
 // prepare named statements with context (as the bindtype must be determined).
-type namedPreparerContext interface {
-	PreparerContext
+type namedPreparer interface {
+	Preparer
 	binder
 }
 

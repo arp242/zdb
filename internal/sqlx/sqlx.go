@@ -350,8 +350,8 @@ func (r *Row) StructScan(dest interface{}) error {
 	return r.scanAny(dest, true)
 }
 
-// ConnectContext to a database and verify with a ping.
-func ConnectContext(ctx context.Context, driverName, dataSourceName string) (*DB, error) {
+// Connect to a database and verify with a ping.
+func Connect(ctx context.Context, driverName, dataSourceName string) (*DB, error) {
 	db, err := Open(driverName, dataSourceName)
 	if err != nil {
 		return db, err
@@ -365,7 +365,7 @@ func ConnectContext(ctx context.Context, driverName, dataSourceName string) (*DB
 // scannable, then the result set must have only one column.  Otherwise,
 // StructScan is used. The *sql.Rows are closed automatically.
 // Any placeholder parameters are replaced with supplied args.
-func SelectContext(ctx context.Context, q QueryerContext, dest interface{}, query string, args ...interface{}) error {
+func SelectContext(ctx context.Context, q Queryer, dest interface{}, query string, args ...interface{}) error {
 	rows, err := q.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return err
@@ -375,11 +375,11 @@ func SelectContext(ctx context.Context, q QueryerContext, dest interface{}, quer
 	return scanAll(rows, dest, false)
 }
 
-// PreparexContext prepares a statement.
+// Preparex a statement.
 //
 // The provided context is used for the preparation of the statement, not for
 // the execution of the statement.
-func PreparexContext(ctx context.Context, p PreparerContext, query string) (*Stmt, error) {
+func Preparex(ctx context.Context, p Preparer, query string) (*Stmt, error) {
 	s, err := p.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -392,23 +392,23 @@ func PreparexContext(ctx context.Context, p PreparerContext, query string) (*Stm
 // column. Otherwise, StructScan is used.  Get will return sql.ErrNoRows like
 // row.Scan would. Any placeholder parameters are replaced with supplied args.
 // An error is returned if the result set is empty.
-func GetContext(ctx context.Context, q QueryerContext, dest interface{}, query string, args ...interface{}) error {
+func GetContext(ctx context.Context, q Queryer, dest interface{}, query string, args ...interface{}) error {
 	r := q.QueryRowxContext(ctx, query, args...)
 	return r.scanAny(dest, false)
 }
 
-// LoadFileContext exec's every statement in a file (as a single call to Exec).
-// LoadFileContext may return a nil *sql.Result if errors are encountered
-// locating or reading the file at path.  LoadFile reads the entire file into
-// memory, so it is not suitable for loading large data dumps, but can be useful
-// for initializing schemas or loading indexes.
+// LoadFile exec's every statement in a file (as a single call to Exec).
+// LoadFile may return a nil *sql.Result if errors are encountered locating or
+// reading the file at path.  LoadFile reads the entire file into memory, so it
+// is not suitable for loading large data dumps, but can be useful for
+// initializing schemas or loading indexes.
 //
 // FIXME: this does not really work with multi-statement files for mattn/go-sqlite3
 // or the go-mysql-driver/mysql drivers;  pq seems to be an exception here.  Detecting
 // this by requiring something with DriverName() and then attempting to split the
 // queries will be difficult to get right, and its current driver-specific behavior
 // is deemed at least not complex in its incorrectness.
-func LoadFileContext(ctx context.Context, e ExecerContext, path string) (*sql.Result, error) {
+func LoadFile(ctx context.Context, e Execer, path string) (*sql.Result, error) {
 	realpath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -421,9 +421,9 @@ func LoadFileContext(ctx context.Context, e ExecerContext, path string) (*sql.Re
 	return &res, err
 }
 
-// PrepareNamedContext returns an sqlx.NamedStmt
-func (db *DB) PrepareNamedContext(ctx context.Context, query string) (*NamedStmt, error) {
-	return prepareNamedContext(ctx, db, query)
+// PrepareNamed returns an sqlx.NamedStmt
+func (db *DB) PrepareNamed(ctx context.Context, query string) (*NamedStmt, error) {
+	return prepareNamed(ctx, db, query)
 }
 
 // NamedQuery using this DB.
@@ -451,12 +451,12 @@ func (db *DB) GetContext(ctx context.Context, dest interface{}, query string, ar
 	return GetContext(ctx, db, dest, query, args...)
 }
 
-// PreparexContext returns an sqlx.Stmt instead of a sql.Stmt.
+// Preparex returns an sqlx.Stmt instead of a sql.Stmt.
 //
 // The provided context is used for the preparation of the statement, not for
 // the execution of the statement.
-func (db *DB) PreparexContext(ctx context.Context, query string) (*Stmt, error) {
-	return PreparexContext(ctx, db, query)
+func (db *DB) Preparex(ctx context.Context, query string) (*Stmt, error) {
+	return Preparex(ctx, db, query)
 }
 
 // QueryxContext queries the database and returns an *sqlx.Rows.
@@ -481,8 +481,8 @@ func (db *DB) QueryRowxContext(ctx context.Context, query string, args ...interf
 //
 // The provided context is used until the transaction is committed or rolled
 // back. If the context is canceled, the sql package will roll back the
-// transaction. Tx.Commit will return an error if the context provided to
-// BeginxContext is canceled.
+// transaction. Tx.Commit will return an error if the context provided to Beginx
+// is canceled.
 func (db *DB) BeginTxx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
 	tx, err := db.DB.BeginTx(ctx, opts)
 	if err != nil {
@@ -506,8 +506,8 @@ func (db *DB) Connx(ctx context.Context) (*Conn, error) {
 //
 // The provided context is used until the transaction is committed or rolled
 // back. If the context is canceled, the sql package will roll back the
-// transaction. Tx.Commit will return an error if the context provided to
-// BeginxContext is canceled.
+// transaction. Tx.Commit will return an error if the context provided to Beginx
+// is canceled.
 func (c *Conn) BeginTxx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
 	tx, err := c.Conn.BeginTx(ctx, opts)
 	if err != nil {
@@ -529,12 +529,12 @@ func (c *Conn) GetContext(ctx context.Context, dest interface{}, query string, a
 	return GetContext(ctx, c, dest, query, args...)
 }
 
-// PreparexContext returns an sqlx.Stmt instead of a sql.Stmt.
+// Preparex returns an sqlx.Stmt instead of a sql.Stmt.
 //
 // The provided context is used for the preparation of the statement, not for
 // the execution of the statement.
-func (c *Conn) PreparexContext(ctx context.Context, query string) (*Stmt, error) {
-	return PreparexContext(ctx, c, query)
+func (c *Conn) Preparex(ctx context.Context, query string) (*Stmt, error) {
+	return Preparex(ctx, c, query)
 }
 
 // QueryxContext queries the database and returns an *sqlx.Rows.
@@ -559,9 +559,9 @@ func (c *Conn) Rebind(query string) string {
 	return Rebind(Placeholder(c.driverName), query)
 }
 
-// StmtxContext returns a version of the prepared statement which runs within a
+// Stmtx returns a version of the prepared statement which runs within a
 // transaction. Provided stmt can be either *sql.Stmt or *sqlx.Stmt.
-func (tx *Tx) StmtxContext(ctx context.Context, stmt interface{}) *Stmt {
+func (tx *Tx) Stmtx(ctx context.Context, stmt interface{}) *Stmt {
 	var s *sql.Stmt
 	switch v := stmt.(type) {
 	case Stmt:
@@ -576,27 +576,27 @@ func (tx *Tx) StmtxContext(ctx context.Context, stmt interface{}) *Stmt {
 	return &Stmt{Stmt: tx.StmtContext(ctx, s), Mapper: tx.Mapper}
 }
 
-// NamedStmtContext returns a version of the prepared statement which runs
-// within a transaction.
-func (tx *Tx) NamedStmtContext(ctx context.Context, stmt *NamedStmt) *NamedStmt {
+// NamedStmt returns a version of the prepared statement which runs within a
+// transaction.
+func (tx *Tx) NamedStmt(ctx context.Context, stmt *NamedStmt) *NamedStmt {
 	return &NamedStmt{
 		QueryString: stmt.QueryString,
 		Params:      stmt.Params,
-		Stmt:        tx.StmtxContext(ctx, stmt.Stmt),
+		Stmt:        tx.Stmtx(ctx, stmt.Stmt),
 	}
 }
 
-// PreparexContext returns an sqlx.Stmt instead of a sql.Stmt.
+// Preparex returns an sqlx.Stmt instead of a sql.Stmt.
 //
 // The provided context is used for the preparation of the statement, not for
 // the execution of the statement.
-func (tx *Tx) PreparexContext(ctx context.Context, query string) (*Stmt, error) {
-	return PreparexContext(ctx, tx, query)
+func (tx *Tx) Preparex(ctx context.Context, query string) (*Stmt, error) {
+	return Preparex(ctx, tx, query)
 }
 
-// PrepareNamedContext returns an sqlx.NamedStmt
-func (tx *Tx) PrepareNamedContext(ctx context.Context, query string) (*NamedStmt, error) {
-	return prepareNamedContext(ctx, tx, query)
+// PrepareNamed returns an sqlx.NamedStmt
+func (tx *Tx) PrepareNamed(ctx context.Context, query string) (*NamedStmt, error) {
+	return prepareNamed(ctx, tx, query)
 }
 
 // QueryxContext within a transaction and context.
