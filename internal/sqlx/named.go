@@ -15,15 +15,44 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"strconv"
 	"unicode"
 
+	"zgo.at/zdb/internal/sqltoken"
 	"zgo.at/zdb/internal/sqlx/reflectx"
 )
+
+var namedParseConfigs = func() []sqltoken.Config {
+	configs := make([]sqltoken.Config, PlaceholderAt+1)
+
+	pg := sqltoken.PostgreSQLConfig()
+	pg.NoticeColonWord = true
+	pg.ColonWordIncludesUnicode = true
+	pg.NoticeDollarNumber = false
+	configs[PlaceholderDollar] = pg
+
+	ora := sqltoken.OracleConfig()
+	ora.ColonWordIncludesUnicode = true
+	configs[PlaceholderNamed] = ora
+
+	ssvr := sqltoken.SQLServerConfig()
+	ssvr.NoticeColonWord = true
+	ssvr.ColonWordIncludesUnicode = true
+	ssvr.NoticeAtWord = false
+	configs[PlaceholderAt] = ssvr
+
+	mysql := sqltoken.MySQLConfig()
+	mysql.NoticeColonWord = true
+	mysql.ColonWordIncludesUnicode = true
+	mysql.NoticeQuestionMark = false
+	configs[PlaceholderQuestion] = mysql
+	configs[PlaceholderUnknown] = mysql
+
+	return configs
+}()
 
 // NamedQuery binds a named query and then runs Query on the result using the
 // provided Ext (sqlx.Tx, sqlx.Db).
@@ -390,77 +419,32 @@ func compileNamedQuery(qs []byte, bindType PlaceholderStyle) (query string, name
 	names = make([]string, 0, 10)
 	rebound := make([]byte, 0, len(qs))
 
-	inName := false
-	last := len(qs) - 1
 	currentVar := 1
-	name := make([]byte, 0, 10)
+	tokens := sqltoken.Tokenize(string(qs), namedParseConfigs[bindType])
 
-	for i, b := range qs {
-		// a ':' while we're in a name is an error
-		if b == ':' {
-			// if this is the second ':' in a '::' escape sequence, append a ':'
-			if inName && i > 0 && qs[i-1] == ':' {
-				rebound = append(rebound, ':')
-				inName = false
-				continue
-			} else if inName {
-				err = errors.New("unexpected `:` while reading named param at " + strconv.Itoa(i))
-				return query, names, err
-			}
-			inName = true
-			name = []byte{}
-		} else if inName && i > 0 && b == '=' && len(name) == 0 {
-			rebound = append(rebound, ':', '=')
-			inName = false
+	for _, token := range tokens {
+		if token.Type != sqltoken.ColonWord {
+			rebound = append(rebound, ([]byte)(token.Text)...)
 			continue
-			// if we're in a name, and this is an allowed character, continue
-		} else if inName && (unicode.IsOneOf(allowedBindRunes, rune(b)) || b == '_' || b == '.') && i != last {
-			// append the byte to the name if we are in a name and not on the last byte
-			name = append(name, b)
-			// if we're in a name and it's not an allowed character, the name is done
-		} else if inName {
-			inName = false
-			// if this is the final byte of the string and it is part of the name, then
-			// make sure to add it to the name
-			if i == last && unicode.IsOneOf(allowedBindRunes, rune(b)) {
-				name = append(name, b)
-			}
-			// add the string representation to the names list
-			names = append(names, string(name))
-			// add a proper bindvar for the bindType
-			switch bindType {
-			// oracle only supports named type bind vars even for positional
-			case PlaceholderNamed:
-				rebound = append(rebound, ':')
-				rebound = append(rebound, name...)
-			case PlaceholderQuestion, PlaceholderUnknown:
-				rebound = append(rebound, '?')
-			case PlaceholderDollar:
-				rebound = append(rebound, '$')
-				for _, b := range strconv.Itoa(currentVar) {
-					rebound = append(rebound, byte(b))
-				}
-				currentVar++
-			case PlaceholderAt:
-				rebound = append(rebound, '@', 'p')
-				for _, b := range strconv.Itoa(currentVar) {
-					rebound = append(rebound, byte(b))
-				}
-				currentVar++
-			}
-			// add this byte to string unless it was not part of the name
-			if i != last {
-				rebound = append(rebound, b)
-			} else if !unicode.IsOneOf(allowedBindRunes, rune(b)) {
-				rebound = append(rebound, b)
-			}
-		} else {
-			// this is a normal byte and should just go onto the rebound query
-			rebound = append(rebound, b)
+		}
+		names = append(names, token.Text[1:])
+		switch bindType {
+		// oracle only supports named type bind vars even for positional
+		case PlaceholderNamed:
+			rebound = append(rebound, ([]byte)(token.Text)...)
+		case PlaceholderQuestion, PlaceholderUnknown:
+			rebound = append(rebound, '?')
+		case PlaceholderDollar:
+			rebound = append(rebound, '$')
+			rebound = strconv.AppendInt(rebound, int64(currentVar), 10)
+			currentVar++
+		case PlaceholderAt:
+			rebound = append(rebound, '@', 'p')
+			rebound = strconv.AppendInt(rebound, int64(currentVar), 10)
+			currentVar++
 		}
 	}
-
-	return string(rebound), names, err
+	return string(rebound), names, nil
 }
 
 // Named takes a query using named parameters and an argument and

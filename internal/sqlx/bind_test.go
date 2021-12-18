@@ -184,6 +184,10 @@ func TestIn(t *testing.T) {
 
 // BenchmarkRebind/two-8            3237973               374.2 ns/op           144 B/op          2 allocs/op
 // BenchmarkRebind/ten-8            1933748               633.9 ns/op           192 B/op          2 allocs/op
+//
+// sqltoken:
+// BenchmarkRebind/two-8             324739              3696 ns/op            2160 B/op          5 allocs/op
+// BenchmarkRebind/ten-8             243567              4956 ns/op            2880 B/op          5 allocs/op
 func BenchmarkRebind(b *testing.B) {
 	b.Run("two", func(b *testing.B) {
 		q := `INSERT INTO foo (a, b, c) VALUES (?, ?, "foo"), ("Hi", ?, ?)`
@@ -199,39 +203,33 @@ func BenchmarkRebind(b *testing.B) {
 	})
 }
 
+// BenchmarkIn-8                    1000000              1060 ns/op             264 B/op          4 allocs/op
+// BenchmarkIn1k-8                    64852             18586 ns/op           19480 B/op          3 allocs/op
+// BenchmarkIn1kInt-8                 47572             25248 ns/op           19480 B/op          3 allocs/op
+// BenchmarkIn1kString-8              46544             25653 ns/op           19480 B/op          3 allocs/op
 func BenchmarkIn(b *testing.B) {
 	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
-
 	for i := 0; i < b.N; i++ {
 		_, _, _ = In(q, []interface{}{"foo", []int{0, 5, 7, 2, 9}, "bar"}...)
 	}
 }
-
 func BenchmarkIn1k(b *testing.B) {
 	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
-
 	var vals [1000]interface{}
-
 	for i := 0; i < b.N; i++ {
 		_, _, _ = In(q, []interface{}{"foo", vals[:], "bar"}...)
 	}
 }
-
 func BenchmarkIn1kInt(b *testing.B) {
 	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
-
 	var vals [1000]int
-
 	for i := 0; i < b.N; i++ {
 		_, _, _ = In(q, []interface{}{"foo", vals[:], "bar"}...)
 	}
 }
-
 func BenchmarkIn1kString(b *testing.B) {
 	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
-
 	var vals [1000]string
-
 	for i := 0; i < b.N; i++ {
 		_, _, _ = In(q, []interface{}{"foo", vals[:], "bar"}...)
 	}

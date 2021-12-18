@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -13,93 +14,84 @@ import (
 
 func TestCompileQuery(t *testing.T) {
 	table := []struct {
-		Q, R, D, T, N string
-		V             []string
+		in, question, dollar, at, named string
+		args                            []string
 	}{
 		// basic test for named parameters, invalid char ',' terminating
 		{
-			Q: `INSERT INTO foo (a,b,c,d) VALUES (:name, :age, :first, :last)`,
-			R: `INSERT INTO foo (a,b,c,d) VALUES (?, ?, ?, ?)`,
-			D: `INSERT INTO foo (a,b,c,d) VALUES ($1, $2, $3, $4)`,
-			T: `INSERT INTO foo (a,b,c,d) VALUES (@p1, @p2, @p3, @p4)`,
-			N: `INSERT INTO foo (a,b,c,d) VALUES (:name, :age, :first, :last)`,
-			V: []string{"name", "age", "first", "last"},
+			in:       `INSERT INTO foo (a,b,c,d) VALUES (:name, :age, :first, :last)`,
+			question: `INSERT INTO foo (a,b,c,d) VALUES (?, ?, ?, ?)`,
+			dollar:   `INSERT INTO foo (a,b,c,d) VALUES ($1, $2, $3, $4)`,
+			at:       `INSERT INTO foo (a,b,c,d) VALUES (@p1, @p2, @p3, @p4)`,
+			named:    `INSERT INTO foo (a,b,c,d) VALUES (:name, :age, :first, :last)`,
+			args:     []string{"name", "age", "first", "last"},
 		},
 		// This query tests a named parameter ending the string as well as numbers
 		{
-			Q: `SELECT * FROM a WHERE first_name=:name1 AND last_name=:name2`,
-			R: `SELECT * FROM a WHERE first_name=? AND last_name=?`,
-			D: `SELECT * FROM a WHERE first_name=$1 AND last_name=$2`,
-			T: `SELECT * FROM a WHERE first_name=@p1 AND last_name=@p2`,
-			N: `SELECT * FROM a WHERE first_name=:name1 AND last_name=:name2`,
-			V: []string{"name1", "name2"},
+			in:       `SELECT * FROM a WHERE first_name=:name1 AND last_name=:name2`,
+			question: `SELECT * FROM a WHERE first_name=? AND last_name=?`,
+			dollar:   `SELECT * FROM a WHERE first_name=$1 AND last_name=$2`,
+			at:       `SELECT * FROM a WHERE first_name=@p1 AND last_name=@p2`,
+			named:    `SELECT * FROM a WHERE first_name=:name1 AND last_name=:name2`,
+			args:     []string{"name1", "name2"},
 		},
 		{
-			Q: `SELECT "::foo" FROM a WHERE first_name=:name1 AND last_name=:name2`,
-			R: `SELECT ":foo" FROM a WHERE first_name=? AND last_name=?`,
-			D: `SELECT ":foo" FROM a WHERE first_name=$1 AND last_name=$2`,
-			T: `SELECT ":foo" FROM a WHERE first_name=@p1 AND last_name=@p2`,
-			N: `SELECT ":foo" FROM a WHERE first_name=:name1 AND last_name=:name2`,
-			V: []string{"name1", "name2"},
+			in:       `SELECT ":foo" FROM a WHERE first_name=:name1 AND last_name=:name2`,
+			question: `SELECT ":foo" FROM a WHERE first_name=? AND last_name=?`,
+			dollar:   `SELECT ":foo" FROM a WHERE first_name=$1 AND last_name=$2`,
+			at:       `SELECT ":foo" FROM a WHERE first_name=@p1 AND last_name=@p2`,
+			named:    `SELECT ":foo" FROM a WHERE first_name=:name1 AND last_name=:name2`,
+			args:     []string{"name1", "name2"},
 		},
 		{
-			Q: `SELECT 'a::b::c' || first_name, '::::ABC::_::' FROM person WHERE first_name=:first_name AND last_name=:last_name`,
-			R: `SELECT 'a:b:c' || first_name, '::ABC:_:' FROM person WHERE first_name=? AND last_name=?`,
-			D: `SELECT 'a:b:c' || first_name, '::ABC:_:' FROM person WHERE first_name=$1 AND last_name=$2`,
-			T: `SELECT 'a:b:c' || first_name, '::ABC:_:' FROM person WHERE first_name=@p1 AND last_name=@p2`,
-			N: `SELECT 'a:b:c' || first_name, '::ABC:_:' FROM person WHERE first_name=:first_name AND last_name=:last_name`,
-			V: []string{"first_name", "last_name"},
+			in:       `SELECT 'a:b:c' || first_name, '::ABC:_:' FROM person WHERE first_name=:first_name AND last_name=:last_name`,
+			question: `SELECT 'a:b:c' || first_name, '::ABC:_:' FROM person WHERE first_name=? AND last_name=?`,
+			dollar:   `SELECT 'a:b:c' || first_name, '::ABC:_:' FROM person WHERE first_name=$1 AND last_name=$2`,
+			at:       `SELECT 'a:b:c' || first_name, '::ABC:_:' FROM person WHERE first_name=@p1 AND last_name=@p2`,
+			named:    `SELECT 'a:b:c' || first_name, '::ABC:_:' FROM person WHERE first_name=:first_name AND last_name=:last_name`,
+			args:     []string{"first_name", "last_name"},
 		},
 		{
-			Q: `SELECT @name := "name", :age, :first, :last`,
-			R: `SELECT @name := "name", ?, ?, ?`,
-			D: `SELECT @name := "name", $1, $2, $3`,
-			N: `SELECT @name := "name", :age, :first, :last`,
-			T: `SELECT @name := "name", @p1, @p2, @p3`,
-			V: []string{"age", "first", "last"},
+			in:       `SELECT @name := "name", :age, :first, :last`,
+			question: `SELECT @name := "name", ?, ?, ?`,
+			dollar:   `SELECT @name := "name", $1, $2, $3`,
+			named:    `SELECT @name := "name", :age, :first, :last`,
+			at:       `SELECT @name := "name", @p1, @p2, @p3`,
+			args:     []string{"age", "first", "last"},
 		},
-		// This unicode awareness test sadly fails, because of our byte-wise
-		// worldview. We could certainly iterate by Rune instead, though it's a
-		// great deal slower, it's probably the RightWay™.
-		// {
-		// 	Q: `INSERT INTO foo (a,b,c,d) VALUES (:あ, :b, :キコ, :名前)`,
-		// 	R: `INSERT INTO foo (a,b,c,d) VALUES (?, ?, ?, ?)`,
-		// 	D: `INSERT INTO foo (a,b,c,d) VALUES ($1, $2, $3, $4)`,
-		// 	N: []string{"name", "age", "first", "last"},
-		// },
+		{
+			in:       `INSERT INTO foo (a,b,c,d) VALUES (:あ, :b, :キコ, :名前)`,
+			question: `INSERT INTO foo (a,b,c,d) VALUES (?, ?, ?, ?)`,
+			dollar:   `INSERT INTO foo (a,b,c,d) VALUES ($1, $2, $3, $4)`,
+			at:       `INSERT INTO foo (a,b,c,d) VALUES (@p1, @p2, @p3, @p4)`,
+			named:    `INSERT INTO foo (a,b,c,d) VALUES (:あ, :b, :キコ, :名前)`,
+			args:     []string{"あ", "b", "キコ", "名前"},
+		},
 	}
 
-	for _, test := range table {
-		qr, names, err := compileNamedQuery([]byte(test.Q), PlaceholderQuestion)
-		if err != nil {
-			t.Error(err)
-		}
-		if qr != test.R {
-			t.Errorf("expected %s, got %s", test.R, qr)
-		}
-		if len(names) != len(test.V) {
-			t.Errorf("expected %#v, got %#v", test.V, names)
-		} else {
-			for i, name := range names {
-				if name != test.V[i] {
-					t.Errorf("expected %dth name to be %s, got %s", i+1, test.V[i], name)
-				}
+	for _, tt := range table {
+		t.Run("", func(t *testing.T) {
+			_, haveArgs, err := compileNamedQuery([]byte(tt.in), PlaceholderDollar)
+			if err != nil {
+				t.Fatal(err)
 			}
-		}
-		qd, _, _ := compileNamedQuery([]byte(test.Q), PlaceholderDollar)
-		if qd != test.D {
-			t.Errorf("\nexpected: `%s`\ngot:      `%s`", test.D, qd)
-		}
+			if !reflect.DeepEqual(haveArgs, tt.args) {
+				t.Fatalf("wrong args\nhave: %v\nwant: %v", haveArgs, tt.args)
+			}
 
-		qt, _, _ := compileNamedQuery([]byte(test.Q), PlaceholderAt)
-		if qt != test.T {
-			t.Errorf("\nexpected: `%s`\ngot:      `%s`", test.T, qt)
-		}
-
-		qq, _, _ := compileNamedQuery([]byte(test.Q), PlaceholderNamed)
-		if qq != test.N {
-			t.Errorf("\nexpected: `%s`\ngot:      `%s`\n(len: %d vs %d)", test.N, qq, len(test.N), len(qq))
-		}
+			if have, _, _ := compileNamedQuery([]byte(tt.in), PlaceholderQuestion); have != tt.question {
+				t.Errorf("Question\nhave: %s\nwant: %s", have, tt.question)
+			}
+			if have, _, _ := compileNamedQuery([]byte(tt.in), PlaceholderDollar); have != tt.dollar {
+				t.Errorf("Dollar\nhave: %s\nwant: %s", have, tt.dollar)
+			}
+			if have, _, _ := compileNamedQuery([]byte(tt.in), PlaceholderAt); have != tt.at {
+				t.Errorf("At\nhave: %s\nwant: %s", have, tt.at)
+			}
+			if have, _, _ := compileNamedQuery([]byte(tt.in), PlaceholderNamed); have != tt.named {
+				t.Errorf("Named\nhave: %s\nwant: %s", have, tt.named)
+			}
+		})
 	}
 }
 
@@ -792,6 +784,10 @@ func TestPlaceholderNamedMapper(t *testing.T) {
 	}
 }
 
+// BenchmarkNamedStruct-8            268995              4150 ns/op             544 B/op         14 allocs/op
+//
+// sqltoken:
+// BenchmarkNamedStruct-8            226551              5400 ns/op            2560 B/op         10 allocs/op
 func BenchmarkNamedStruct(b *testing.B) {
 	b.StopTimer()
 	q1 := `INSERT INTO foo (a, b, c, d) VALUES (:name, :age, :first, :last)`
@@ -808,6 +804,10 @@ func BenchmarkNamedStruct(b *testing.B) {
 	}
 }
 
+// BenchmarkNamedMap-8               356125              3239 ns/op             480 B/op         13 allocs/op
+//
+// sqltoken:
+// BenchmarkNamedMap-8               267578              4543 ns/op            2496 B/op          9 allocs/op
 func BenchmarkNamedMap(b *testing.B) {
 	b.StopTimer()
 	q1 := `INSERT INTO foo (a, b, c, d) VALUES (:name, :age, :first, :last)`

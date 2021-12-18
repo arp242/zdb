@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"zgo.at/zdb/internal/sqltoken"
 	"zgo.at/zdb/internal/sqlx/reflectx"
 )
 
@@ -36,8 +37,28 @@ func init() {
 			PlaceholderRegister(d, p)
 		}
 	}
-
 }
+
+var rebindConfigs = func() []sqltoken.Config {
+	configs := make([]sqltoken.Config, PlaceholderAt+1)
+
+	pg := sqltoken.PostgreSQLConfig()
+	pg.NoticeQuestionMark = true
+	pg.NoticeDollarNumber = false
+	configs[PlaceholderDollar] = pg
+
+	ora := sqltoken.OracleConfig()
+	ora.NoticeColonWord = false
+	ora.NoticeQuestionMark = true
+	configs[PlaceholderNamed] = ora
+
+	ssvr := sqltoken.SQLServerConfig()
+	ssvr.NoticeAtWord = false
+	ssvr.NoticeQuestionMark = true
+	configs[PlaceholderAt] = ssvr
+
+	return configs
+}()
 
 // PlaceholderRegister sets the placeholder style for a SQL driver.
 func PlaceholderRegister(driver string, style PlaceholderStyle) {
@@ -56,9 +77,6 @@ func Placeholder(driver string) PlaceholderStyle {
 // Rebind a query from the default placeholder style (PlaceholderQuestion) to
 // the target placeholder style.
 func Rebind(style PlaceholderStyle, query string) string {
-	// TODO: this should be able to be tolerant of escaped ?'s in queries
-	// without losing much speed, and should be to avoid confusion.
-
 	switch style {
 	case PlaceholderQuestion, PlaceholderUnknown:
 		return query
@@ -66,12 +84,15 @@ func Rebind(style PlaceholderStyle, query string) string {
 
 	// Add space enough for 10 params before we have to allocate
 	var (
-		rqb  = make([]byte, 0, len(query)+10)
-		i, j int
+		tokens = sqltoken.Tokenize(query, rebindConfigs[style])
+		rqb    = make([]byte, 0, len(query)+10)
+		j      int
 	)
-	for i = strings.Index(query, "?"); i != -1; i = strings.Index(query, "?") {
-		rqb = append(rqb, query[:i]...)
-
+	for _, token := range tokens {
+		if token.Type != sqltoken.QuestionMark {
+			rqb = append(rqb, ([]byte)(token.Text)...)
+			continue
+		}
 		switch style {
 		case PlaceholderDollar:
 			rqb = append(rqb, '$')
@@ -80,14 +101,10 @@ func Rebind(style PlaceholderStyle, query string) string {
 		case PlaceholderAt:
 			rqb = append(rqb, '@', 'p')
 		}
-
 		j++
 		rqb = strconv.AppendInt(rqb, int64(j), 10)
-
-		query = query[i+1:]
 	}
-
-	return string(append(rqb, query...))
+	return string(rqb)
 }
 
 // In expands slice values in args, returning the modified query string and a
