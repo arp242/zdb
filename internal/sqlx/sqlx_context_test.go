@@ -1379,6 +1379,9 @@ func TestConn(t *testing.T) {
 
 	RunWithSchemaContext(context.Background(), schema, t, func(ctx context.Context, db *DB, t *testing.T) {
 		conn, err := db.Connx(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
 		defer conn.Close()
 		if err != nil {
 			t.Fatal(err)

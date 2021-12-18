@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-
 	"reflect"
 	"strings"
 	"sync"

@@ -140,12 +140,12 @@ func TestNamedQueries(t *testing.T) {
 		var err error
 
 		// Check that invalid preparations fail
-		ns, err = db.PrepareNamedContext(context.TODO(), "SELECT * FROM person WHERE first_name=:first:name")
+		_, err = db.PrepareNamedContext(context.TODO(), "SELECT * FROM person WHERE first_name=:first:name")
 		if err == nil {
 			t.Error("Expected an error with invalid prepared statement.")
 		}
 
-		ns, err = db.PrepareNamedContext(context.TODO(), "invalid sql")
+		_, err = db.PrepareNamedContext(context.TODO(), "invalid sql")
 		if err == nil {
 			t.Error("Expected an error with invalid prepared statement.")
 		}
