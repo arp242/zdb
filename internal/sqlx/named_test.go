@@ -525,7 +525,7 @@ func TestNamedQuery(t *testing.T) {
 			Email:     sql.NullString{String: "ben@smith.com", Valid: true},
 		}
 
-		db.Mapper = reflectx.NewMapperFunc("json", strings.ToUpper)
+		db.Mapper = reflectx.NewMapper("json", strings.ToUpper)
 
 		// prepare queries for case sensitivity to test our ToUpper function.
 		// postgres and sqlite accept "", but mysql uses ``;  since Go's multi-line
@@ -759,7 +759,7 @@ func TestNamedStruct(t *testing.T) {
 
 func TestPlaceholderNamedMapper(t *testing.T) {
 	type A map[string]interface{}
-	m := reflectx.NewMapperFunc("db", NameMapper)
+	m := reflectx.NewMapper("db", NameMapper)
 	query, args, err := bindNamedMapper(PlaceholderDollar, `select :x`, A{
 		"x": "X!",
 	}, m)

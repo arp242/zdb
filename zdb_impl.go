@@ -542,7 +542,7 @@ func prepareParams(params []interface{}) (interface{}, bool, DumpArg, io.Writer,
 			}
 
 			named = true
-			m := reflectx.NewMapperFunc("db", sqlx.NameMapper).FieldMap(reflect.ValueOf(param))
+			m := reflectx.NewMapper("db", sqlx.NameMapper).FieldMap(reflect.ValueOf(param))
 			for k, v := range m {
 				if _, ok := mergedNamed[k]; ok {
 					return nil, false, 0, nil, fmt.Errorf("parameter given more than once: %q", k)
@@ -674,7 +674,7 @@ func includeConditional(param interface{}, name string) (include, has bool, err 
 
 	// Struct
 	if v.Kind() == reflect.Struct {
-		c := reflectx.NewMapperFunc("db", sqlx.NameMapper).FieldByName(v, name)
+		c := reflectx.NewMapper("db", sqlx.NameMapper).FieldByName(v, name)
 		if c.Type() == v.Type() { // FieldByName() returns original struct if it's not found.
 			return false, false, nil
 		}

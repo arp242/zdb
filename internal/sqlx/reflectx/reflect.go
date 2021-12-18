@@ -1,9 +1,3 @@
-// Package reflectx implements extensions to the standard reflect lib suitable
-// for implementing marshalling and unmarshalling packages.  The main Mapper type
-// allows for Go-compatible named attribute access, including accessing embedded
-// struct attributes and the ability to use  functions and struct tags to
-// customize field names.
-//
 package reflectx
 
 import (
@@ -13,108 +7,70 @@ import (
 	"sync"
 )
 
-// A FieldInfo is metadata for a struct field.
-type FieldInfo struct {
-	Index    []int
-	Path     string
-	Field    reflect.StructField
-	Zero     reflect.Value
-	Name     string
-	Options  map[string]string
-	Embedded bool
-	Children []*FieldInfo
-	Parent   *FieldInfo
-}
-
-// A StructMap is an index of field metadata for a struct.
-type StructMap struct {
-	Tree  *FieldInfo
-	Index []*FieldInfo
-	Paths map[string]*FieldInfo
-	Names map[string]*FieldInfo
-}
-
-// GetByPath returns a *FieldInfo for a given string path.
-func (f StructMap) GetByPath(path string) *FieldInfo {
-	return f.Paths[path]
-}
-
-// GetByTraversal returns a *FieldInfo for a given integer path.  It is
-// analogous to reflect.FieldByIndex, but using the cached traversal
-// rather than re-executing the reflect machinery each time.
-func (f StructMap) GetByTraversal(index []int) *FieldInfo {
-	if len(index) == 0 {
-		return nil
+type (
+	// A Mapper maps struct fields to names.
+	//
+	// A Mapper behaves like most marshallers in the standard library, obeying a
+	// field tag for name mapping but also providing a basic transform function.
+	Mapper struct {
+		cache   map[reflect.Type]*StructMap
+		tagName string
+		mapFunc func(string) string
+		mutex   sync.Mutex
 	}
 
-	tree := f.Tree
-	for _, i := range index {
-		if i >= len(tree.Children) || tree.Children[i] == nil {
-			return nil
-		}
-		tree = tree.Children[i]
+	// A StructMap is an index of field metadata for a struct.
+	StructMap struct {
+		Tree  *FieldInfo
+		Index []*FieldInfo
+		Paths map[string]*FieldInfo
+		Names map[string]*FieldInfo
 	}
-	return tree
-}
 
-// Mapper is a general purpose mapper of names to struct fields.  A Mapper
-// behaves like most marshallers in the standard library, obeying a field tag
-// for name mapping but also providing a basic transform function.
-type Mapper struct {
-	cache      map[reflect.Type]*StructMap
-	tagName    string
-	tagMapFunc func(string) string
-	mapFunc    func(string) string
-	mutex      sync.Mutex
-}
+	// A FieldInfo is metadata for a struct field.
+	FieldInfo struct {
+		Index    []int
+		Path     string
+		Field    reflect.StructField
+		Zero     reflect.Value
+		Name     string
+		Options  map[string]string
+		Embedded bool
+		Children []*FieldInfo
+		Parent   *FieldInfo
+	}
+)
 
-// NewMapper returns a new mapper using the tagName as its struct field tag.
-// If tagName is the empty string, it is ignored.
-func NewMapper(tagName string) *Mapper {
+// NewMapper returns a new mapper using the tag as the struct field tag.
+//
+// The mapFunc is invoked if the tag is empty, taking the field name as its
+// argument. If this returns an empty things the field is ignored.
+func NewMapper(tagName string, mapFunc func(string) string) *Mapper {
 	return &Mapper{
 		cache:   make(map[reflect.Type]*StructMap),
 		tagName: tagName,
+		mapFunc: mapFunc,
 	}
 }
 
-// NewMapperTagFunc returns a new mapper which contains a mapper for field names
-// AND a mapper for tag values.  This is useful for tags like json which can
-// have values like "name,omitempty".
-func NewMapperTagFunc(tagName string, mapFunc, tagMapFunc func(string) string) *Mapper {
-	return &Mapper{
-		cache:      make(map[reflect.Type]*StructMap),
-		tagName:    tagName,
-		mapFunc:    mapFunc,
-		tagMapFunc: tagMapFunc,
-	}
-}
-
-// NewMapperFunc returns a new mapper which optionally obeys a field tag and
-// a struct field name mapper func given by f.  Tags will take precedence, but
-// for any other field, the mapped name will be f(field.Name)
-func NewMapperFunc(tagName string, f func(string) string) *Mapper {
-	return &Mapper{
-		cache:   make(map[reflect.Type]*StructMap),
-		tagName: tagName,
-		mapFunc: f,
-	}
-}
-
-// TypeMap returns a mapping of field strings to int slices representing
-// the traversal down the struct to reach the field.
+// TypeMap returns a mapping of field strings to int slices representing the
+// traversal down the struct to reach the field.
 func (m *Mapper) TypeMap(t reflect.Type) *StructMap {
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	mapping, ok := m.cache[t]
 	if !ok {
-		mapping = getMapping(t, m.tagName, m.mapFunc, m.tagMapFunc)
+		mapping = getMapping(t, m.tagName, m.mapFunc)
 		m.cache[t] = mapping
 	}
-	m.mutex.Unlock()
 	return mapping
 }
 
-// FieldMap returns the mapper's mapping of field names to reflect values.  Panics
-// if v's Kind is not Struct, or v is not Indirectable to a struct kind.
+// FieldMap returns the mapper's mapping of field names to reflect values.
+// Panics if v's Kind is not Struct, or v is not Indirectable to a struct kind.
+//
+// zdb only.
 func (m *Mapper) FieldMap(v reflect.Value) map[string]reflect.Value {
 	v = reflect.Indirect(v)
 	mustBe(v, reflect.Struct)
@@ -127,9 +83,14 @@ func (m *Mapper) FieldMap(v reflect.Value) map[string]reflect.Value {
 	return r
 }
 
-// FieldByName returns a field by its mapped name as a reflect.Value.
-// Panics if v's Kind is not Struct or v is not Indirectable to a struct Kind.
-// Returns zero Value if the name is not found.
+// FieldByName returns a field by its mapped name.
+//
+// Panics if v is not a struct or pointer to a struct.
+//
+// Returns zero Value if the name is not found. TODO: that's now how it actually
+// behaves!
+//
+// zdb only.
 func (m *Mapper) FieldByName(v reflect.Value, name string) reflect.Value {
 	v = reflect.Indirect(v)
 	mustBe(v, reflect.Struct)
@@ -142,29 +103,12 @@ func (m *Mapper) FieldByName(v reflect.Value, name string) reflect.Value {
 	return FieldByIndexes(v, fi.Index)
 }
 
-// FieldsByName returns a slice of values corresponding to the slice of names
-// for the value.  Panics if v's Kind is not Struct or v is not Indirectable
-// to a struct Kind.  Returns zero Value for each name not found.
-func (m *Mapper) FieldsByName(v reflect.Value, names []string) []reflect.Value {
-	v = reflect.Indirect(v)
-	mustBe(v, reflect.Struct)
-
-	tm := m.TypeMap(v.Type())
-	vals := make([]reflect.Value, 0, len(names))
-	for _, name := range names {
-		fi, ok := tm.Names[name]
-		if !ok {
-			vals = append(vals, *new(reflect.Value))
-		} else {
-			vals = append(vals, FieldByIndexes(v, fi.Index))
-		}
-	}
-	return vals
-}
-
 // TraversalsByName returns a slice of int slices which represent the struct
-// traversals for each mapped name.  Panics if t is not a struct or Indirectable
-// to a struct.  Returns empty int slice for each name not found.
+// traversals for each mapped name.
+//
+// Panics if t is not a struct or Indirectable to a struct.
+//
+// Returns empty int slice for each name not found.
 func (m *Mapper) TraversalsByName(t reflect.Type, names []string) [][]int {
 	r := make([][]int, 0, len(names))
 	m.TraversalsByNameFunc(t, names, func(_ int, i []int) error {
@@ -180,8 +124,11 @@ func (m *Mapper) TraversalsByName(t reflect.Type, names []string) [][]int {
 }
 
 // TraversalsByNameFunc traverses the mapped names and calls fn with the index of
-// each name and the struct traversal represented by that name. Panics if t is not
-// a struct or Indirectable to a struct. Returns the first error returned by fn or nil.
+// each name and the struct traversal represented by that name.
+//
+// Panics if t is not a struct or Indirectable to a struct.
+//
+// Returns the first error returned by fn or nil.
 func (m *Mapper) TraversalsByNameFunc(t reflect.Type, names []string, fn func(int, []int) error) error {
 	t = Deref(t)
 	mustBe(t, reflect.Struct)
@@ -246,18 +193,14 @@ type kinder interface {
 // if the kind isn't that which is required.
 func mustBe(v kinder, expected reflect.Kind) {
 	if k := v.Kind(); k != expected {
-		panic(&reflect.ValueError{Method: methodName(), Kind: k})
+		pc, _, _, _ := runtime.Caller(1)
+		f := runtime.FuncForPC(pc)
+		m := "unknown method"
+		if f != nil {
+			m = f.Name()
+		}
+		panic(&reflect.ValueError{Method: m, Kind: k})
 	}
-}
-
-// methodName returns the caller of the function calling methodName
-func methodName() string {
-	pc, _, _, _ := runtime.Caller(2)
-	f := runtime.FuncForPC(pc)
-	if f == nil {
-		return "unknown method"
-	}
-	return f.Name()
 }
 
 type typeQueue struct {
@@ -267,7 +210,7 @@ type typeQueue struct {
 }
 
 // A copying append that creates a new slice each time.
-func apnd(is []int, i int) []int {
+func appendCopy(is []int, i int) []int {
 	x := make([]int, len(is)+1)
 	copy(x, is)
 	x[len(x)-1] = i
@@ -278,9 +221,9 @@ type mapf func(string) string
 
 // parseName parses the tag and the target name for the given field using
 // the tagName (eg 'json' for `json:"foo"` tags), mapFunc for mapping the
-// field's name to a target name, and tagMapFunc for mapping the tag to
+// field's name to a target name for mapping the tag to
 // a target name.
-func parseName(field reflect.StructField, tagName string, mapFunc, tagMapFunc mapf) (tag, fieldName string) {
+func parseName(field reflect.StructField, tagName string, mapFunc mapf) (tag, fieldName string) {
 	// first, set the fieldName to the field's name
 	fieldName = field.Name
 	// if a mapFunc is set, use that to override the fieldName
@@ -305,13 +248,6 @@ func parseName(field reflect.StructField, tagName string, mapFunc, tagMapFunc ma
 
 	// at this point we're fairly sure that we have a tag, so lets pull it out
 	tag = field.Tag.Get(tagName)
-
-	// if we have a mapper function, call it on the whole tag
-	// XXX: this is a change from the old version, which pulled out the name
-	// before the tagMapFunc could be run, but I think this is the right way
-	if tagMapFunc != nil {
-		tag = tagMapFunc(tag)
-	}
 
 	// finally, split the options from the name
 	parts := strings.Split(tag, ",")
@@ -338,9 +274,9 @@ func parseOptions(tag string) map[string]string {
 	return options
 }
 
-// getMapping returns a mapping for the t type, using the tagName, mapFunc and
-// tagMapFunc to determine the canonical names of fields.
-func getMapping(t reflect.Type, tagName string, mapFunc, tagMapFunc mapf) *StructMap {
+// getMapping returns a mapping for the t type, using the tagName, mapFunc
+// to determine the canonical names of fields.
+func getMapping(t reflect.Type, tagName string, mapFunc mapf) *StructMap {
 	m := []*FieldInfo{}
 
 	root := &FieldInfo{}
@@ -372,7 +308,7 @@ QueueLoop:
 			f := tq.t.Field(fieldPos)
 
 			// parse the tag and the target name using the mapping options for this field
-			tag, name := parseName(f, tagName, mapFunc, tagMapFunc)
+			tag, name := parseName(f, tagName, mapFunc)
 
 			// if the name is "-", disabled via a tag, skip it
 			if name == "-" {
@@ -406,7 +342,7 @@ QueueLoop:
 				}
 
 				fi.Embedded = true
-				fi.Index = apnd(tq.fi.Index, fieldPos)
+				fi.Index = appendCopy(tq.fi.Index, fieldPos)
 				nChildren := 0
 				ft := Deref(f.Type)
 				if ft.Kind() == reflect.Struct {
@@ -415,12 +351,12 @@ QueueLoop:
 				fi.Children = make([]*FieldInfo, nChildren)
 				queue = append(queue, typeQueue{Deref(f.Type), &fi, pp})
 			} else if fi.Zero.Kind() == reflect.Struct || (fi.Zero.Kind() == reflect.Ptr && fi.Zero.Type().Elem().Kind() == reflect.Struct) {
-				fi.Index = apnd(tq.fi.Index, fieldPos)
+				fi.Index = appendCopy(tq.fi.Index, fieldPos)
 				fi.Children = make([]*FieldInfo, Deref(f.Type).NumField())
 				queue = append(queue, typeQueue{Deref(f.Type), &fi, fi.Path})
 			}
 
-			fi.Index = apnd(tq.fi.Index, fieldPos)
+			fi.Index = appendCopy(tq.fi.Index, fieldPos)
 			fi.Parent = tq.fi
 			tq.fi.Children[fieldPos] = &fi
 			m = append(m, &fi)

@@ -1,26 +1,61 @@
 package reflectx
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 )
 
+func TestXXX(t *testing.T) {
+	x := struct {
+		A int
+		B int `db:"bbb"`
+		C int `db:"ccc,opt"`
+
+		Nest struct {
+			NestA int
+			NestB int `db:"nestbbb"`
+		}
+	}{42, 43, 44, struct {
+		NestA int
+		NestB int `db:"nestbbb"`
+	}{666, 667}}
+
+	m := NewMapper("db", strings.ToLower)
+
+	v := reflect.ValueOf(x)
+
+	//  map[string]reflect.Value{
+	//    "a":          reflect.Value{},
+	//    "bbb":        reflect.Value{},
+	//    "nest":       reflect.Value{},
+	//    "nest.nesta": reflect.Value{},
+	//  }
+	fmt.Printf("%#v\n", m.FieldMap(v))
+
+	_ = v
+	_ = m
+	// fmt.Printf("%T: %#[1]v\n", m.FieldByName(v, "a"))      // 42
+	// fmt.Printf("%T: %#[1]v\n", m.FieldByName(v, "a"))      // 42
+	// fmt.Printf("%T: %#[1]v\n", m.FieldByName(v, "asdasd")) // struct
+}
+
 func ival(v reflect.Value) int {
 	return v.Interface().(int)
 }
 
+/*
 func TestBasic(t *testing.T) {
 	type Foo struct {
 		A int
 		B int
 		C int
 	}
-
 	f := Foo{1, 2, 3}
-	fv := reflect.ValueOf(f)
-	m := NewMapperFunc("", func(s string) string { return s })
+	m := NewMapper("", func(s string) string { return s })
 
+	fv := reflect.ValueOf(f)
 	v := m.FieldByName(fv, "A")
 	if ival(v) != f.A {
 		t.Errorf("Expecting %d, got %d", ival(v), f.A)
@@ -34,24 +69,22 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Expecting %d, got %d", f.C, ival(v))
 	}
 }
+*/
 
+/*
 func TestBasicEmbedded(t *testing.T) {
-	type Foo struct {
-		A int
-	}
-
+	type Foo struct{ A int }
 	type Bar struct {
 		Foo // `db:""` is implied for an embedded struct
 		B   int
 		C   int `db:"-"`
 	}
-
 	type Baz struct {
 		A   int
 		Bar `db:"Bar"`
 	}
 
-	m := NewMapperFunc("db", func(s string) string { return s })
+	m := NewMapper("db", func(s string) string { return s })
 
 	z := Baz{}
 	z.A = 1
@@ -92,6 +125,7 @@ func TestBasicEmbedded(t *testing.T) {
 		t.Errorf("Bar.C should not exist")
 	}
 }
+*/
 
 func TestEmbeddedSimple(t *testing.T) {
 	type UUID [16]byte
@@ -103,26 +137,25 @@ func TestEmbeddedSimple(t *testing.T) {
 	}
 	z := Item{}
 
-	m := NewMapper("db")
+	m := NewMapper("db", nil)
 	m.TypeMap(reflect.TypeOf(z))
 }
 
+/*
 func TestBasicEmbeddedWithTags(t *testing.T) {
 	type Foo struct {
 		A int `db:"a"`
 	}
-
 	type Bar struct {
 		Foo     // `db:""` is implied for an embedded struct
 		B   int `db:"b"`
 	}
-
 	type Baz struct {
 		A   int `db:"a"`
 		Bar     // `db:""` is implied for an embedded struct
 	}
 
-	m := NewMapper("db")
+	m := NewMapper("db", nil)
 
 	z := Baz{}
 	z.A = 1
@@ -149,19 +182,20 @@ func TestBasicEmbeddedWithTags(t *testing.T) {
 		t.Errorf("Expecting %d, got %d", z.B, ival(v))
 	}
 }
+*/
 
+/*
 func TestBasicEmbeddedWithSameName(t *testing.T) {
 	type Foo struct {
 		A   int `db:"a"`
 		Foo int `db:"Foo"` // Same name as the embedded struct
 	}
-
 	type FooExt struct {
 		Foo
 		B int `db:"b"`
 	}
 
-	m := NewMapper("db")
+	m := NewMapper("db", nil)
 
 	z := FooExt{}
 	z.A = 1
@@ -188,10 +222,10 @@ func TestBasicEmbeddedWithSameName(t *testing.T) {
 		t.Errorf("Expecting %d, got %d", z.Foo.Foo, ival(v))
 	}
 }
+*/
 
+/*
 func TestFlatTags(t *testing.T) {
-	m := NewMapper("db")
-
 	type Asset struct {
 		Title string `db:"title"`
 	}
@@ -200,6 +234,8 @@ func TestFlatTags(t *testing.T) {
 		Asset  Asset  `db:""`
 	}
 	// Post columns: (author title)
+
+	m := NewMapper("db", nil)
 
 	post := Post{Author: "Joe", Asset: Asset{Title: "Hello"}}
 	pv := reflect.ValueOf(post)
@@ -213,10 +249,10 @@ func TestFlatTags(t *testing.T) {
 		t.Errorf("Expecting %s, got %s", post.Asset.Title, v.Interface().(string))
 	}
 }
+*/
 
+/*
 func TestNestedStruct(t *testing.T) {
-	m := NewMapper("db")
-
 	type Details struct {
 		Active bool `db:"active"`
 	}
@@ -229,6 +265,8 @@ func TestNestedStruct(t *testing.T) {
 		Asset  `db:"asset"`
 	}
 	// Post columns: (author asset.title asset.details.active)
+
+	m := NewMapper("db", nil)
 
 	post := Post{
 		Author: "Joe",
@@ -253,10 +291,10 @@ func TestNestedStruct(t *testing.T) {
 		t.Errorf("Expecting %v, got %v", post.Asset.Details.Active, v.Interface().(bool))
 	}
 }
+*/
 
+/*
 func TestInlineStruct(t *testing.T) {
-	m := NewMapperTagFunc("db", strings.ToLower, nil)
-
 	type Employee struct {
 		Name string
 		ID   int
@@ -267,6 +305,8 @@ func TestInlineStruct(t *testing.T) {
 		Boss     `db:"boss"`
 	}
 	// employees columns: (employee.name employee.id boss.name boss.id)
+
+	m := NewMapper("db", strings.ToLower)
 
 	em := person{Employee: Employee{Name: "Joe", ID: 2}, Boss: Boss{Name: "Dick", ID: 1}}
 	ev := reflect.ValueOf(em)
@@ -285,19 +325,17 @@ func TestInlineStruct(t *testing.T) {
 		t.Errorf("Expecting %v, got %v", em.Boss.ID, ival(v))
 	}
 }
+*/
 
 func TestRecursiveStruct(t *testing.T) {
-	type Person struct {
-		Parent *Person
-	}
-	m := NewMapperFunc("db", strings.ToLower)
+	type Person struct{ Parent *Person }
+	m := NewMapper("db", strings.ToLower)
 	var p *Person
 	m.TypeMap(reflect.TypeOf(p))
 }
 
+/*
 func TestFieldsEmbedded(t *testing.T) {
-	m := NewMapper("db")
-
 	type Person struct {
 		Name string `db:"name,size=64"`
 	}
@@ -313,6 +351,8 @@ func TestFieldsEmbedded(t *testing.T) {
 		Article `db:",required"`
 	}
 	// PP columns: (person.name name title)
+
+	m := NewMapper("db", nil)
 
 	pp := PP{}
 	pp.Person.Name = "Peter"
@@ -384,9 +424,10 @@ func TestFieldsEmbedded(t *testing.T) {
 		t.Errorf("Expecting traversal: %v", trs)
 	}
 }
+*/
 
+/*
 func TestPtrFields(t *testing.T) {
-	m := NewMapperTagFunc("db", strings.ToLower, nil)
 	type Asset struct {
 		Title string
 	}
@@ -394,6 +435,8 @@ func TestPtrFields(t *testing.T) {
 		*Asset `db:"asset"`
 		Author string
 	}
+
+	m := NewMapper("db", strings.ToLower)
 
 	post := &Post{Author: "Joe", Asset: &Asset{Title: "Hiyo"}}
 	pv := reflect.ValueOf(post)
@@ -412,25 +455,24 @@ func TestPtrFields(t *testing.T) {
 		t.Errorf("Expecting %s, got %s", post.Author, v.Interface().(string))
 	}
 }
+*/
 
+/*
 func TestNamedPtrFields(t *testing.T) {
-	m := NewMapperTagFunc("db", strings.ToLower, nil)
-
 	type User struct {
 		Name string
 	}
-
 	type Asset struct {
 		Title string
-
 		Owner *User `db:"owner"`
 	}
 	type Post struct {
 		Author string
-
 		Asset1 *Asset `db:"asset1"`
 		Asset2 *Asset `db:"asset2"`
 	}
+
+	m := NewMapper("db", strings.ToLower)
 
 	post := &Post{Author: "Joe", Asset1: &Asset{Title: "Hiyo", Owner: &User{"Username"}}} // Let Asset2 be nil
 	pv := reflect.ValueOf(post)
@@ -461,63 +503,28 @@ func TestNamedPtrFields(t *testing.T) {
 		t.Errorf("Expecting %s, got %s", post.Author, v.Interface().(string))
 	}
 }
+*/
 
-func TestFieldMap(t *testing.T) {
-	type Foo struct {
-		A int
-		B int
-		C int
-	}
-
-	f := Foo{1, 2, 3}
-	m := NewMapperFunc("db", strings.ToLower)
-
-	fm := m.FieldMap(reflect.ValueOf(f))
-
-	if len(fm) != 3 {
-		t.Errorf("Expecting %d keys, got %d", 3, len(fm))
-	}
-	if fm["a"].Interface().(int) != 1 {
-		t.Errorf("Expecting %d, got %d", 1, ival(fm["a"]))
-	}
-	if fm["b"].Interface().(int) != 2 {
-		t.Errorf("Expecting %d, got %d", 2, ival(fm["b"]))
-	}
-	if fm["c"].Interface().(int) != 3 {
-		t.Errorf("Expecting %d, got %d", 3, ival(fm["c"]))
-	}
-}
-
-func TestTagNameMapping(t *testing.T) {
-	type Strategy struct {
-		StrategyID   string `protobuf:"bytes,1,opt,name=strategy_id" json:"strategy_id,omitempty"`
-		StrategyName string
-	}
-
-	m := NewMapperTagFunc("json", strings.ToUpper, func(value string) string {
-		if strings.Contains(value, ",") {
-			return strings.Split(value, ",")[0]
-		}
-		return value
-	})
-	strategy := Strategy{"1", "Alpah"}
-	mapping := m.TypeMap(reflect.TypeOf(strategy))
-
-	for _, key := range []string{"strategy_id", "STRATEGYNAME"} {
-		if fi := mapping.GetByPath(key); fi == nil {
-			t.Errorf("Expecting to find key %s in mapping but did not.", key)
-		}
-	}
-}
-
+/*
 func TestMapping(t *testing.T) {
 	type Person struct {
 		ID           int
 		Name         string
 		WearsGlasses bool `db:"wears_glasses"`
 	}
+	type SportsPerson struct {
+		Weight int
+		Age    int
+		Person
+	}
+	type RugbyPlayer struct {
+		Position   int
+		IsIntense  bool `db:"is_intense"`
+		IsAllBlack bool `db:"-"`
+		SportsPerson
+	}
 
-	m := NewMapperFunc("db", strings.ToLower)
+	m := NewMapper("db", strings.ToLower)
 	p := Person{1, "Jason", true}
 	mapping := m.TypeMap(reflect.TypeOf(p))
 
@@ -527,11 +534,6 @@ func TestMapping(t *testing.T) {
 		}
 	}
 
-	type SportsPerson struct {
-		Weight int
-		Age    int
-		Person
-	}
 	s := SportsPerson{Weight: 100, Age: 30, Person: p}
 	mapping = m.TypeMap(reflect.TypeOf(s))
 	for _, key := range []string{"id", "name", "wears_glasses", "weight", "age"} {
@@ -540,12 +542,6 @@ func TestMapping(t *testing.T) {
 		}
 	}
 
-	type RugbyPlayer struct {
-		Position   int
-		IsIntense  bool `db:"is_intense"`
-		IsAllBlack bool `db:"-"`
-		SportsPerson
-	}
 	r := RugbyPlayer{12, true, false, s}
 	mapping = m.TypeMap(reflect.TypeOf(r))
 	for _, key := range []string{"id", "name", "wears_glasses", "weight", "age", "position", "is_intense"} {
@@ -558,76 +554,10 @@ func TestMapping(t *testing.T) {
 		t.Errorf("Expecting to ignore `IsAllBlack` field")
 	}
 }
-
-func TestGetByTraversal(t *testing.T) {
-	type C struct {
-		C0 int
-		C1 int
-	}
-	type B struct {
-		B0 string
-		B1 *C
-	}
-	type A struct {
-		A0 int
-		A1 B
-	}
-
-	testCases := []struct {
-		Index        []int
-		ExpectedName string
-		ExpectNil    bool
-	}{
-		{
-			Index:        []int{0},
-			ExpectedName: "A0",
-		},
-		{
-			Index:        []int{1, 0},
-			ExpectedName: "B0",
-		},
-		{
-			Index:        []int{1, 1, 1},
-			ExpectedName: "C1",
-		},
-		{
-			Index:     []int{3, 4, 5},
-			ExpectNil: true,
-		},
-		{
-			Index:     []int{},
-			ExpectNil: true,
-		},
-		{
-			Index:     nil,
-			ExpectNil: true,
-		},
-	}
-
-	m := NewMapperFunc("db", func(n string) string { return n })
-	tm := m.TypeMap(reflect.TypeOf(A{}))
-
-	for i, tc := range testCases {
-		fi := tm.GetByTraversal(tc.Index)
-		if tc.ExpectNil {
-			if fi != nil {
-				t.Errorf("%d: expected nil, got %v", i, fi)
-			}
-			continue
-		}
-
-		if fi == nil {
-			t.Errorf("%d: expected %s, got nil", i, tc.ExpectedName)
-			continue
-		}
-
-		if fi.Name != tc.ExpectedName {
-			t.Errorf("%d: expected %s, got %s", i, tc.ExpectedName, fi.Name)
-		}
-	}
-}
+*/
 
 // TestMapperMethodsByName tests Mapper methods FieldByName and TraversalsByName
+/*
 func TestMapperMethodsByName(t *testing.T) {
 	type C struct {
 		C0 string
@@ -737,8 +667,9 @@ func TestMapperMethodsByName(t *testing.T) {
 	for i, tc := range testCases {
 		names[i] = tc.Name
 	}
-	m := NewMapperFunc("db", func(n string) string { return n })
+	m := NewMapper("db", func(n string) string { return n })
 	v := reflect.ValueOf(val)
+
 	values := m.FieldsByName(v, names)
 	if len(values) != len(testCases) {
 		t.Errorf("expected %d values, got %d", len(testCases), len(values))
@@ -773,6 +704,7 @@ func TestMapperMethodsByName(t *testing.T) {
 		}
 	}
 }
+*/
 
 func TestFieldByIndexes(t *testing.T) {
 	type C struct {
@@ -789,6 +721,7 @@ func TestFieldByIndexes(t *testing.T) {
 		A1 B
 		A2 *B
 	}
+
 	testCases := []struct {
 		value         interface{}
 		indexes       []int
@@ -881,28 +814,35 @@ type E4 struct {
 	D int
 }
 
-func BenchmarkFieldNameL1(b *testing.B) {
-	e4 := E4{D: 1}
-	for i := 0; i < b.N; i++ {
-		v := reflect.ValueOf(e4)
-		f := v.FieldByName("D")
-		if f.Interface().(int) != 1 {
-			b.Fatal("Wrong value.")
-		}
-	}
-}
-
-func BenchmarkFieldNameL4(b *testing.B) {
-	e4 := E4{}
-	e4.A = 1
-	for i := 0; i < b.N; i++ {
-		v := reflect.ValueOf(e4)
-		f := v.FieldByName("A")
-		if f.Interface().(int) != 1 {
-			b.Fatal("Wrong value.")
-		}
-	}
-}
+// BenchmarkFieldNameL1-8                   3521430               331.7 ns/op            40 B/op          2 allocs/op
+// BenchmarkFieldNameL4-8                    404126              2899 ns/op             800 B/op         16 allocs/op
+// BenchmarkFieldPosL1-8                   14814860                80.15 ns/op           32 B/op          1 allocs/op
+// BenchmarkFieldPosL4-8                   12657676                96.91 ns/op           32 B/op          1 allocs/op
+// BenchmarkFieldByIndexL4-8                9430537               126.1 ns/op            32 B/op          1 allocs/op
+// BenchmarkTraversalsByName-8              2651737               445.8 ns/op            96 B/op          1 allocs/op
+// BenchmarkTraversalsByNameFunc-8          4316031               279.2 ns/op             0 B/op          0 allocs/op
+// func BenchmarkFieldNameL1(b *testing.B) {
+// 	e4 := E4{D: 1}
+// 	for i := 0; i < b.N; i++ {
+// 		v := reflect.ValueOf(e4)
+// 		f := v.FieldByName("D")
+// 		if f.Interface().(int) != 1 {
+// 			b.Fatal("Wrong value.")
+// 		}
+// 	}
+// }
+//
+// func BenchmarkFieldNameL4(b *testing.B) {
+// 	e4 := E4{}
+// 	e4.A = 1
+// 	for i := 0; i < b.N; i++ {
+// 		v := reflect.ValueOf(e4)
+// 		f := v.FieldByName("A")
+// 		if f.Interface().(int) != 1 {
+// 			b.Fatal("Wrong value.")
+// 		}
+// 	}
+// }
 
 func BenchmarkFieldPosL1(b *testing.B) {
 	e4 := E4{D: 1}
@@ -944,23 +884,12 @@ func BenchmarkFieldByIndexL4(b *testing.B) {
 }
 
 func BenchmarkTraversalsByName(b *testing.B) {
-	type A struct {
-		Value int
-	}
+	type A struct{ Value int }
+	type B struct{ A A }
+	type C struct{ B B }
+	type D struct{ C C }
 
-	type B struct {
-		A A
-	}
-
-	type C struct {
-		B B
-	}
-
-	type D struct {
-		C C
-	}
-
-	m := NewMapper("")
+	m := NewMapper("", nil)
 	t := reflect.TypeOf(D{})
 	names := []string{"C", "B", "A", "Value"}
 
@@ -974,23 +903,12 @@ func BenchmarkTraversalsByName(b *testing.B) {
 }
 
 func BenchmarkTraversalsByNameFunc(b *testing.B) {
-	type A struct {
-		Z int
-	}
+	type A struct{ Z int }
+	type B struct{ A A }
+	type C struct{ B B }
+	type D struct{ C C }
 
-	type B struct {
-		A A
-	}
-
-	type C struct {
-		B B
-	}
-
-	type D struct {
-		C C
-	}
-
-	m := NewMapper("")
+	m := NewMapper("", nil)
 	t := reflect.TypeOf(D{})
 	names := []string{"C", "B", "A", "Z", "Y"}
 
