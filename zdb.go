@@ -51,7 +51,7 @@ import (
 type DB interface {
 	DBSQL() *sql.DB
 	SQLDialect() Dialect
-	Info(context.Context) (ServerInfo, error)
+	Info(ctx context.Context) (ServerInfo, error)
 	Close() error
 
 	Exec(ctx context.Context, query string, params ...interface{}) error
@@ -61,8 +61,8 @@ type DB interface {
 	Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error
 	Query(ctx context.Context, query string, params ...interface{}) (*Rows, error)
 
-	TX(context.Context, func(context.Context) error) error
-	Begin(context.Context, ...beginOpt) (context.Context, DB, error)
+	TX(ctx context.Context, fb func(context.Context) error) error
+	Begin(ctx context.Context, opts ...beginOpt) (context.Context, DB, error)
 	Rollback() error
 	Commit() error
 }

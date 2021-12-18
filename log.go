@@ -84,3 +84,56 @@ func (d logDB) log(ctx context.Context, query string, params []interface{}) func
 		Dump(WithDB(ctx, Unwrap(MustGetDB(ctx))), d.out, query, append(params, d.logWhat)...)
 	}
 }
+
+// TODO: the reason we need these is because it's implemented like so:
+//
+//     func (db zDB) Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+//       return getImpl(ctx, db, dest, query, params...)
+//     }
+//
+//     func Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+//       return getImpl(ctx, MustGetDB(ctx), dest, query, params...)
+//     }
+//
+// The idea was that you could "wrap" a DB with just a few methods. But this
+// doesn't work because for zDB.Get() the receiver is always zDB, rather than
+// the type that it wraps/embeds, and doesn't call the appropriate "wrapped"
+// method.
+//
+// It works with the package-level zdb.Get() from the context
+// because it's not calling the receiver method, but rather top the
+// top "logDB".
+//
+// This fixes it, but having to implement a bunch of boilerplate is exactly what
+// I wanted to avoid...
+//
+// Need to think about a good solution for this. Things will be easier once we
+// unify zdb and internal/sqlx, too.
+
+func (db logDB) Exec(ctx context.Context, query string, params ...interface{}) error {
+	return execImpl(ctx, db, query, params...)
+}
+func (db logDB) NumRows(ctx context.Context, query string, params ...interface{}) (int64, error) {
+	return numRowsImpl(ctx, db, query, params...)
+}
+func (db logDB) InsertID(ctx context.Context, idColumn, query string, params ...interface{}) (int64, error) {
+	return insertIDImpl(ctx, db, idColumn, query, params...)
+}
+func (db logDB) Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+	return getImpl(ctx, db, dest, query, params...)
+}
+func (db logDB) Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+	return selectImpl(ctx, db, dest, query, params...)
+}
+func (db logDB) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
+	return queryImpl(ctx, db, query, params...)
+}
+func (db logDB) TX(ctx context.Context, fn func(context.Context) error) error {
+	return txImpl(ctx, db, fn)
+}
+func (db logDB) Rollback() error {
+	return db.DB.Rollback()
+}
+func (db logDB) Commit() error {
+	return db.DB.Commit()
+}

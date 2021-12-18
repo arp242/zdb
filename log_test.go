@@ -73,33 +73,7 @@ func TestLogDB(t *testing.T) {
 				}
 			}
 
-			// TODO: the reason this doesn't work is because it's implented like so:
-			//
-			//     func (db zDB) Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
-			//       return getImpl(ctx, db, dest, query, params...)
-			//     }
-			//
-			//     func Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
-			//       return getImpl(ctx, MustGetDB(ctx), dest, query, params...)
-			//     }
-			//
-			// for zdb.Get() the receiver is always zDB, rather than the type
-			// that it wraps/embeds, and doesn't call the appropriate "wrapped"
-			// method.
-			//
-			// It works in the context because it's not calling the receiver
-			// method, but rather top the top "logDB". We can fix it by also
-			// adding this method to logDB:
-			//
-			//   func (db logDB) Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
-			//     return getImpl(ctx, db, dest, query, params...)
-			//   }
-			//
-			// But having to implement a crapload of methods is exactly what I
-			// wanted to avoid...
-			//
-			// Instead maybe keep a "wrap []DB" or "wrap []dbImpl" or something on zDB?
-			//t.Run("db", func(t *testing.T) { test(t, false) })
+			t.Run("db", func(t *testing.T) { test(t, false) })
 			t.Run("ctx", func(t *testing.T) { test(t, true) })
 		})
 	}
