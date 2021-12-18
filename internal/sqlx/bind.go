@@ -21,6 +21,13 @@ const (
 	AT
 )
 
+// Binder is an interface for something which can bind queries (Tx, DB)
+type binder interface {
+	DriverName() string
+	Rebind(string) string
+	BindNamed(string, interface{}) (string, []interface{}, error)
+}
+
 var defaultBinds = map[int][]string{
 	DOLLAR:   []string{"postgres", "pgx", "pq-timeouts", "cloudsqlpostgres", "ql", "nrpostgres", "cockroach"},
 	QUESTION: []string{"mysql", "sqlite3", "nrmysql", "nrsqlite3"},
