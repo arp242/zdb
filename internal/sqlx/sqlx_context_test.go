@@ -554,7 +554,7 @@ func TestNamedQueryContext(t *testing.T) {
 			}
 		}
 
-		ns, err := db.PrepareNamed(pdb(`
+		ns, err := db.PrepareNamedContext(context.TODO(), pdb(`
 			SELECT * FROM jsperson
 			WHERE
 				"FIRST"=:FIRST AND
@@ -726,7 +726,7 @@ func TestScanErrorContext(t *testing.T) {
 			K int
 			V string
 		}
-		_, err := db.Exec(db.Rebind("INSERT INTO kv (k, v) VALUES (?, ?)"), "hi", 1)
+		_, err := db.ExecContext(context.TODO(), db.Rebind("INSERT INTO kv (k, v) VALUES (?, ?)"), "hi", 1)
 		if err != nil {
 			t.Error(err)
 		}
@@ -804,9 +804,9 @@ func TestUsageContext(t *testing.T) {
 		}
 		jason = Person{}
 
-		row := stmt1.QueryRowx("DoesNotExist")
+		row := stmt1.QueryRowxContext(context.TODO(), "DoesNotExist")
 		row.Scan(&jason)
-		row = stmt1.QueryRowx("DoesNotExist")
+		row = stmt1.QueryRowxContext(context.TODO(), "DoesNotExist")
 		row.Scan(&jason)
 
 		err = stmt1.GetContext(ctx, &jason, "DoesNotExist User")
@@ -827,8 +827,8 @@ func TestUsageContext(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		tstmt2 := tx.Stmtx(stmt2)
-		row2 := tstmt2.QueryRowx("Jason")
+		tstmt2 := tx.StmtxContext(context.TODO(), stmt2)
+		row2 := tstmt2.QueryRowxContext(context.TODO(), "Jason")
 		err = row2.StructScan(&jason)
 		if err != nil {
 			t.Error(err)
@@ -1424,8 +1424,8 @@ func TestConn(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		tstmt := tx.Stmtx(stmt)
-		row := tstmt.QueryRowx(1)
+		tstmt := tx.StmtxContext(context.TODO(), stmt)
+		row := tstmt.QueryRowxContext(context.TODO(), 1)
 		err = row.StructScan(&v1)
 		if err != nil {
 			t.Error(err)

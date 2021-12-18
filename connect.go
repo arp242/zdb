@@ -115,6 +115,7 @@ func Connect(opt ConnectOptions) (DB, error) {
 		dialect Dialect
 		exists  bool
 		err     error
+		ctx     = context.TODO()
 	)
 	switch proto {
 	case "postgresql", "postgres":
@@ -142,16 +143,16 @@ func Connect(opt ConnectOptions) (DB, error) {
 		//   -db pg:...
 		//   -db postgres:..
 		//   -db postgresql:..
-		dbx, exists, err = connectPostgreSQL(conn, opt.Create) // k/v style
+		dbx, exists, err = connectPostgreSQL(ctx, conn, opt.Create) // k/v style
 		if err != nil {
-			dbx, exists, err = connectPostgreSQL(opt.Connect, opt.Create) // URL-style
+			dbx, exists, err = connectPostgreSQL(ctx, opt.Connect, opt.Create) // URL-style
 		}
 		dialect = DialectPostgreSQL
 	case "sqlite", "sqlite3":
-		dbx, exists, err = connectSQLite(conn, opt.Create, opt.SQLiteHook)
+		dbx, exists, err = connectSQLite(ctx, conn, opt.Create, opt.SQLiteHook)
 		dialect = DialectSQLite
 	case "mysql":
-		dbx, exists, err = connectMariaDB(conn, opt.Create)
+		dbx, exists, err = connectMariaDB(ctx, conn, opt.Create)
 		dialect = DialectMariaDB
 	default:
 		err = fmt.Errorf("zdb.Connect: unrecognized database engine %q in connect string %q", proto, opt.Connect)
@@ -291,9 +292,9 @@ func (err NotExistError) Error() string {
 		err.Driver, err.DB, err.Driver+"://"+err.Connect)
 }
 
-func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
+func connectPostgreSQL(ctx context.Context, connect string, create bool) (*sqlx.DB, bool, error) {
 	exists := true
-	db, err := sqlx.Connect("postgres", connect)
+	db, err := sqlx.ConnectContext(ctx, "postgres", connect)
 	if err != nil {
 		var (
 			dbname string
@@ -332,7 +333,7 @@ func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
 				return nil, false, fmt.Errorf("connectPostgreSQL: %w: %s", cerr, out)
 			}
 
-			db, err = sqlx.Connect("postgres", connect)
+			db, err = sqlx.ConnectContext(ctx, "postgres", connect)
 			if err != nil {
 				return nil, false, fmt.Errorf("connectPostgreSQL: %w", err)
 			}
@@ -352,8 +353,8 @@ func connectPostgreSQL(connect string, create bool) (*sqlx.DB, bool, error) {
 	return db, exists, nil
 }
 
-func connectMariaDB(connect string, create bool) (*sqlx.DB, bool, error) {
-	db, err := sqlx.Connect("mysql", connect)
+func connectMariaDB(ctx context.Context, connect string, create bool) (*sqlx.DB, bool, error) {
+	db, err := sqlx.ConnectContext(ctx, "mysql", connect)
 	if err != nil {
 		return nil, false, fmt.Errorf("connectMariaDB: %w", err)
 	}
@@ -361,7 +362,7 @@ func connectMariaDB(connect string, create bool) (*sqlx.DB, bool, error) {
 	return db, true, nil
 }
 
-func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn) error) (*sqlx.DB, bool, error) {
+func connectSQLite(ctx context.Context, connect string, create bool, hook func(c *sqlite3.SQLiteConn) error) (*sqlx.DB, bool, error) {
 	memory := strings.HasPrefix(connect, ":memory:")
 	exists := !memory
 	file := strings.TrimPrefix(connect, "file:")
@@ -445,7 +446,7 @@ func connectSQLite(connect string, create bool, hook func(c *sqlite3.SQLiteConn)
 		}
 	}
 
-	db, err := sqlx.Connect(driver, connect)
+	db, err := sqlx.ConnectContext(ctx, driver, connect)
 	if err != nil {
 		return nil, false, fmt.Errorf("connectSQLite: %w", err)
 	}

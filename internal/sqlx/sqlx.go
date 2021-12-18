@@ -2,12 +2,9 @@ package sqlx
 
 import (
 	"database/sql"
-	"database/sql/driver"
 	"errors"
 	"fmt"
 
-	"io/ioutil"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -74,36 +71,11 @@ type ColScanner interface {
 	Err() error
 }
 
-// Queryer is an interface used by Get and Select
-type Queryer interface {
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-	Queryx(query string, args ...interface{}) (*Rows, error)
-	QueryRowx(query string, args ...interface{}) *Row
-}
-
-// Execer is an interface used by LoadFile
-type Execer interface {
-	Exec(query string, args ...interface{}) (sql.Result, error)
-}
-
 // Binder is an interface for something which can bind queries (Tx, DB)
 type binder interface {
 	DriverName() string
 	Rebind(string) string
 	BindNamed(string, interface{}) (string, []interface{}, error)
-}
-
-// Ext is a union interface which can bind, query, and exec, used by
-// NamedQuery and NamedExec.
-type Ext interface {
-	binder
-	Queryer
-	Execer
-}
-
-// Preparer is an interface used by Preparex.
-type Preparer interface {
-	Prepare(query string) (*sql.Stmt, error)
 }
 
 // determine if any of our extensions are unsafe
@@ -160,7 +132,6 @@ func mapperFor(i interface{}) *reflectx.Mapper {
 }
 
 var _scannerInterface = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
-var _valuerInterface = reflect.TypeOf((*driver.Valuer)(nil)).Elem()
 
 // Row is a reimplementation of sql.Row in order to gain access to the underlying
 // sql.Rows.Columns() data, necessary for StructScan.
@@ -290,31 +261,6 @@ func (db *DB) BindNamed(query string, arg interface{}) (string, []interface{}, e
 	return bindNamedMapper(BindType(db.driverName), query, arg, db.Mapper)
 }
 
-// NamedQuery using this DB.
-// Any named placeholder parameters are replaced with fields from arg.
-func (db *DB) NamedQuery(query string, arg interface{}) (*Rows, error) {
-	return NamedQuery(db, query, arg)
-}
-
-// NamedExec using this DB.
-// Any named placeholder parameters are replaced with fields from arg.
-func (db *DB) NamedExec(query string, arg interface{}) (sql.Result, error) {
-	return NamedExec(db, query, arg)
-}
-
-// Select using this DB.
-// Any placeholder parameters are replaced with supplied args.
-func (db *DB) Select(dest interface{}, query string, args ...interface{}) error {
-	return Select(db, dest, query, args...)
-}
-
-// Get using this DB.
-// Any placeholder parameters are replaced with supplied args.
-// An error is returned if the result set is empty.
-func (db *DB) Get(dest interface{}, query string, args ...interface{}) error {
-	return Get(db, dest, query, args...)
-}
-
 // Beginx begins a transaction and returns an *sqlx.Tx instead of an *sql.Tx.
 func (db *DB) Beginx() (*Tx, error) {
 	tx, err := db.DB.Begin()
@@ -322,33 +268,6 @@ func (db *DB) Beginx() (*Tx, error) {
 		return nil, err
 	}
 	return &Tx{Tx: tx, driverName: db.driverName, unsafe: db.unsafe, Mapper: db.Mapper}, err
-}
-
-// Queryx queries the database and returns an *sqlx.Rows.
-// Any placeholder parameters are replaced with supplied args.
-func (db *DB) Queryx(query string, args ...interface{}) (*Rows, error) {
-	r, err := db.DB.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	return &Rows{Rows: r, unsafe: db.unsafe, Mapper: db.Mapper}, err
-}
-
-// QueryRowx queries the database and returns an *sqlx.Row.
-// Any placeholder parameters are replaced with supplied args.
-func (db *DB) QueryRowx(query string, args ...interface{}) *Row {
-	rows, err := db.DB.Query(query, args...)
-	return &Row{rows: rows, err: err, unsafe: db.unsafe, Mapper: db.Mapper}
-}
-
-// Preparex returns an sqlx.Stmt instead of a sql.Stmt
-func (db *DB) Preparex(query string) (*Stmt, error) {
-	return Preparex(db, query)
-}
-
-// PrepareNamed returns an sqlx.NamedStmt
-func (db *DB) PrepareNamed(query string) (*NamedStmt, error) {
-	return prepareNamed(db, query)
 }
 
 // Conn is a wrapper around sql.Conn with extra functionality
@@ -388,84 +307,6 @@ func (tx *Tx) BindNamed(query string, arg interface{}) (string, []interface{}, e
 	return bindNamedMapper(BindType(tx.driverName), query, arg, tx.Mapper)
 }
 
-// NamedQuery within a transaction.
-// Any named placeholder parameters are replaced with fields from arg.
-func (tx *Tx) NamedQuery(query string, arg interface{}) (*Rows, error) {
-	return NamedQuery(tx, query, arg)
-}
-
-// NamedExec a named query within a transaction.
-// Any named placeholder parameters are replaced with fields from arg.
-func (tx *Tx) NamedExec(query string, arg interface{}) (sql.Result, error) {
-	return NamedExec(tx, query, arg)
-}
-
-// Select within a transaction.
-// Any placeholder parameters are replaced with supplied args.
-func (tx *Tx) Select(dest interface{}, query string, args ...interface{}) error {
-	return Select(tx, dest, query, args...)
-}
-
-// Queryx within a transaction.
-// Any placeholder parameters are replaced with supplied args.
-func (tx *Tx) Queryx(query string, args ...interface{}) (*Rows, error) {
-	r, err := tx.Tx.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	return &Rows{Rows: r, unsafe: tx.unsafe, Mapper: tx.Mapper}, err
-}
-
-// QueryRowx within a transaction.
-// Any placeholder parameters are replaced with supplied args.
-func (tx *Tx) QueryRowx(query string, args ...interface{}) *Row {
-	rows, err := tx.Tx.Query(query, args...)
-	return &Row{rows: rows, err: err, unsafe: tx.unsafe, Mapper: tx.Mapper}
-}
-
-// Get within a transaction.
-// Any placeholder parameters are replaced with supplied args.
-// An error is returned if the result set is empty.
-func (tx *Tx) Get(dest interface{}, query string, args ...interface{}) error {
-	return Get(tx, dest, query, args...)
-}
-
-// Preparex  a statement within a transaction.
-func (tx *Tx) Preparex(query string) (*Stmt, error) {
-	return Preparex(tx, query)
-}
-
-// Stmtx returns a version of the prepared statement which runs within a transaction.  Provided
-// stmt can be either *sql.Stmt or *sqlx.Stmt.
-func (tx *Tx) Stmtx(stmt interface{}) *Stmt {
-	var s *sql.Stmt
-	switch v := stmt.(type) {
-	case Stmt:
-		s = v.Stmt
-	case *Stmt:
-		s = v.Stmt
-	case *sql.Stmt:
-		s = v
-	default:
-		panic(fmt.Sprintf("non-statement type %v passed to Stmtx", reflect.ValueOf(stmt).Type()))
-	}
-	return &Stmt{Stmt: tx.Stmt(s), Mapper: tx.Mapper}
-}
-
-// NamedStmt returns a version of the prepared statement which runs within a transaction.
-func (tx *Tx) NamedStmt(stmt *NamedStmt) *NamedStmt {
-	return &NamedStmt{
-		QueryString: stmt.QueryString,
-		Params:      stmt.Params,
-		Stmt:        tx.Stmtx(stmt.Stmt),
-	}
-}
-
-// PrepareNamed returns an sqlx.NamedStmt
-func (tx *Tx) PrepareNamed(query string) (*NamedStmt, error) {
-	return prepareNamed(tx, query)
-}
-
 // Stmt is an sqlx wrapper around sql.Stmt with extra functionality
 type Stmt struct {
 	*sql.Stmt
@@ -479,52 +320,12 @@ func (s *Stmt) Unsafe() *Stmt {
 	return &Stmt{Stmt: s.Stmt, unsafe: true, Mapper: s.Mapper}
 }
 
-// Select using the prepared statement.
-// Any placeholder parameters are replaced with supplied args.
-func (s *Stmt) Select(dest interface{}, args ...interface{}) error {
-	return Select(&qStmt{s}, dest, "", args...)
-}
-
-// Get using the prepared statement.
-// Any placeholder parameters are replaced with supplied args.
-// An error is returned if the result set is empty.
-func (s *Stmt) Get(dest interface{}, args ...interface{}) error {
-	return Get(&qStmt{s}, dest, "", args...)
-}
-
-// QueryRowx using this statement.
-// Any placeholder parameters are replaced with supplied args.
-func (s *Stmt) QueryRowx(args ...interface{}) *Row {
-	qs := &qStmt{s}
-	return qs.QueryRowx("", args...)
-}
-
-// Queryx using this statement.
-// Any placeholder parameters are replaced with supplied args.
-func (s *Stmt) Queryx(args ...interface{}) (*Rows, error) {
-	qs := &qStmt{s}
-	return qs.Queryx("", args...)
-}
-
 // qStmt is an unexposed wrapper which lets you use a Stmt as a Queryer & Execer by
 // implementing those interfaces and ignoring the `query` argument.
 type qStmt struct{ *Stmt }
 
 func (q *qStmt) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	return q.Stmt.Query(args...)
-}
-
-func (q *qStmt) Queryx(query string, args ...interface{}) (*Rows, error) {
-	r, err := q.Stmt.Query(args...)
-	if err != nil {
-		return nil, err
-	}
-	return &Rows{Rows: r, unsafe: q.Stmt.unsafe, Mapper: q.Stmt.Mapper}, err
-}
-
-func (q *qStmt) QueryRowx(query string, args ...interface{}) *Row {
-	rows, err := q.Stmt.Query(args...)
-	return &Row{rows: rows, err: err, unsafe: q.Stmt.unsafe, Mapper: q.Stmt.Mapper}
 }
 
 func (q *qStmt) Exec(query string, args ...interface{}) (sql.Result, error) {
@@ -593,78 +394,6 @@ func (r *Rows) StructScan(dest interface{}) error {
 		return err
 	}
 	return r.Err()
-}
-
-// Connect to a database and verify with a ping.
-func Connect(driverName, dataSourceName string) (*DB, error) {
-	db, err := Open(driverName, dataSourceName)
-	if err != nil {
-		return nil, err
-	}
-	err = db.Ping()
-	if err != nil {
-		db.Close()
-		return nil, err
-	}
-	return db, nil
-}
-
-// Preparex prepares a statement.
-func Preparex(p Preparer, query string) (*Stmt, error) {
-	s, err := p.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	return &Stmt{Stmt: s, unsafe: isUnsafe(p), Mapper: mapperFor(p)}, err
-}
-
-// Select executes a query using the provided Queryer, and StructScans each row
-// into dest, which must be a slice.  If the slice elements are scannable, then
-// the result set must have only one column.  Otherwise, StructScan is used.
-// The *sql.Rows are closed automatically.
-// Any placeholder parameters are replaced with supplied args.
-func Select(q Queryer, dest interface{}, query string, args ...interface{}) error {
-	rows, err := q.Queryx(query, args...)
-	if err != nil {
-		return err
-	}
-	// if something happens here, we want to make sure the rows are Closed
-	defer rows.Close()
-	return scanAll(rows, dest, false)
-}
-
-// Get does a QueryRow using the provided Queryer, and scans the resulting row
-// to dest.  If dest is scannable, the result must only have one column.  Otherwise,
-// StructScan is used.  Get will return sql.ErrNoRows like row.Scan would.
-// Any placeholder parameters are replaced with supplied args.
-// An error is returned if the result set is empty.
-func Get(q Queryer, dest interface{}, query string, args ...interface{}) error {
-	r := q.QueryRowx(query, args...)
-	return r.scanAny(dest, false)
-}
-
-// LoadFile exec's every statement in a file (as a single call to Exec).
-// LoadFile may return a nil *sql.Result if errors are encountered locating or
-// reading the file at path.  LoadFile reads the entire file into memory, so it
-// is not suitable for loading large data dumps, but can be useful for initializing
-// schemas or loading indexes.
-//
-// FIXME: this does not really work with multi-statement files for mattn/go-sqlite3
-// or the go-mysql-driver/mysql drivers;  pq seems to be an exception here.  Detecting
-// this by requiring something with DriverName() and then attempting to split the
-// queries will be difficult to get right, and its current driver-specific behavior
-// is deemed at least not complex in its incorrectness.
-func LoadFile(e Execer, path string) (*sql.Result, error) {
-	realpath, err := filepath.Abs(path)
-	if err != nil {
-		return nil, err
-	}
-	contents, err := ioutil.ReadFile(realpath)
-	if err != nil {
-		return nil, err
-	}
-	res, err := e.Exec(string(contents))
-	return &res, err
 }
 
 // SliceScan using this Rows.

@@ -1,6 +1,7 @@
 package sqlx
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"testing"
@@ -139,23 +140,23 @@ func TestNamedQueries(t *testing.T) {
 		var err error
 
 		// Check that invalid preparations fail
-		ns, err = db.PrepareNamed("SELECT * FROM person WHERE first_name=:first:name")
+		ns, err = db.PrepareNamedContext(context.TODO(), "SELECT * FROM person WHERE first_name=:first:name")
 		if err == nil {
 			t.Error("Expected an error with invalid prepared statement.")
 		}
 
-		ns, err = db.PrepareNamed("invalid sql")
+		ns, err = db.PrepareNamedContext(context.TODO(), "invalid sql")
 		if err == nil {
 			t.Error("Expected an error with invalid prepared statement.")
 		}
 
 		// Check closing works as anticipated
-		ns, err = db.PrepareNamed("SELECT * FROM person WHERE first_name=:first_name")
+		ns, err = db.PrepareNamedContext(context.TODO(), "SELECT * FROM person WHERE first_name=:first_name")
 		test.Error(err)
 		err = ns.Close()
 		test.Error(err)
 
-		ns, err = db.PrepareNamed(`
+		ns, err = db.PrepareNamedContext(context.TODO(), `
 			SELECT first_name, last_name, email 
 			FROM person WHERE first_name=:first_name AND email=:email`)
 		test.Error(err)
@@ -181,7 +182,7 @@ func TestNamedQueries(t *testing.T) {
 
 		// test Select
 		people := make([]Person, 0, 5)
-		err = ns.Select(&people, p)
+		err = ns.SelectContext(context.TODO(), &people, p)
 		test.Error(err)
 
 		if len(people) != 1 {
@@ -208,7 +209,7 @@ func TestNamedQueries(t *testing.T) {
 			"INSERT INTO person (first_name, last_name, email, added_at) VALUES (:first_name, :last_name, :email, %v)\n",
 			now,
 		)
-		_, err = db.NamedExec(insert, sls)
+		_, err = db.NamedExecContext(context.TODO(), insert, sls)
 		test.Error(err)
 
 		// test map batch inserts
@@ -218,7 +219,7 @@ func TestNamedQueries(t *testing.T) {
 			{"first_name": "Ngani", "last_name": "Laumape", "email": "nlaumape@ab.co.nz"},
 		}
 
-		_, err = db.NamedExec(`INSERT INTO person (first_name, last_name, email)
+		_, err = db.NamedExecContext(context.TODO(), `INSERT INTO person (first_name, last_name, email)
 			VALUES (:first_name, :last_name, :email) ;--`, slsMap)
 		test.Error(err)
 
@@ -230,13 +231,13 @@ func TestNamedQueries(t *testing.T) {
 			{"first_name": "Ngani", "last_name": "Laumape", "email": "nlaumape@ab.co.nz"},
 		}
 
-		_, err = db.NamedExec(`INSERT INTO person (first_name, last_name, email)
+		_, err = db.NamedExecContext(context.TODO(), `INSERT INTO person (first_name, last_name, email)
 			VALUES (:first_name, :last_name, :email) ;--`, typedMap)
 		test.Error(err)
 
 		for _, p := range sls {
 			dest := Person{}
-			err = db.Get(&dest, db.Rebind("SELECT * FROM person WHERE email=?"), p.Email)
+			err = db.GetContext(context.TODO(), &dest, db.Rebind("SELECT * FROM person WHERE email=?"), p.Email)
 			test.Error(err)
 			if dest.Email != p.Email {
 				t.Errorf("expected %s, got %s", p.Email, dest.Email)
@@ -244,7 +245,7 @@ func TestNamedQueries(t *testing.T) {
 		}
 
 		// test Exec
-		ns, err = db.PrepareNamed(`
+		ns, err = db.PrepareNamedContext(context.TODO(), `
 			INSERT INTO person (first_name, last_name, email)
 			VALUES (:first_name, :last_name, :email)`)
 		test.Error(err)
@@ -254,12 +255,12 @@ func TestNamedQueries(t *testing.T) {
 			LastName:  "Savea",
 			Email:     "jsavea@ab.co.nz",
 		}
-		_, err = ns.Exec(js)
+		_, err = ns.ExecContext(context.TODO(), js)
 		test.Error(err)
 
 		// Make sure we can pull him out again
 		p2 := Person{}
-		db.Get(&p2, db.Rebind("SELECT * FROM person WHERE email=?"), js.Email)
+		db.GetContext(context.TODO(), &p2, db.Rebind("SELECT * FROM person WHERE email=?"), js.Email)
 		if p2.Email != js.Email {
 			t.Errorf("expected %s, got %s", js.Email, p2.Email)
 		}
@@ -269,7 +270,7 @@ func TestNamedQueries(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		txns := tx.NamedStmt(ns)
+		txns := tx.NamedStmtContext(context.TODO(), ns)
 
 		// We're going to add Steven in this txn
 		sl := Person{
@@ -278,12 +279,12 @@ func TestNamedQueries(t *testing.T) {
 			Email:     "sluatua@ab.co.nz",
 		}
 
-		_, err = txns.Exec(sl)
+		_, err = txns.ExecContext(context.TODO(), sl)
 		test.Error(err)
 		// then rollback...
 		tx.Rollback()
 		// looking for Steven after a rollback should fail
-		err = db.Get(&p2, db.Rebind("SELECT * FROM person WHERE email=?"), sl.Email)
+		err = db.GetContext(context.TODO(), &p2, db.Rebind("SELECT * FROM person WHERE email=?"), sl.Email)
 		if err != sql.ErrNoRows {
 			t.Errorf("expected no rows error, got %v", err)
 		}
@@ -293,13 +294,13 @@ func TestNamedQueries(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		txns = tx.NamedStmt(ns)
-		_, err = txns.Exec(sl)
+		txns = tx.NamedStmtContext(context.TODO(), ns)
+		_, err = txns.ExecContext(context.TODO(), sl)
 		test.Error(err)
 		tx.Commit()
 
 		// looking for Steven after a Commit should succeed
-		err = db.Get(&p2, db.Rebind("SELECT * FROM person WHERE email=?"), sl.Email)
+		err = db.GetContext(context.TODO(), &p2, db.Rebind("SELECT * FROM person WHERE email=?"), sl.Email)
 		test.Error(err)
 		if p2.Email != sl.Email {
 			t.Errorf("expected %s, got %s", sl.Email, p2.Email)
