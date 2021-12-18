@@ -64,16 +64,6 @@ func (n *NamedStmt) QueryRowContext(ctx context.Context, arg interface{}) *Row {
 	return n.Stmt.QueryRowxContext(ctx, args...)
 }
 
-// MustExecContext execs a NamedStmt, panicing on error
-// Any named placeholder parameters are replaced with fields from arg.
-func (n *NamedStmt) MustExecContext(ctx context.Context, arg interface{}) sql.Result {
-	res, err := n.ExecContext(ctx, arg)
-	if err != nil {
-		panic(err)
-	}
-	return res
-}
-
 // QueryxContext using this NamedStmt
 // Any named placeholder parameters are replaced with fields from arg.
 func (n *NamedStmt) QueryxContext(ctx context.Context, arg interface{}) (*Rows, error) {

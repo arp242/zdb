@@ -67,21 +67,37 @@ func RunWithSchemaContext(ctx context.Context, schema Schema, t *testing.T, test
 }
 
 func loadDefaultFixtureContext(ctx context.Context, db *DB, t *testing.T) {
-	tx := db.MustBeginTx(ctx, nil)
-	tx.MustExecContext(ctx, tx.Rebind("INSERT INTO person (first_name, last_name, email) VALUES (?, ?, ?)"), "Jason", "Moiron", "jmoiron@jmoiron.net")
-	tx.MustExecContext(ctx, tx.Rebind("INSERT INTO person (first_name, last_name, email) VALUES (?, ?, ?)"), "John", "Doe", "johndoeDNE@gmail.net")
-	tx.MustExecContext(ctx, tx.Rebind("INSERT INTO place (country, city, telcode) VALUES (?, ?, ?)"), "United States", "New York", "1")
-	tx.MustExecContext(ctx, tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Hong Kong", "852")
-	tx.MustExecContext(ctx, tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Singapore", "65")
-	if db.DriverName() == "mysql" {
-		tx.MustExecContext(ctx, tx.Rebind("INSERT INTO capplace (`COUNTRY`, `TELCODE`) VALUES (?, ?)"), "Sarf Efrica", "27")
-	} else {
-		tx.MustExecContext(ctx, tx.Rebind("INSERT INTO capplace (\"COUNTRY\", \"TELCODE\") VALUES (?, ?)"), "Sarf Efrica", "27")
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	tx.MustExecContext(ctx, tx.Rebind("INSERT INTO employees (name, id) VALUES (?, ?)"), "Peter", "4444")
-	tx.MustExecContext(ctx, tx.Rebind("INSERT INTO employees (name, id, boss_id) VALUES (?, ?, ?)"), "Joe", "1", "4444")
-	tx.MustExecContext(ctx, tx.Rebind("INSERT INTO employees (name, id, boss_id) VALUES (?, ?, ?)"), "Martin", "2", "4444")
-	tx.Commit()
+
+	exec := func(query string, params ...interface{}) {
+		t.Helper()
+		_, err := tx.ExecContext(ctx, db.Rebind(query), params...)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	exec("INSERT INTO person (first_name, last_name, email) VALUES (?, ?, ?)", "Jason", "Moiron", "jmoiron@jmoiron.net")
+	exec("INSERT INTO person (first_name, last_name, email) VALUES (?, ?, ?)", "John", "Doe", "johndoeDNE@gmail.net")
+	exec("INSERT INTO place (country, city, telcode) VALUES (?, ?, ?)", "United States", "New York", "1")
+	exec("INSERT INTO place (country, telcode) VALUES (?, ?)", "Hong Kong", "852")
+	exec("INSERT INTO place (country, telcode) VALUES (?, ?)", "Singapore", "65")
+	if db.DriverName() == "mysql" {
+		exec("INSERT INTO capplace (`COUNTRY`, `TELCODE`) VALUES (?, ?)", "Sarf Efrica", "27")
+	} else {
+		exec("INSERT INTO capplace (\"COUNTRY\", \"TELCODE\") VALUES (?, ?)", "Sarf Efrica", "27")
+	}
+	exec("INSERT INTO employees (name, id) VALUES (?, ?)", "Peter", "4444")
+	exec("INSERT INTO employees (name, id, boss_id) VALUES (?, ?, ?)", "Joe", "1", "4444")
+	exec("INSERT INTO employees (name, id, boss_id) VALUES (?, ?, ?)", "Martin", "2", "4444")
+
+	err = tx.Commit()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // Test a new backwards compatible feature, that missing scan destinations
@@ -664,7 +680,11 @@ func TestNilInsertsContext(t *testing.T) {
 		var v, v2 TT
 		r := db.Rebind
 
-		db.MustExecContext(ctx, r(`INSERT INTO tt (id) VALUES (1)`))
+		_, err := db.ExecContext(ctx, r(`INSERT INTO tt (id) VALUES (1)`))
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		db.GetContext(ctx, &v, r(`SELECT * FROM tt`))
 		if v.ID != 1 {
 			t.Errorf("Expecting id of 1, got %v", v.ID)
@@ -1275,9 +1295,9 @@ func TestInContext(t *testing.T) {
 	}
 	RunWithSchemaContext(context.Background(), defaultSchema, t, func(ctx context.Context, db *DB, t *testing.T) {
 		loadDefaultFixtureContext(ctx, db, t)
-		//tx.MustExecContext(ctx, tx.Rebind("INSERT INTO place (country, city, telcode) VALUES (?, ?, ?)"), "United States", "New York", "1")
-		//tx.MustExecContext(ctx, tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Hong Kong", "852")
-		//tx.MustExecContext(ctx, tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Singapore", "65")
+		//tx.ExecContext(ctx, tx.Rebind("INSERT INTO place (country, city, telcode) VALUES (?, ?, ?)"), "United States", "New York", "1")
+		//tx.ExecContext(ctx, tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Hong Kong", "852")
+		//tx.ExecContext(ctx, tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Singapore", "65")
 		telcodes := []int{852, 65}
 		q := "SELECT * FROM place WHERE telcode IN(?) ORDER BY telcode"
 		query, args, err := In(q, telcodes)
@@ -1322,10 +1342,13 @@ func TestEmbeddedLiteralsContext(t *testing.T) {
 			K *string
 		}
 
-		db.MustExecContext(ctx, db.Rebind("INSERT INTO x (k) VALUES (?), (?), (?);"), "one", "two", "three")
+		_, err := db.ExecContext(ctx, db.Rebind("INSERT INTO x (k) VALUES (?), (?), (?);"), "one", "two", "three")
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		target := t1{}
-		err := db.GetContext(ctx, &target, db.Rebind("SELECT * FROM x WHERE k=?"), "one")
+		err = db.GetContext(ctx, &target, db.Rebind("SELECT * FROM x WHERE k=?"), "one")
 		if err != nil {
 			t.Error(err)
 		}

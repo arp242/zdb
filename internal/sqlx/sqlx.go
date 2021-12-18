@@ -81,7 +81,7 @@ type Queryer interface {
 	QueryRowx(query string, args ...interface{}) *Row
 }
 
-// Execer is an interface used by MustExec and LoadFile
+// Execer is an interface used by LoadFile
 type Execer interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 }
@@ -266,15 +266,6 @@ func Open(driverName, dataSourceName string) (*DB, error) {
 	return &DB{DB: db, driverName: driverName, Mapper: mapper()}, err
 }
 
-// MustOpen is the same as sql.Open, but returns an *sqlx.DB instead and panics on error.
-func MustOpen(driverName, dataSourceName string) *DB {
-	db, err := Open(driverName, dataSourceName)
-	if err != nil {
-		panic(err)
-	}
-	return db
-}
-
 // MapperFunc sets a new mapper for this db using the default sqlx struct tag
 // and the provided mapper function.
 func (db *DB) MapperFunc(mf func(string) string) {
@@ -324,16 +315,6 @@ func (db *DB) Get(dest interface{}, query string, args ...interface{}) error {
 	return Get(db, dest, query, args...)
 }
 
-// MustBegin starts a transaction, and panics on error.  Returns an *sqlx.Tx instead
-// of an *sql.Tx.
-func (db *DB) MustBegin() *Tx {
-	tx, err := db.Beginx()
-	if err != nil {
-		panic(err)
-	}
-	return tx
-}
-
 // Beginx begins a transaction and returns an *sqlx.Tx instead of an *sql.Tx.
 func (db *DB) Beginx() (*Tx, error) {
 	tx, err := db.DB.Begin()
@@ -358,12 +339,6 @@ func (db *DB) Queryx(query string, args ...interface{}) (*Rows, error) {
 func (db *DB) QueryRowx(query string, args ...interface{}) *Row {
 	rows, err := db.DB.Query(query, args...)
 	return &Row{rows: rows, err: err, unsafe: db.unsafe, Mapper: db.Mapper}
-}
-
-// MustExec (panic) runs MustExec using this database.
-// Any placeholder parameters are replaced with supplied args.
-func (db *DB) MustExec(query string, args ...interface{}) sql.Result {
-	return MustExec(db, query, args...)
 }
 
 // Preparex returns an sqlx.Stmt instead of a sql.Stmt
@@ -455,12 +430,6 @@ func (tx *Tx) Get(dest interface{}, query string, args ...interface{}) error {
 	return Get(tx, dest, query, args...)
 }
 
-// MustExec runs MustExec within a transaction.
-// Any placeholder parameters are replaced with supplied args.
-func (tx *Tx) MustExec(query string, args ...interface{}) sql.Result {
-	return MustExec(tx, query, args...)
-}
-
 // Preparex  a statement within a transaction.
 func (tx *Tx) Preparex(query string) (*Stmt, error) {
 	return Preparex(tx, query)
@@ -521,13 +490,6 @@ func (s *Stmt) Select(dest interface{}, args ...interface{}) error {
 // An error is returned if the result set is empty.
 func (s *Stmt) Get(dest interface{}, args ...interface{}) error {
 	return Get(&qStmt{s}, dest, "", args...)
-}
-
-// MustExec (panic) using this statement.  Note that the query portion of the error
-// output will be blank, as Stmt does not expose its query.
-// Any placeholder parameters are replaced with supplied args.
-func (s *Stmt) MustExec(args ...interface{}) sql.Result {
-	return MustExec(&qStmt{s}, "", args...)
 }
 
 // QueryRowx using this statement.
@@ -647,15 +609,6 @@ func Connect(driverName, dataSourceName string) (*DB, error) {
 	return db, nil
 }
 
-// MustConnect connects to a database and panics on error.
-func MustConnect(driverName, dataSourceName string) *DB {
-	db, err := Connect(driverName, dataSourceName)
-	if err != nil {
-		panic(err)
-	}
-	return db
-}
-
 // Preparex prepares a statement.
 func Preparex(p Preparer, query string) (*Stmt, error) {
 	s, err := p.Prepare(query)
@@ -712,16 +665,6 @@ func LoadFile(e Execer, path string) (*sql.Result, error) {
 	}
 	res, err := e.Exec(string(contents))
 	return &res, err
-}
-
-// MustExec execs the query using e and panics if there was an error.
-// Any placeholder parameters are replaced with supplied args.
-func MustExec(e Execer, query string, args ...interface{}) sql.Result {
-	res, err := e.Exec(query, args...)
-	if err != nil {
-		panic(err)
-	}
-	return res
 }
 
 // SliceScan using this Rows.

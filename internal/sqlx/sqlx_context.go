@@ -34,7 +34,7 @@ type PreparerContext interface {
 	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
 }
 
-// ExecerContext is an interface used by MustExecContext and LoadFileContext
+// ExecerContext is an interface used by LoadFileContext
 type ExecerContext interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
@@ -108,16 +108,6 @@ func LoadFileContext(ctx context.Context, e ExecerContext, path string) (*sql.Re
 	return &res, err
 }
 
-// MustExecContext execs the query using e and panics if there was an error.
-// Any placeholder parameters are replaced with supplied args.
-func MustExecContext(ctx context.Context, e ExecerContext, query string, args ...interface{}) sql.Result {
-	res, err := e.ExecContext(ctx, query, args...)
-	if err != nil {
-		panic(err)
-	}
-	return res
-}
-
 // PrepareNamedContext returns an sqlx.NamedStmt
 func (db *DB) PrepareNamedContext(ctx context.Context, query string) (*NamedStmt, error) {
 	return prepareNamedContext(ctx, db, query)
@@ -171,27 +161,6 @@ func (db *DB) QueryxContext(ctx context.Context, query string, args ...interface
 func (db *DB) QueryRowxContext(ctx context.Context, query string, args ...interface{}) *Row {
 	rows, err := db.DB.QueryContext(ctx, query, args...)
 	return &Row{rows: rows, err: err, unsafe: db.unsafe, Mapper: db.Mapper}
-}
-
-// MustBeginTx starts a transaction, and panics on error.  Returns an *sqlx.Tx instead
-// of an *sql.Tx.
-//
-// The provided context is used until the transaction is committed or rolled
-// back. If the context is canceled, the sql package will roll back the
-// transaction. Tx.Commit will return an error if the context provided to
-// MustBeginContext is canceled.
-func (db *DB) MustBeginTx(ctx context.Context, opts *sql.TxOptions) *Tx {
-	tx, err := db.BeginTxx(ctx, opts)
-	if err != nil {
-		panic(err)
-	}
-	return tx
-}
-
-// MustExecContext (panic) runs MustExec using this database.
-// Any placeholder parameters are replaced with supplied args.
-func (db *DB) MustExecContext(ctx context.Context, query string, args ...interface{}) sql.Result {
-	return MustExecContext(ctx, db, query, args...)
 }
 
 // BeginTxx begins a transaction and returns an *sqlx.Tx instead of an
@@ -317,12 +286,6 @@ func (tx *Tx) PrepareNamedContext(ctx context.Context, query string) (*NamedStmt
 	return prepareNamedContext(ctx, tx, query)
 }
 
-// MustExecContext runs MustExecContext within a transaction.
-// Any placeholder parameters are replaced with supplied args.
-func (tx *Tx) MustExecContext(ctx context.Context, query string, args ...interface{}) sql.Result {
-	return MustExecContext(ctx, tx, query, args...)
-}
-
 // QueryxContext within a transaction and context.
 // Any placeholder parameters are replaced with supplied args.
 func (tx *Tx) QueryxContext(ctx context.Context, query string, args ...interface{}) (*Rows, error) {
@@ -370,13 +333,6 @@ func (s *Stmt) SelectContext(ctx context.Context, dest interface{}, args ...inte
 // An error is returned if the result set is empty.
 func (s *Stmt) GetContext(ctx context.Context, dest interface{}, args ...interface{}) error {
 	return GetContext(ctx, &qStmt{s}, dest, "", args...)
-}
-
-// MustExecContext (panic) using this statement.  Note that the query portion of
-// the error output will be blank, as Stmt does not expose its query.
-// Any placeholder parameters are replaced with supplied args.
-func (s *Stmt) MustExecContext(ctx context.Context, args ...interface{}) sql.Result {
-	return MustExecContext(ctx, &qStmt{s}, "", args...)
 }
 
 // QueryRowxContext using this statement.

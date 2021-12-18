@@ -69,16 +69,6 @@ func (n *NamedStmt) QueryRow(arg interface{}) *Row {
 	return n.Stmt.QueryRowx(args...)
 }
 
-// MustExec execs a NamedStmt, panicing on error
-// Any named placeholder parameters are replaced with fields from arg.
-func (n *NamedStmt) MustExec(arg interface{}) sql.Result {
-	res, err := n.Exec(arg)
-	if err != nil {
-		panic(err)
-	}
-	return res
-}
-
 // Queryx using this NamedStmt
 // Any named placeholder parameters are replaced with fields from arg.
 func (n *NamedStmt) Queryx(arg interface{}) (*Rows, error) {

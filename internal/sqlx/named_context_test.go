@@ -99,7 +99,10 @@ func TestNamedContextQueries(t *testing.T) {
 		}
 
 		// test Txn NamedStmts
-		tx := db.MustBeginTx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 		txns := tx.NamedStmtContext(ctx, ns)
 
 		// We're going to add Steven in this txn
@@ -120,7 +123,10 @@ func TestNamedContextQueries(t *testing.T) {
 		}
 
 		// now do the same, but commit
-		tx = db.MustBeginTx(ctx, nil)
+		tx, err = db.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 		txns = tx.NamedStmtContext(ctx, ns)
 		_, err = txns.ExecContext(ctx, sl)
 		test.Error(err)

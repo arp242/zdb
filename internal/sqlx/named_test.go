@@ -265,7 +265,10 @@ func TestNamedQueries(t *testing.T) {
 		}
 
 		// test Txn NamedStmts
-		tx := db.MustBegin()
+		tx, err := db.Beginx()
+		if err != nil {
+			t.Fatal(err)
+		}
 		txns := tx.NamedStmt(ns)
 
 		// We're going to add Steven in this txn
@@ -286,7 +289,10 @@ func TestNamedQueries(t *testing.T) {
 		}
 
 		// now do the same, but commit
-		tx = db.MustBegin()
+		tx, err = db.Beginx()
+		if err != nil {
+			t.Fatal(err)
+		}
 		txns = tx.NamedStmt(ns)
 		_, err = txns.Exec(sl)
 		test.Error(err)

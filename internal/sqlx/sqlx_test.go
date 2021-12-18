@@ -243,21 +243,37 @@ func RunWithSchema(schema Schema, t *testing.T, test func(db *DB, t *testing.T, 
 }
 
 func loadDefaultFixture(db *DB, t *testing.T) {
-	tx := db.MustBegin()
-	tx.MustExec(tx.Rebind("INSERT INTO person (first_name, last_name, email) VALUES (?, ?, ?)"), "Jason", "Moiron", "jmoiron@jmoiron.net")
-	tx.MustExec(tx.Rebind("INSERT INTO person (first_name, last_name, email) VALUES (?, ?, ?)"), "John", "Doe", "johndoeDNE@gmail.net")
-	tx.MustExec(tx.Rebind("INSERT INTO place (country, city, telcode) VALUES (?, ?, ?)"), "United States", "New York", "1")
-	tx.MustExec(tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Hong Kong", "852")
-	tx.MustExec(tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Singapore", "65")
-	if db.DriverName() == "mysql" {
-		tx.MustExec(tx.Rebind("INSERT INTO capplace (`COUNTRY`, `TELCODE`) VALUES (?, ?)"), "Sarf Efrica", "27")
-	} else {
-		tx.MustExec(tx.Rebind("INSERT INTO capplace (\"COUNTRY\", \"TELCODE\") VALUES (?, ?)"), "Sarf Efrica", "27")
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatal(err)
 	}
-	tx.MustExec(tx.Rebind("INSERT INTO employees (name, id) VALUES (?, ?)"), "Peter", "4444")
-	tx.MustExec(tx.Rebind("INSERT INTO employees (name, id, boss_id) VALUES (?, ?, ?)"), "Joe", "1", "4444")
-	tx.MustExec(tx.Rebind("INSERT INTO employees (name, id, boss_id) VALUES (?, ?, ?)"), "Martin", "2", "4444")
-	tx.Commit()
+
+	exec := func(query string, params ...interface{}) {
+		t.Helper()
+		_, err := tx.Exec(db.Rebind(query), params...)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	exec("INSERT INTO person (first_name, last_name, email) VALUES (?, ?, ?)", "Jason", "Moiron", "jmoiron@jmoiron.net")
+	exec("INSERT INTO person (first_name, last_name, email) VALUES (?, ?, ?)", "John", "Doe", "johndoeDNE@gmail.net")
+	exec("INSERT INTO place (country, city, telcode) VALUES (?, ?, ?)", "United States", "New York", "1")
+	exec("INSERT INTO place (country, telcode) VALUES (?, ?)", "Hong Kong", "852")
+	exec("INSERT INTO place (country, telcode) VALUES (?, ?)", "Singapore", "65")
+	if db.DriverName() == "mysql" {
+		exec("INSERT INTO capplace (`COUNTRY`, `TELCODE`) VALUES (?, ?)", "Sarf Efrica", "27")
+	} else {
+		exec("INSERT INTO capplace (\"COUNTRY\", \"TELCODE\") VALUES (?, ?)", "Sarf Efrica", "27")
+	}
+	exec("INSERT INTO employees (name, id) VALUES (?, ?)", "Peter", "4444")
+	exec("INSERT INTO employees (name, id, boss_id) VALUES (?, ?, ?)", "Joe", "1", "4444")
+	exec("INSERT INTO employees (name, id, boss_id) VALUES (?, ?, ?)", "Martin", "2", "4444")
+
+	err = tx.Commit()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // Test a new backwards compatible feature, that missing scan destinations
@@ -837,7 +853,10 @@ func TestNilInserts(t *testing.T) {
 		var v, v2 TT
 		r := db.Rebind
 
-		db.MustExec(r(`INSERT INTO tt (id) VALUES (1)`))
+		_, err := db.Exec(r(`INSERT INTO tt (id) VALUES (1)`))
+		if err != nil {
+			t.Fatal(err)
+		}
 		db.Get(&v, r(`SELECT * FROM tt`))
 		if v.ID != 1 {
 			t.Errorf("Expecting id of 1, got %v", v.ID)
@@ -902,10 +921,13 @@ func TestMultiInsert(t *testing.T) {
 	RunWithSchema(defaultSchema, t, func(db *DB, t *testing.T, now string) {
 		loadDefaultFixture(db, t)
 		q := db.Rebind(`INSERT INTO employees (name, id) VALUES (?, ?), (?, ?);`)
-		db.MustExec(q,
+		_, err := db.Exec(q,
 			"Name1", 400,
 			"name2", 500,
 		)
+		if err != nil {
+			t.Fatal(err)
+		}
 	})
 }
 
@@ -1578,9 +1600,9 @@ func TestIn(t *testing.T) {
 	}
 	RunWithSchema(defaultSchema, t, func(db *DB, t *testing.T, now string) {
 		loadDefaultFixture(db, t)
-		//tx.MustExec(tx.Rebind("INSERT INTO place (country, city, telcode) VALUES (?, ?, ?)"), "United States", "New York", "1")
-		//tx.MustExec(tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Hong Kong", "852")
-		//tx.MustExec(tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Singapore", "65")
+		//tx.Exec(tx.Rebind("INSERT INTO place (country, city, telcode) VALUES (?, ?, ?)"), "United States", "New York", "1")
+		//tx.Exec(tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Hong Kong", "852")
+		//tx.Exec(tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Singapore", "65")
 		telcodes := []int{852, 65}
 		q := "SELECT * FROM place WHERE telcode IN(?) ORDER BY telcode"
 		query, args, err := In(q, telcodes)
@@ -1711,10 +1733,13 @@ func TestEmbeddedLiterals(t *testing.T) {
 			K *string
 		}
 
-		db.MustExec(db.Rebind("INSERT INTO x (k) VALUES (?), (?), (?);"), "one", "two", "three")
+		_, err := db.Exec(db.Rebind("INSERT INTO x (k) VALUES (?), (?), (?);"), "one", "two", "three")
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		target := t1{}
-		err := db.Get(&target, db.Rebind("SELECT * FROM x WHERE k=?"), "one")
+		err = db.Get(&target, db.Rebind("SELECT * FROM x WHERE k=?"), "one")
 		if err != nil {
 			t.Error(err)
 		}
