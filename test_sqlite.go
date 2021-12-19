@@ -1,15 +1,17 @@
-// +build !testpg
-// +build !testmaria
+//go:build !testpg && !testmaria
+// +build !testpg,!testmaria
 
 package zdb
 
 import (
 	"context"
 	"testing"
+
+	_ "zgo.at/zdb/drivers/sqlite3"
 )
 
 func connectTest() string {
-	return "sqlite://:memory:"
+	return "sqlite+:memory:"
 }
 
 // StartTest starts a new test.
@@ -38,9 +40,9 @@ func StartTest(t *testing.T, opt ...ConnectOptions) context.Context {
 	if len(opt) == 1 {
 		o = opt[0]
 	}
-	o.Connect = "sqlite3://:memory:?cache=shared"
+	o.Connect = "sqlite+:memory:?cache=shared"
 
-	db, err := Connect(o)
+	db, err := Connect(context.Background(), o)
 	if err != nil {
 		t.Fatal(err)
 	}

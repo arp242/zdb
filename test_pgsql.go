@@ -1,3 +1,4 @@
+//go:build testpg
 // +build testpg
 
 package zdb
@@ -8,12 +9,13 @@ import (
 	"os"
 	"testing"
 
+	_ "zgo.at/zdb/drivers/pq"
 	"zgo.at/zstd/zcrypto"
 )
 
 func connectTest() string {
 	os.Setenv("PGDATABASE", "zdb_test_newdb")
-	return "postgresql://"
+	return "postgresql+"
 }
 
 func StartTest(t *testing.T, opt ...ConnectOptions) context.Context {
@@ -26,7 +28,7 @@ func StartTest(t *testing.T, opt ...ConnectOptions) context.Context {
 	if len(opt) == 1 {
 		o = opt[0]
 	}
-	o.Connect = "postgresql://"
+	o.Connect = "postgresql:"
 
 	if _, ok := os.LookupEnv("PGDATABASE"); !ok {
 		os.Setenv("PGDATABASE", "zdb_test")

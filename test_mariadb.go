@@ -1,3 +1,4 @@
+//go:build testmaria
 // +build testmaria
 
 package zdb
@@ -7,10 +8,12 @@ import (
 	"fmt"
 	"os/exec"
 	"testing"
+
+	_ "zgo.at/zdb/drivers/mysql"
 )
 
 func connectTest() string {
-	return "mysql:///zdb_test_newdb"
+	return "mysql+/zdb_test_newdb"
 }
 
 // TODO: needs to be improved.
@@ -24,7 +27,7 @@ func StartTest(t *testing.T, opt ...ConnectOptions) context.Context {
 	if len(opt) == 1 {
 		o = opt[0]
 	}
-	o.Connect = "mysql://root@unix(/var/run/mysqld/mysqld.sock)/zdb_test"
+	o.Connect = "mysql:root@unix(/var/run/mysqld/mysqld.sock)/zdb_test"
 
 	err := createdb()
 	if err != nil {

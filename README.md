@@ -58,16 +58,15 @@ Usage
 if it doesn't exist yet. A basic example:
 
     db, err := zdb.Connect(zdb.ConnectOptions{
-        Connect: "sqlite3://:memory:",
+        Connect: "sqlite3+:memory:",
     })
     if err != nil {
         log.Fatal(err)
     }
     defer db.Close()
 
-`Connect` is a connection string prefixed with `sqlite[3]://`,
-`postgres[ql]://`, or `mariadb://`. Further details on the connection string
-depends on the driver:
+`Connect` is a connection string prefixed with `sqlite[3]:`, `postgres[ql]:`, or
+`mariadb:`. Further details on the connection string depends on the driver:
 
 - https://github.com/mattn/go-sqlite3/
 - https://github.com/lib/pq

@@ -37,6 +37,7 @@ import (
 	"errors"
 	"fmt"
 
+	"zgo.at/zdb/drivers"
 	"zgo.at/zdb/internal/sqlx"
 )
 
@@ -109,6 +110,18 @@ const (
 	DialectPostgreSQL
 	DialectMariaDB
 )
+
+// Dialect names.
+var dialectNames = map[string]Dialect{
+	"postgresql": DialectPostgreSQL,
+	"postgres":   DialectPostgreSQL,
+	"psql":       DialectPostgreSQL,
+	"pgsql":      DialectPostgreSQL,
+	"sqlite":     DialectSQLite,
+	"sqlite3":    DialectSQLite,
+	"mysql":      DialectMariaDB,
+	"mariadb":    DialectMariaDB,
+}
 
 // ErrTransactionStarted is returned when a transaction is already started; this
 // can often be treated as a non-fatal error.
@@ -300,6 +313,16 @@ func Unwrap(db DB) DB {
 // ErrNoRows reports if this error is sql.ErrNoRows.
 func ErrNoRows(err error) bool {
 	return errors.Is(err, sql.ErrNoRows)
+}
+
+// ErrUnique reports if this error reports a UNIQUE constraint violation.
+func ErrUnique(err error) bool {
+	for _, d := range drivers.Drivers() {
+		if d.ErrUnique(err) {
+			return true
+		}
+	}
+	return false
 }
 
 // SQLDialect gets the SQL dialect.

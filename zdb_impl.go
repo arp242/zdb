@@ -185,7 +185,7 @@ type (
 )
 
 // AtLeast reports if this version is at least version want.
-func (v ServerVersion) AtLeast(want ServerVersion) bool { return want < v }
+func (v ServerVersion) AtLeast(want ServerVersion) bool { return want <= v }
 
 func infoImpl(ctx context.Context, db DB) (ServerInfo, error) {
 	udb := Unwrap(db)

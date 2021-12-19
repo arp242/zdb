@@ -440,8 +440,8 @@ func TestLoad(t *testing.T) {
 	// TODO: can't set Files from StartTest(); don't really want to add a
 	// parameter for it. Would be nice if it could be set later?
 	//ctx := StartTest(t)
-	db, err := Connect(ConnectOptions{
-		Connect: "sqlite3://:memory:",
+	db, err := Connect(context.Background(), ConnectOptions{
+		Connect: "sqlite3+:memory:",
 		Create:  true,
 		Files:   testdata.Files,
 	})
@@ -670,8 +670,8 @@ func BenchmarkPrepare(b *testing.B) {
 		"join":  true,
 	}
 
-	db, err := Connect(ConnectOptions{
-		Connect: "sqlite3://:memory:",
+	db, err := Connect(context.Background(), ConnectOptions{
+		Connect: "sqlite3+:memory:",
 	})
 	if err != nil {
 		b.Fatal(err)
@@ -685,8 +685,8 @@ func BenchmarkPrepare(b *testing.B) {
 }
 
 func BenchmarkLoad(b *testing.B) {
-	db, err := Connect(ConnectOptions{
-		Connect: "sqlite3://:memory:",
+	db, err := Connect(context.Background(), ConnectOptions{
+		Connect: "sqlite3+:memory:",
 		Create:  true,
 		Files:   testdata.Files,
 	})
