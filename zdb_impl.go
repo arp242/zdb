@@ -217,11 +217,10 @@ func infoImpl(ctx context.Context, db DB) (ServerInfo, error) {
 		err = Get(ctx, &v, `show server_version`)
 	}
 	if err != nil {
-		return ServerInfo{}, nil
+		return ServerInfo{}, fmt.Errorf("zdb.Info: %w", err)
 	}
 
 	info.Version = ServerVersion(v)
-
 	return info, nil
 }
 
@@ -316,34 +315,41 @@ func txImpl(ctx context.Context, db DB, fn func(context.Context) error) error {
 func execImpl(ctx context.Context, db DB, query string, params ...interface{}) error {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
-		return err
+		return fmt.Errorf("zdb.Exec: %w", err)
 	}
 	_, err = db.(dbImpl).ExecContext(ctx, query, params...)
-	return err
+	if err != nil {
+		return fmt.Errorf("zdb.Exec: %w", err)
+	}
+	return nil
 }
 
 func numRowsImpl(ctx context.Context, db DB, query string, params ...interface{}) (int64, error) {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("zdb.NumRows: %w", err)
 	}
 	r, err := db.(dbImpl).ExecContext(ctx, query, params...)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("zdb.NumRows: %w", err)
 	}
-	return r.RowsAffected()
+	n, err := r.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("zdb.NumRows: %w", err)
+	}
+	return n, nil
 }
 
 func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...interface{}) (int64, error) {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("zdb.InsertID: %w", err)
 	}
 
 	var id []int64
 	err = db.(dbImpl).SelectContext(ctx, &id, query+" returning "+idColumn, params...)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("zdb.InsertID: %w", err)
 	}
 	return id[len(id)-1], nil
 }
@@ -351,27 +357,35 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 func selectImpl(ctx context.Context, db DB, dest interface{}, query string, params ...interface{}) error {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
-		return err
+		return fmt.Errorf("zdb.Select: %w", err)
 	}
-	return db.(dbImpl).SelectContext(ctx, dest, query, params...)
+	err = db.(dbImpl).SelectContext(ctx, dest, query, params...)
+	if err != nil {
+		return fmt.Errorf("zdb.Select: %w", err)
+	}
+	return nil
 }
 
 func getImpl(ctx context.Context, db DB, dest interface{}, query string, params ...interface{}) error {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
-		return err
+		return fmt.Errorf("zdb.Get: %w", err)
 	}
-	return db.(dbImpl).GetContext(ctx, dest, query, params...)
+	err = db.(dbImpl).GetContext(ctx, dest, query, params...)
+	if err != nil {
+		return fmt.Errorf("zdb.Get: %w", err)
+	}
+	return nil
 }
 
 func queryImpl(ctx context.Context, db DB, query string, params ...interface{}) (*Rows, error) {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("zdb.Query: %w", err)
 	}
 	r, err := db.(dbImpl).QueryxContext(ctx, query, params...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("zdb.Query: %w", err)
 	}
 	return &Rows{r}, nil
 }

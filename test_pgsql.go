@@ -28,12 +28,13 @@ func StartTest(t *testing.T, opt ...ConnectOptions) context.Context {
 	if len(opt) == 1 {
 		o = opt[0]
 	}
-	o.Connect = "postgresql:"
+	o.Connect = "postgresql+"
+	o.Create = true
 
 	if _, ok := os.LookupEnv("PGDATABASE"); !ok {
 		os.Setenv("PGDATABASE", "zdb_test")
 	}
-	db, err := Connect(o)
+	db, err := Connect(context.Background(), o)
 	if err != nil {
 		t.Fatal(err)
 	}

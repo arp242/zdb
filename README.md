@@ -54,6 +54,17 @@ TODO: load zdb_example_test.go
 Usage
 -----
 ### Connecting
+You first need to register a driver similar to how you register a driver for
+database/sql; several drivers are available:
+
+- zgo.at/drivers/zdb-pq
+- zgo.at/drivers/zdb-mysql
+- zgo.at/drivers/zdb-go-sqlite3
+
+Simply importing this package is enough; e.g.:
+
+    import _ "zgo.at/zdb-pq"
+
 `Connect()` opens a new connection, runs migrations, and/or creates a database
 if it doesn't exist yet. A basic example:
 
@@ -65,12 +76,9 @@ if it doesn't exist yet. A basic example:
     }
     defer db.Close()
 
-`Connect` is a connection string prefixed with `sqlite[3]:`, `postgres[ql]:`, or
-`mariadb:`. Further details on the connection string depends on the driver:
-
-- https://github.com/mattn/go-sqlite3/
-- https://github.com/lib/pq
-- https://github.com/go-sql-driver/mysql
+`Connect` is a connection string prefixed with either the database engine (e.g.
+"postgresql") or the driver name (e.g. "pq")`. Further details on the connection
+string depends on the driver.
 
 Schema creation and migrations is covered in [Schema creation and
 migrations](#schema-creation-and-migrations) below.

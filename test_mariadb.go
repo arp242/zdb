@@ -35,7 +35,7 @@ func StartTest(t *testing.T, opt ...ConnectOptions) context.Context {
 		return nil
 	}
 
-	db, err := Connect(o)
+	db, err := Connect(context.Background(), o)
 	if err != nil {
 		t.Fatal(err)
 	}

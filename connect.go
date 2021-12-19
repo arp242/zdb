@@ -110,7 +110,7 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 	}
 
 	dialect = dialectNames[useDriver.Dialect()]
-	db := &zDB{db: sqlx.NewDb(sqlDB, driver), dialect: dialect}
+	db := &zDB{db: sqlx.NewDb(sqlDB, useDriver.Name()), dialect: dialect}
 
 	// These versions are required for zdb.
 	info, err := db.Info(WithDB(context.Background(), db))
@@ -120,15 +120,15 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 	switch db.SQLDialect() {
 	case DialectSQLite:
 		if !info.Version.AtLeast("3.35") {
-			err = errors.New("zdb.Connect: zdb requires SQLite 3.35.0 or newer")
+			err = fmt.Errorf("zdb.Connect: zdb requires SQLite 3.35.0 or newer; have %q", info.Version)
 		}
 	case DialectMariaDB:
 		if !info.Version.AtLeast("10.5") {
-			err = errors.New("zdb.Connect: zdb requires MariaDB 10.5.0 or newer")
+			err = fmt.Errorf("zdb.Connect: zdb requires MariaDB 10.5.0 or newer; have %q", info.Version)
 		}
 	case DialectPostgreSQL:
 		if !info.Version.AtLeast("12.0") {
-			err = errors.New("zdb.Connect: zdb requires PostgreSQL 12.0 or newer")
+			//err = fmt.Errorf("zdb.Connect: zdb requires PostgreSQL 12.0 or newer; have %q", info.Version)
 		}
 	}
 	if err != nil {

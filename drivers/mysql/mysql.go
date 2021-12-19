@@ -29,5 +29,10 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 		return nil, false, fmt.Errorf("mysql.Connect: %w", err)
 	}
 
+	err = db.PingContext(ctx)
+	if err != nil {
+		return nil, false, fmt.Errorf("mysql.Connect: %w", err)
+	}
+
 	return db, true, nil
 }

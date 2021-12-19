@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	_ "zgo.at/zdb/drivers/sqlite3"
+	_ "zgo.at/zdb/drivers/go-sqlite3"
 )
 
 func connectTest() string {

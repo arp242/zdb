@@ -65,8 +65,18 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 
 	// Sprintf SQL types and []int slices directly in the query. This solves two
 	// cases:
+	//
 	// - IN (...) with a lot of parameters.
-	// - Things like generated SQL (i.e. "interval ...") that shouldn't be escaped.
+	//   TODO: this one should be optional; when we start using prepared
+	//   statements/caching it will cause issues. Actually, maybe we can just
+	//   remove it; the reason it's here is because GoatCounter does "path not
+	//   in (.. list of filtered paths ..)", which can be quite large, but we
+	//   can maybe solve that in some other way (the reason it works like that
+	//   now is so that we only need to search the paths table once, instead of
+	//   every time for every widget on the dashboard).
+	//
+	// - The SQL type is useful for generated SQL (i.e. "interval ...") that
+	//   shouldn't be escaped.
 	var rm []int
 	for i := len(qparams) - 1; i >= 0; i-- {
 		// These are aliases of []uint8 and []int32; there isn't really any way
@@ -95,7 +105,6 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}
 			rm = append(rm, i)
 		}
 	}
-
 	for _, i := range rm {
 		qparams = append(qparams[:i], qparams[i+1:]...)
 	}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
@@ -441,7 +442,7 @@ func TestLoad(t *testing.T) {
 	// parameter for it. Would be nice if it could be set later?
 	//ctx := StartTest(t)
 	db, err := Connect(context.Background(), ConnectOptions{
-		Connect: "sqlite3+:memory:",
+		Connect: connectTest(),
 		Create:  true,
 		Files:   testdata.Files,
 	})
@@ -644,6 +645,14 @@ func TestPrepareIn(t *testing.T) {
 			query, params, err := prepareImpl(ctx, MustGetDB(ctx), tt.query, tt.params...)
 			if err != nil {
 				t.Fatal(err)
+			}
+
+			if SQLDialect(ctx) == DialectPostgreSQL {
+				i := 0
+				tt.want = regexp.MustCompile(`\?`).ReplaceAllStringFunc(tt.want, func(m string) string {
+					i++
+					return fmt.Sprintf("$%d", i)
+				})
 			}
 
 			have := fmt.Sprintf("%s %#v", query, params)
