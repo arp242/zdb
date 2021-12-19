@@ -4,9 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	"io/ioutil"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -66,44 +63,6 @@ func isScannable(t reflect.Type) bool {
 	return len(mapper().TypeMap(t).Index) == 0
 }
 
-// determine if any of our extensions are unsafe
-func isUnsafe(i interface{}) bool {
-	switch v := i.(type) {
-	case Row:
-		return v.unsafe
-	case *Row:
-		return v.unsafe
-	case Rows:
-		return v.unsafe
-	case *Rows:
-		return v.unsafe
-	case NamedStmt:
-		return v.Stmt.unsafe
-	case *NamedStmt:
-		return v.Stmt.unsafe
-	case Stmt:
-		return v.unsafe
-	case *Stmt:
-		return v.unsafe
-	case qStmt:
-		return v.unsafe
-	case *qStmt:
-		return v.unsafe
-	case DB:
-		return v.unsafe
-	case *DB:
-		return v.unsafe
-	case Tx:
-		return v.unsafe
-	case *Tx:
-		return v.unsafe
-	case sql.Rows, *sql.Rows:
-		return false
-	default:
-		return false
-	}
-}
-
 func mapperFor(i interface{}) *reflectx.Mapper {
 	switch i := i.(type) {
 	case DB:
@@ -125,7 +84,6 @@ var _scannerInterface = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
 // sql.Rows.Columns() data, necessary for StructScan.
 type Row struct {
 	err    error
-	unsafe bool
 	rows   *sql.Rows
 	Mapper *reflectx.Mapper
 }
@@ -201,7 +159,6 @@ func (r *Row) Err() error {
 type DB struct {
 	*sql.DB
 	driverName string
-	unsafe     bool
 	Mapper     *reflectx.Mapper
 }
 
@@ -236,14 +193,6 @@ func (db *DB) Rebind(query string) string {
 	return Rebind(Placeholder(db.driverName), query)
 }
 
-// Unsafe returns a version of DB which will silently succeed to scan when
-// columns in the SQL result have no fields in the destination struct.
-// sqlx.Stmt and sqlx.Tx which are created from this DB will inherit its
-// safety behavior.
-func (db *DB) Unsafe() *DB {
-	return &DB{DB: db.DB, driverName: db.driverName, unsafe: true, Mapper: db.Mapper}
-}
-
 // BindNamed binds a query using the DB driver's bindvar type.
 func (db *DB) BindNamed(query string, arg interface{}) (string, []interface{}, error) {
 	return bindNamedMapper(Placeholder(db.driverName), query, arg, db.Mapper)
@@ -255,14 +204,13 @@ func (db *DB) Beginx() (*Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Tx{Tx: tx, driverName: db.driverName, unsafe: db.unsafe, Mapper: db.Mapper}, err
+	return &Tx{Tx: tx, driverName: db.driverName, Mapper: db.Mapper}, err
 }
 
 // Conn is a wrapper around sql.Conn with extra functionality
 type Conn struct {
 	*sql.Conn
 	driverName string
-	unsafe     bool
 	Mapper     *reflectx.Mapper
 }
 
@@ -270,7 +218,6 @@ type Conn struct {
 type Tx struct {
 	*sql.Tx
 	driverName string
-	unsafe     bool
 	Mapper     *reflectx.Mapper
 }
 
@@ -284,47 +231,15 @@ func (tx *Tx) Rebind(query string) string {
 	return Rebind(Placeholder(tx.driverName), query)
 }
 
-// Unsafe returns a version of Tx which will silently succeed to scan when
-// columns in the SQL result have no fields in the destination struct.
-func (tx *Tx) Unsafe() *Tx {
-	return &Tx{Tx: tx.Tx, driverName: tx.driverName, unsafe: true, Mapper: tx.Mapper}
-}
-
 // BindNamed binds a query within a transaction's bindvar type.
 func (tx *Tx) BindNamed(query string, arg interface{}) (string, []interface{}, error) {
 	return bindNamedMapper(Placeholder(tx.driverName), query, arg, tx.Mapper)
-}
-
-// Stmt is an sqlx wrapper around sql.Stmt with extra functionality
-type Stmt struct {
-	*sql.Stmt
-	unsafe bool
-	Mapper *reflectx.Mapper
-}
-
-// Unsafe returns a version of Stmt which will silently succeed to scan when
-// columns in the SQL result have no fields in the destination struct.
-func (s *Stmt) Unsafe() *Stmt {
-	return &Stmt{Stmt: s.Stmt, unsafe: true, Mapper: s.Mapper}
-}
-
-// qStmt is an unexposed wrapper which lets you use a Stmt as a Queryer & Execer by
-// implementing those interfaces and ignoring the `query` argument.
-type qStmt struct{ *Stmt }
-
-func (q *qStmt) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	return q.Stmt.Query(args...)
-}
-
-func (q *qStmt) Exec(query string, args ...interface{}) (sql.Result, error) {
-	return q.Stmt.Exec(args...)
 }
 
 // Rows is a wrapper around sql.Rows which caches costly reflect operations
 // during a looped StructScan
 type Rows struct {
 	*sql.Rows
-	unsafe bool
 	Mapper *reflectx.Mapper
 
 	// these fields cache memory use for a rows during iteration w/ structScan
@@ -375,18 +290,6 @@ func SelectContext(ctx context.Context, q Queryer, dest interface{}, query strin
 	return scanAll(rows, dest, false)
 }
 
-// Preparex a statement.
-//
-// The provided context is used for the preparation of the statement, not for
-// the execution of the statement.
-func Preparex(ctx context.Context, p Preparer, query string) (*Stmt, error) {
-	s, err := p.PrepareContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	return &Stmt{Stmt: s, unsafe: isUnsafe(p), Mapper: mapperFor(p)}, err
-}
-
 // GetContext does a QueryRow using the provided Queryer, and scans the
 // resulting row to dest.  If dest is scannable, the result must only have one
 // column. Otherwise, StructScan is used.  Get will return sql.ErrNoRows like
@@ -395,35 +298,6 @@ func Preparex(ctx context.Context, p Preparer, query string) (*Stmt, error) {
 func GetContext(ctx context.Context, q Queryer, dest interface{}, query string, args ...interface{}) error {
 	r := q.QueryRowxContext(ctx, query, args...)
 	return r.scanAny(dest, false)
-}
-
-// LoadFile exec's every statement in a file (as a single call to Exec).
-// LoadFile may return a nil *sql.Result if errors are encountered locating or
-// reading the file at path.  LoadFile reads the entire file into memory, so it
-// is not suitable for loading large data dumps, but can be useful for
-// initializing schemas or loading indexes.
-//
-// FIXME: this does not really work with multi-statement files for mattn/go-sqlite3
-// or the go-mysql-driver/mysql drivers;  pq seems to be an exception here.  Detecting
-// this by requiring something with DriverName() and then attempting to split the
-// queries will be difficult to get right, and its current driver-specific behavior
-// is deemed at least not complex in its incorrectness.
-func LoadFile(ctx context.Context, e Execer, path string) (*sql.Result, error) {
-	realpath, err := filepath.Abs(path)
-	if err != nil {
-		return nil, err
-	}
-	contents, err := ioutil.ReadFile(realpath)
-	if err != nil {
-		return nil, err
-	}
-	res, err := e.ExecContext(ctx, string(contents))
-	return &res, err
-}
-
-// PrepareNamed returns an sqlx.NamedStmt
-func (db *DB) PrepareNamed(ctx context.Context, query string) (*NamedStmt, error) {
-	return prepareNamed(ctx, db, query)
 }
 
 // NamedQuery using this DB.
@@ -451,14 +325,6 @@ func (db *DB) GetContext(ctx context.Context, dest interface{}, query string, ar
 	return GetContext(ctx, db, dest, query, args...)
 }
 
-// Preparex returns an sqlx.Stmt instead of a sql.Stmt.
-//
-// The provided context is used for the preparation of the statement, not for
-// the execution of the statement.
-func (db *DB) Preparex(ctx context.Context, query string) (*Stmt, error) {
-	return Preparex(ctx, db, query)
-}
-
 // QueryxContext queries the database and returns an *sqlx.Rows.
 // Any placeholder parameters are replaced with supplied args.
 func (db *DB) QueryxContext(ctx context.Context, query string, args ...interface{}) (*Rows, error) {
@@ -466,14 +332,14 @@ func (db *DB) QueryxContext(ctx context.Context, query string, args ...interface
 	if err != nil {
 		return nil, err
 	}
-	return &Rows{Rows: r, unsafe: db.unsafe, Mapper: db.Mapper}, err
+	return &Rows{Rows: r, Mapper: db.Mapper}, err
 }
 
 // QueryRowxContext queries the database and returns an *sqlx.Row.
 // Any placeholder parameters are replaced with supplied args.
 func (db *DB) QueryRowxContext(ctx context.Context, query string, args ...interface{}) *Row {
 	rows, err := db.DB.QueryContext(ctx, query, args...)
-	return &Row{rows: rows, err: err, unsafe: db.unsafe, Mapper: db.Mapper}
+	return &Row{rows: rows, err: err, Mapper: db.Mapper}
 }
 
 // BeginTxx begins a transaction and returns an *sqlx.Tx instead of an
@@ -488,7 +354,7 @@ func (db *DB) BeginTxx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Tx{Tx: tx, driverName: db.driverName, unsafe: db.unsafe, Mapper: db.Mapper}, err
+	return &Tx{Tx: tx, driverName: db.driverName, Mapper: db.Mapper}, err
 }
 
 // Connx returns an *sqlx.Conn instead of an *sql.Conn.
@@ -498,7 +364,7 @@ func (db *DB) Connx(ctx context.Context) (*Conn, error) {
 		return nil, err
 	}
 
-	return &Conn{Conn: conn, driverName: db.driverName, unsafe: db.unsafe, Mapper: db.Mapper}, nil
+	return &Conn{Conn: conn, driverName: db.driverName, Mapper: db.Mapper}, nil
 }
 
 // BeginTxx begins a transaction and returns an *sqlx.Tx instead of an
@@ -513,7 +379,7 @@ func (c *Conn) BeginTxx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Tx{Tx: tx, driverName: c.driverName, unsafe: c.unsafe, Mapper: c.Mapper}, err
+	return &Tx{Tx: tx, driverName: c.driverName, Mapper: c.Mapper}, err
 }
 
 // SelectContext using this Conn.
@@ -529,14 +395,6 @@ func (c *Conn) GetContext(ctx context.Context, dest interface{}, query string, a
 	return GetContext(ctx, c, dest, query, args...)
 }
 
-// Preparex returns an sqlx.Stmt instead of a sql.Stmt.
-//
-// The provided context is used for the preparation of the statement, not for
-// the execution of the statement.
-func (c *Conn) Preparex(ctx context.Context, query string) (*Stmt, error) {
-	return Preparex(ctx, c, query)
-}
-
 // QueryxContext queries the database and returns an *sqlx.Rows.
 // Any placeholder parameters are replaced with supplied args.
 func (c *Conn) QueryxContext(ctx context.Context, query string, args ...interface{}) (*Rows, error) {
@@ -544,59 +402,19 @@ func (c *Conn) QueryxContext(ctx context.Context, query string, args ...interfac
 	if err != nil {
 		return nil, err
 	}
-	return &Rows{Rows: r, unsafe: c.unsafe, Mapper: c.Mapper}, err
+	return &Rows{Rows: r, Mapper: c.Mapper}, err
 }
 
 // QueryRowxContext queries the database and returns an *sqlx.Row.
 // Any placeholder parameters are replaced with supplied args.
 func (c *Conn) QueryRowxContext(ctx context.Context, query string, args ...interface{}) *Row {
 	rows, err := c.Conn.QueryContext(ctx, query, args...)
-	return &Row{rows: rows, err: err, unsafe: c.unsafe, Mapper: c.Mapper}
+	return &Row{rows: rows, err: err, Mapper: c.Mapper}
 }
 
 // Rebind a query within a Conn's bindvar type.
 func (c *Conn) Rebind(query string) string {
 	return Rebind(Placeholder(c.driverName), query)
-}
-
-// Stmtx returns a version of the prepared statement which runs within a
-// transaction. Provided stmt can be either *sql.Stmt or *sqlx.Stmt.
-func (tx *Tx) Stmtx(ctx context.Context, stmt interface{}) *Stmt {
-	var s *sql.Stmt
-	switch v := stmt.(type) {
-	case Stmt:
-		s = v.Stmt
-	case *Stmt:
-		s = v.Stmt
-	case *sql.Stmt:
-		s = v
-	default:
-		panic(fmt.Sprintf("non-statement type %v passed to Stmtx", reflect.ValueOf(stmt).Type()))
-	}
-	return &Stmt{Stmt: tx.StmtContext(ctx, s), Mapper: tx.Mapper}
-}
-
-// NamedStmt returns a version of the prepared statement which runs within a
-// transaction.
-func (tx *Tx) NamedStmt(ctx context.Context, stmt *NamedStmt) *NamedStmt {
-	return &NamedStmt{
-		QueryString: stmt.QueryString,
-		Params:      stmt.Params,
-		Stmt:        tx.Stmtx(ctx, stmt.Stmt),
-	}
-}
-
-// Preparex returns an sqlx.Stmt instead of a sql.Stmt.
-//
-// The provided context is used for the preparation of the statement, not for
-// the execution of the statement.
-func (tx *Tx) Preparex(ctx context.Context, query string) (*Stmt, error) {
-	return Preparex(ctx, tx, query)
-}
-
-// PrepareNamed returns an sqlx.NamedStmt
-func (tx *Tx) PrepareNamed(ctx context.Context, query string) (*NamedStmt, error) {
-	return prepareNamed(ctx, tx, query)
 }
 
 // QueryxContext within a transaction and context.
@@ -606,7 +424,7 @@ func (tx *Tx) QueryxContext(ctx context.Context, query string, args ...interface
 	if err != nil {
 		return nil, err
 	}
-	return &Rows{Rows: r, unsafe: tx.unsafe, Mapper: tx.Mapper}, err
+	return &Rows{Rows: r, Mapper: tx.Mapper}, err
 }
 
 // SelectContext within a transaction and context.
@@ -626,59 +444,11 @@ func (tx *Tx) GetContext(ctx context.Context, dest interface{}, query string, ar
 // Any placeholder parameters are replaced with supplied args.
 func (tx *Tx) QueryRowxContext(ctx context.Context, query string, args ...interface{}) *Row {
 	rows, err := tx.Tx.QueryContext(ctx, query, args...)
-	return &Row{rows: rows, err: err, unsafe: tx.unsafe, Mapper: tx.Mapper}
+	return &Row{rows: rows, err: err, Mapper: tx.Mapper}
 }
 
 // NamedExec using this Tx.
 // Any named placeholder parameters are replaced with fields from arg.
 func (tx *Tx) NamedExec(ctx context.Context, query string, arg interface{}) (sql.Result, error) {
 	return NamedExec(ctx, tx, query, arg)
-}
-
-// SelectContext using the prepared statement.
-// Any placeholder parameters are replaced with supplied args.
-func (s *Stmt) SelectContext(ctx context.Context, dest interface{}, args ...interface{}) error {
-	return SelectContext(ctx, &qStmt{s}, dest, "", args...)
-}
-
-// GetContext using the prepared statement.
-// Any placeholder parameters are replaced with supplied args.
-// An error is returned if the result set is empty.
-func (s *Stmt) GetContext(ctx context.Context, dest interface{}, args ...interface{}) error {
-	return GetContext(ctx, &qStmt{s}, dest, "", args...)
-}
-
-// QueryRowxContext using this statement.
-// Any placeholder parameters are replaced with supplied args.
-func (s *Stmt) QueryRowxContext(ctx context.Context, args ...interface{}) *Row {
-	qs := &qStmt{s}
-	return qs.QueryRowxContext(ctx, "", args...)
-}
-
-// QueryxContext using this statement.
-// Any placeholder parameters are replaced with supplied args.
-func (s *Stmt) QueryxContext(ctx context.Context, args ...interface{}) (*Rows, error) {
-	qs := &qStmt{s}
-	return qs.QueryxContext(ctx, "", args...)
-}
-
-func (q *qStmt) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	return q.Stmt.QueryContext(ctx, args...)
-}
-
-func (q *qStmt) QueryxContext(ctx context.Context, query string, args ...interface{}) (*Rows, error) {
-	r, err := q.Stmt.QueryContext(ctx, args...)
-	if err != nil {
-		return nil, err
-	}
-	return &Rows{Rows: r, unsafe: q.Stmt.unsafe, Mapper: q.Stmt.Mapper}, err
-}
-
-func (q *qStmt) QueryRowxContext(ctx context.Context, query string, args ...interface{}) *Row {
-	rows, err := q.Stmt.QueryContext(ctx, args...)
-	return &Row{rows: rows, err: err, unsafe: q.Stmt.unsafe, Mapper: q.Stmt.Mapper}
-}
-
-func (q *qStmt) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	return q.Stmt.ExecContext(ctx, args...)
 }

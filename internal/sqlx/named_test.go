@@ -71,7 +71,7 @@ func TestCompileQuery(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run("", func(t *testing.T) {
-			_, haveArgs, err := compileNamedQuery([]byte(tt.in), PlaceholderDollar)
+			_, haveArgs, err := rebindNamed([]byte(tt.in), PlaceholderDollar)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -79,16 +79,16 @@ func TestCompileQuery(t *testing.T) {
 				t.Fatalf("wrong args\nhave: %v\nwant: %v", haveArgs, tt.args)
 			}
 
-			if have, _, _ := compileNamedQuery([]byte(tt.in), PlaceholderQuestion); have != tt.question {
+			if have, _, _ := rebindNamed([]byte(tt.in), PlaceholderQuestion); have != tt.question {
 				t.Errorf("Question\nhave: %s\nwant: %s", have, tt.question)
 			}
-			if have, _, _ := compileNamedQuery([]byte(tt.in), PlaceholderDollar); have != tt.dollar {
+			if have, _, _ := rebindNamed([]byte(tt.in), PlaceholderDollar); have != tt.dollar {
 				t.Errorf("Dollar\nhave: %s\nwant: %s", have, tt.dollar)
 			}
-			if have, _, _ := compileNamedQuery([]byte(tt.in), PlaceholderAt); have != tt.at {
+			if have, _, _ := rebindNamed([]byte(tt.in), PlaceholderAt); have != tt.at {
 				t.Errorf("At\nhave: %s\nwant: %s", have, tt.at)
 			}
-			if have, _, _ := compileNamedQuery([]byte(tt.in), PlaceholderNamed); have != tt.named {
+			if have, _, _ := rebindNamed([]byte(tt.in), PlaceholderNamed); have != tt.named {
 				t.Errorf("Named\nhave: %s\nwant: %s", have, tt.named)
 			}
 		})
@@ -120,7 +120,7 @@ func TestEscapedColons(t *testing.T) {
 
 	var qs = `SELECT * FROM testtable WHERE timeposted BETWEEN (now() AT TIME ZONE 'utc') AND
 		(now() AT TIME ZONE 'utc') - interval '01:30:00') AND name = '\'this is a test\'' and id = :id`
-	_, _, err := compileNamedQuery([]byte(qs), PlaceholderDollar)
+	_, _, err := rebindNamed([]byte(qs), PlaceholderDollar)
 	if err != nil {
 		t.Error("Didn't handle colons correctly when inside a string")
 	}
@@ -264,70 +264,26 @@ func TestNamedQueries(t *testing.T) {
 		test := Test{t}
 
 		var (
-			ns  *NamedStmt
 			err error
 			ctx = context.Background()
 		)
 
 		// Check that invalid preparations fail
-		_, err = db.PrepareNamed(ctx, "SELECT * FROM person WHERE first_name=:first:name")
+		_, err = db.NamedExec(ctx, "SELECT * FROM person WHERE first_name=:first:name", struct{}{})
 		if err == nil {
 			t.Error("Expected an error with invalid prepared statement.")
 		}
 
-		_, err = db.PrepareNamed(ctx, "invalid sql")
+		_, err = db.NamedExec(ctx, "invalid sql", struct{}{})
 		if err == nil {
 			t.Error("Expected an error with invalid prepared statement.")
 		}
 
-		// Check closing works as anticipated
-		ns, err = db.PrepareNamed(ctx, "SELECT * FROM person WHERE first_name=:first_name")
-		test.Error(err)
-
-		err = ns.Close()
-		test.Error(err)
-
-		ns, err = db.PrepareNamed(ctx, `
+		_, err = db.NamedExec(ctx, `
 			SELECT first_name, last_name, email 
-			FROM person WHERE first_name=:first_name AND email=:email`)
+			FROM person WHERE first_name=:first_name AND email=:email`,
+			map[string]interface{}{"first_name": "asd", "email": "def"})
 		test.Error(err)
-
-		// test Queryx w/ uses Query
-		p := Person{FirstName: "Jason", LastName: "Moiron", Email: "jmoiron@jmoiron.net"}
-
-		rows, err := ns.QueryxContext(ctx, p)
-		test.Error(err)
-		for rows.Next() {
-			var p2 Person
-			rows.StructScan(&p2)
-			if p.FirstName != p2.FirstName {
-				t.Errorf("got %s, expected %s", p.FirstName, p2.FirstName)
-			}
-			if p.LastName != p2.LastName {
-				t.Errorf("got %s, expected %s", p.LastName, p2.LastName)
-			}
-			if p.Email != p2.Email {
-				t.Errorf("got %s, expected %s", p.Email, p2.Email)
-			}
-		}
-
-		// test Select
-		people := make([]Person, 0, 5)
-		err = ns.SelectContext(ctx, &people, p)
-		test.Error(err)
-
-		if len(people) != 1 {
-			t.Errorf("got %d results, expected %d", len(people), 1)
-		}
-		if p.FirstName != people[0].FirstName {
-			t.Errorf("got %s, expected %s", p.FirstName, people[0].FirstName)
-		}
-		if p.LastName != people[0].LastName {
-			t.Errorf("got %s, expected %s", p.LastName, people[0].LastName)
-		}
-		if p.Email != people[0].Email {
-			t.Errorf("got %s, expected %s", p.Email, people[0].Email)
-		}
 
 		// test struct batch inserts
 		sls := []Person{
@@ -376,9 +332,10 @@ func TestNamedQueries(t *testing.T) {
 		}
 
 		// test Exec
-		ns, err = db.PrepareNamed(ctx, `
+		_, err = db.NamedExec(ctx, `
 			INSERT INTO person (first_name, last_name, email)
-			VALUES (:first_name, :last_name, :email)`)
+			VALUES (:first_name, :last_name, :email)`,
+			map[string]interface{}{"first_name": "Julien", "last_name": "Savea", "email": "jsavea@ab.co.nz"})
 		test.Error(err)
 
 		js := Person{
@@ -386,8 +343,6 @@ func TestNamedQueries(t *testing.T) {
 			LastName:  "Savea",
 			Email:     "jsavea@ab.co.nz",
 		}
-		_, err = ns.ExecContext(ctx, js)
-		test.Error(err)
 
 		// Make sure we can pull him out again
 		p2 := Person{}
@@ -395,48 +350,6 @@ func TestNamedQueries(t *testing.T) {
 		if p2.Email != js.Email {
 			t.Errorf("expected %s, got %s", js.Email, p2.Email)
 		}
-
-		// test Txn NamedStmts
-		tx, err := db.Beginx()
-		if err != nil {
-			t.Fatal(err)
-		}
-		txns := tx.NamedStmt(ctx, ns)
-
-		// We're going to add Steven in this txn
-		sl := Person{
-			FirstName: "Steven",
-			LastName:  "Luatua",
-			Email:     "sluatua@ab.co.nz",
-		}
-
-		_, err = txns.ExecContext(ctx, sl)
-		test.Error(err)
-		// then rollback...
-		tx.Rollback()
-		// looking for Steven after a rollback should fail
-		err = db.GetContext(ctx, &p2, db.Rebind("SELECT * FROM person WHERE email=?"), sl.Email)
-		if err != sql.ErrNoRows {
-			t.Errorf("expected no rows error, got %v", err)
-		}
-
-		// now do the same, but commit
-		tx, err = db.Beginx()
-		if err != nil {
-			t.Fatal(err)
-		}
-		txns = tx.NamedStmt(ctx, ns)
-		_, err = txns.ExecContext(ctx, sl)
-		test.Error(err)
-		tx.Commit()
-
-		// looking for Steven after a Commit should succeed
-		err = db.GetContext(ctx, &p2, db.Rebind("SELECT * FROM person WHERE email=?"), sl.Email)
-		test.Error(err)
-		if p2.Email != sl.Email {
-			t.Errorf("expected %s, got %s", sl.Email, p2.Email)
-		}
-
 	})
 }
 
@@ -562,24 +475,6 @@ func TestNamedQuery(t *testing.T) {
 				}
 			}
 		}
-
-		ns, err := db.PrepareNamed(context.TODO(), pdb(`
-			SELECT * FROM jsperson
-			WHERE
-				"FIRST"=:FIRST AND
-				last_name=:last_name AND
-				"EMAIL"=:EMAIL
-		`, db))
-
-		if err != nil {
-			t.Fatal(err)
-		}
-		rows, err = ns.QueryxContext(context.TODO(), jp)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		check(t, rows)
 
 		// Check exactly the same thing, but with db.NamedQuery, which does not go
 		// through the PrepareNamed/NamedStmt path.

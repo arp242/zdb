@@ -30,7 +30,7 @@ func init() {
 	for p, drivers := range map[PlaceholderStyle][]string{
 		PlaceholderDollar:   []string{"postgres", "pgx", "pq-timeouts", "cloudsqlpostgres", "ql", "nrpostgres", "cockroach"},
 		PlaceholderQuestion: []string{"mysql", "sqlite3", "nrmysql", "nrsqlite3"},
-		PlaceholderNamed:    []string{"oci8", "ora", "goracle", "godror"},
+		PlaceholderNamed:    []string{"oci8", "ora", "goracle", "godror", "oracle"},
 		PlaceholderAt:       []string{"sqlserver"},
 	} {
 		for _, d := range drivers {

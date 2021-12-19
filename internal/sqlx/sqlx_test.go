@@ -200,26 +200,23 @@ type SliceMember struct {
 // if we've used Place already somewhere in sqlx
 type CPlace Place
 
-func MultiExec(ctx context.Context, e Execer, query string) {
-	stmts := strings.Split(query, ";\n")
-	if len(strings.Trim(stmts[len(stmts)-1], " \n\t\r")) == 0 {
-		stmts = stmts[:len(stmts)-1]
-	}
-	for _, s := range stmts {
-		_, err := e.ExecContext(ctx, s)
-		if err != nil {
-			fmt.Println(err, s)
-		}
-	}
-}
-
 func RunWithSchema(schema Schema, t *testing.T, test func(db *DB, t *testing.T, now string)) {
 	runner := func(db *DB, t *testing.T, create, drop, now string) {
-		defer func() {
-			MultiExec(context.TODO(), db, drop)
-		}()
+		exec := func(query string) {
+			stmts := strings.Split(query, ";\n")
+			if len(strings.Trim(stmts[len(stmts)-1], " \n\t\r")) == 0 {
+				stmts = stmts[:len(stmts)-1]
+			}
+			for _, s := range stmts {
+				_, err := db.ExecContext(context.TODO(), s)
+				if err != nil {
+					fmt.Println(err, s)
+				}
+			}
+		}
 
-		MultiExec(context.TODO(), db, create)
+		defer func() { exec(drop) }()
+		exec(create)
 		test(db, t, now)
 	}
 
@@ -310,82 +307,6 @@ func TestMissingNames(t *testing.T) {
 			t.Error("Expected missing name in StructScan to fail, but it did not.")
 		}
 		rows.Close()
-
-		// now try various things with unsafe set.
-		db = db.Unsafe()
-		pps = []PersonPlus{}
-		err = db.SelectContext(context.TODO(), &pps, "SELECT * FROM person")
-		if err != nil {
-			t.Error(err)
-		}
-
-		// test Get
-		pp = PersonPlus{}
-		err = db.GetContext(context.TODO(), &pp, "SELECT * FROM person LIMIT 1")
-		if err != nil {
-			t.Error(err)
-		}
-
-		// test naked StructScan
-		pps = []PersonPlus{}
-		rowsx, err := db.QueryxContext(context.TODO(), "SELECT * FROM person LIMIT 1")
-		if err != nil {
-			t.Fatal(err)
-		}
-		rowsx.Next()
-		err = StructScan(rowsx, &pps)
-		if err != nil {
-			t.Error(err)
-		}
-		rowsx.Close()
-
-		// test Named stmt
-		if !isUnsafe(db) {
-			t.Error("Expected db to be unsafe, but it isn't")
-		}
-		nstmt, err := db.PrepareNamed(context.TODO(), `SELECT * FROM person WHERE first_name != :name`)
-		if err != nil {
-			t.Fatal(err)
-		}
-		// its internal stmt should be marked unsafe
-		if !nstmt.Stmt.unsafe {
-			t.Error("expected NamedStmt to be unsafe but its underlying stmt did not inherit safety")
-		}
-		pps = []PersonPlus{}
-		err = nstmt.SelectContext(context.TODO(), &pps, map[string]interface{}{"name": "Jason"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(pps) != 1 {
-			t.Errorf("Expected 1 person back, got %d", len(pps))
-		}
-
-		// test it with a safe db
-		db.unsafe = false
-		if isUnsafe(db) {
-			t.Error("expected db to be safe but it isn't")
-		}
-		nstmt, err = db.PrepareNamed(context.TODO(), `SELECT * FROM person WHERE first_name != :name`)
-		if err != nil {
-			t.Fatal(err)
-		}
-		// it should be safe
-		if isUnsafe(nstmt) {
-			t.Error("NamedStmt did not inherit safety")
-		}
-		nstmt.Unsafe()
-		if !isUnsafe(nstmt) {
-			t.Error("expected newly unsafed NamedStmt to be unsafe")
-		}
-		pps = []PersonPlus{}
-		err = nstmt.SelectContext(context.TODO(), &pps, map[string]interface{}{"name": "Jason"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(pps) != 1 {
-			t.Errorf("Expected 1 person back, got %d", len(pps))
-		}
-
 	})
 }
 
@@ -746,45 +667,6 @@ func TestUsage(t *testing.T) {
 			t.Errorf("Expected sql.ErrNoRows, got %v\n", err)
 		}
 
-		// The following tests check statement reuse, which was actually a problem
-		// due to copying being done when creating Stmt's which was eventually removed
-		stmt1, err := db.Preparex(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		jason = Person{}
-
-		row := stmt1.QueryRowxContext(context.TODO(), "DoesNotExist")
-		row.Scan(&jason)
-		row = stmt1.QueryRowxContext(context.TODO(), "DoesNotExist")
-		row.Scan(&jason)
-
-		err = stmt1.GetContext(context.TODO(), &jason, "DoesNotExist User")
-		if err == nil {
-			t.Error("Expected an error")
-		}
-		err = stmt1.GetContext(context.TODO(), &jason, "DoesNotExist User 2")
-		if err == nil {
-			t.Fatal(err)
-		}
-
-		stmt2, err := db.Preparex(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		jason = Person{}
-		tx, err := db.Beginx()
-		if err != nil {
-			t.Fatal(err)
-		}
-		tstmt2 := tx.Stmtx(context.TODO(), stmt2)
-		row2 := tstmt2.QueryRowxContext(context.TODO(), "Jason")
-		err = row2.StructScan(&jason)
-		if err != nil {
-			t.Error(err)
-		}
-		tx.Commit()
-
 		places := []*Place{}
 		err = db.SelectContext(context.TODO(), &places, "SELECT telcode FROM place ORDER BY telcode ASC")
 		if err != nil {
@@ -832,16 +714,10 @@ func TestUsage(t *testing.T) {
 			t.Errorf("Expected integer telcodes to work, got %#v", places)
 		}
 
-		stmt, err := db.Preparex(context.TODO(), db.Rebind("SELECT country, telcode FROM place WHERE telcode > ? ORDER BY telcode ASC"))
-		if err != nil {
-			t.Error(err)
-		}
-
 		places = []*Place{}
-		err = stmt.SelectContext(context.TODO(), &places, 10)
-		if len(places) != 2 {
-			t.Error("Expected 2 places, got 0.")
-		}
+		err = db.SelectContext(context.TODO(), &places,
+			db.Rebind("SELECT country, telcode FROM place WHERE telcode > ? ORDER BY telcode ASC"),
+			10)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -929,7 +805,9 @@ func TestUsage(t *testing.T) {
 		ben.Email = "binsmuth@allblacks.nz"
 
 		// Insert via a named query using the struct
-		_, err = db.NamedExec(context.TODO(), "INSERT INTO person (first_name, last_name, email) VALUES (:first_name, :last_name, :email)", ben)
+		_, err = db.NamedExec(context.TODO(),
+			"INSERT INTO person (first_name, last_name, email) VALUES (:first_name, :last_name, :email)",
+			ben)
 
 		if err != nil {
 			t.Fatal(err)
@@ -956,64 +834,6 @@ func TestUsage(t *testing.T) {
 		err = db.GetContext(context.TODO(), person, "SELECT * FROM person WHERE first_name=$1", "does-not-exist")
 		if err == nil {
 			t.Fatal("Should have got an error for Get on non-existent row.")
-		}
-
-		// lets test prepared statements some more
-
-		stmt, err = db.Preparex(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		rows, err = stmt.QueryxContext(context.TODO(), "Ben")
-		if err != nil {
-			t.Fatal(err)
-		}
-		for rows.Next() {
-			err = rows.StructScan(ben)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if ben.FirstName != "Ben" {
-				t.Fatal("Expected first name of `Ben`, got " + ben.FirstName)
-			}
-			if ben.LastName != "Smith" {
-				t.Fatal("Expected first name of `Smith`, got " + ben.LastName)
-			}
-		}
-
-		john = Person{}
-		stmt, err = db.Preparex(context.TODO(), db.Rebind("SELECT * FROM person WHERE first_name=?"))
-		if err != nil {
-			t.Error(err)
-		}
-		err = stmt.GetContext(context.TODO(), &john, "John")
-		if err != nil {
-			t.Error(err)
-		}
-
-		// test name mapping
-		// THIS USED TO WORK BUT WILL NO LONGER WORK.
-		db.MapperFunc(strings.ToUpper)
-		rsa := CPlace{}
-		err = db.GetContext(context.TODO(), &rsa, "SELECT * FROM capplace;")
-		if err != nil {
-			t.Error(err, "in db:", db.DriverName())
-		}
-		db.MapperFunc(strings.ToLower)
-
-		// create a copy and change the mapper, then verify the copy behaves
-		// differently from the original.
-		dbCopy := NewDb(db.DB, db.DriverName())
-		dbCopy.MapperFunc(strings.ToUpper)
-		err = dbCopy.GetContext(context.TODO(), &rsa, "SELECT * FROM capplace;")
-		if err != nil {
-			fmt.Println(db.DriverName())
-			t.Error(err)
-		}
-
-		err = db.GetContext(context.TODO(), &rsa, "SELECT * FROM cappplace;")
-		if err == nil {
-			t.Error("Expected no error, got ", err)
 		}
 
 		// test base type slices
@@ -1307,26 +1127,6 @@ func TestConn(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if v1.ID != 1 {
-			t.Errorf("Expecting to get back 1, but got %v\n", v1.ID)
-		}
-
-		stmt, err := conn.Preparex(ctx, conn.Rebind("SELECT * FROM tt_conn WHERE id=?"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		v1 = s{}
-		tx, err := conn.BeginTxx(ctx, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		tstmt := tx.Stmtx(context.TODO(), stmt)
-		row := tstmt.QueryRowxContext(context.TODO(), 1)
-		err = row.StructScan(&v1)
-		if err != nil {
-			t.Error(err)
-		}
-		tx.Commit()
 		if v1.ID != 1 {
 			t.Errorf("Expecting to get back 1, but got %v\n", v1.ID)
 		}
