@@ -30,7 +30,9 @@
 //
 //    db.DBSQL().SetMaxOpenConns(100)
 //
-// To use a ConnectHook, register it first using the regular method:
+// To use a ConnectHook, you can DefaultHook() to automatically set the given
+// connection hook on every new connection. Alternatively, you can register it
+// first using the regular method:
 //
 //     sql.Register("sqlite3-hook1", &sqlite3.SQLiteDriver{
 //         ConnectHook: func(c *sqlite3.SQLiteConn) error {
@@ -38,10 +40,8 @@
 //         },
 //     })
 //
-// And then call zdb.Connect() with "sqlite3-hook1" as the driver name. Note
-// this *must* start with "sqlite3":
-//
-//   zdb.Connect(zdb.ConnectOptions{Connect: "sqlite3-hook1+:memory"})
+// And then call zdb.Connect() with "sqlite3-hook1" as the driver name. Note the
+// driver name *must* start with "sqlite3".
 package sqlite3
 
 import (
@@ -53,12 +53,23 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mattn/go-sqlite3"
 	"zgo.at/zdb/drivers"
 	"zgo.at/zstd/zstring"
 )
 
 func init() {
 	drivers.RegisterDriver(driver{})
+}
+
+var defHook func(*sqlite3.SQLiteConn) error
+
+// DefaultHook sets the default SQLite connection hook to use on every
+// connection if no specific hook was specified.
+//
+// Note that connections made before this are not modified.
+func DefaultHook(f func(*sqlite3.SQLiteConn) error) {
+	defHook = f
 }
 
 type driver struct{}
@@ -72,6 +83,22 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 	connect, driver := zstring.Split2(connect, "+++")
 	if driver == "" {
 		driver = "sqlite3"
+	}
+
+	if driver == "sqlite3" && defHook != nil {
+		suffix := "_zdb_" + fmt.Sprintf("%p\n", defHook)[2:]
+		driver += suffix
+
+		found := false
+		for _, d := range sql.Drivers() {
+			if d == driver {
+				found = true
+				break
+			}
+		}
+		if !found {
+			sql.Register(driver, &sqlite3.SQLiteDriver{ConnectHook: defHook})
+		}
 	}
 
 	memory := strings.HasPrefix(connect, ":memory:")
