@@ -131,9 +131,29 @@ func (db logDB) Query(ctx context.Context, query string, params ...interface{}) 
 func (db logDB) TX(ctx context.Context, fn func(context.Context) error) error {
 	return txImpl(ctx, db, fn)
 }
-func (db logDB) Rollback() error {
-	return db.DB.Rollback()
+func (db logDB) Rollback() error { return db.DB.Rollback() }
+func (db logDB) Commit() error   { return db.DB.Commit() }
+
+func (db metricDB) Exec(ctx context.Context, query string, params ...interface{}) error {
+	return execImpl(ctx, db, query, params...)
 }
-func (db logDB) Commit() error {
-	return db.DB.Commit()
+func (db metricDB) NumRows(ctx context.Context, query string, params ...interface{}) (int64, error) {
+	return numRowsImpl(ctx, db, query, params...)
 }
+func (db metricDB) InsertID(ctx context.Context, idColumn, query string, params ...interface{}) (int64, error) {
+	return insertIDImpl(ctx, db, idColumn, query, params...)
+}
+func (db metricDB) Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+	return getImpl(ctx, db, dest, query, params...)
+}
+func (db metricDB) Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+	return selectImpl(ctx, db, dest, query, params...)
+}
+func (db metricDB) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
+	return queryImpl(ctx, db, query, params...)
+}
+func (db metricDB) TX(ctx context.Context, fn func(context.Context) error) error {
+	return txImpl(ctx, db, fn)
+}
+func (db metricDB) Rollback() error { return db.DB.Rollback() }
+func (db metricDB) Commit() error   { return db.DB.Commit() }

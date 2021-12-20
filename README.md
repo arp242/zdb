@@ -41,6 +41,7 @@ Table of contents for this README:
 - [Testing and debugging](#testing-and-debugging)
 - [Database wrapping](#database-wrapping)
   - [LogDB](#logdb)
+  - [MetricsDB](#metricsDB)
 
 <!--
 - [Other stuff](#other-stuff)
@@ -348,17 +349,29 @@ Wrapping a database well with `database/sql` or `sqlx` is a bit tricky since you
 need to wrap both the actual database but *also* the transactions.
 
 ### LogDB
-Wrap the database with `zdb.NewExplainDB()` to automatically dump the `explain`s
-of all queries to a writer:
+Wrap the database with `zdb.NewLognDB()` to automatically dump the query, the
+results, the explain, or all of them to a writer:
 
     db, _ := zdb.Connect(...)
-    explainDB = zdb.NewExplainDB(db, os.Stdout, "")
+    logDB = zdb.NewLogDB(db, os.Stdout, zdb.DumpAll, "")
 
 The last parameter is an optional filter:
 
-    explainDB = zdb.NewExplainDB(db, os.Stdout, "only_if_query_matches_this_text")
+    logDB = zdb.NewExplainDB(db, os.Stdout, zdb.DumpAll, "only_if_query_matches_this_text")
 
 **This may run queries twice**.
+
+### MetricsDB
+Wrap the database with `zdb.NewMetricsDB()` to record metrics on the execution
+of query times. This takes a "recoder", and the `Record()` method is called for
+every query invocation.
+
+There is a `MetricsMemory`, which records the metrics in the process memory. You
+can implement your own to send metrics to datadog or grafana or whatnot.
+
+        db, _ := zdb.Connect(...)
+        metricDB := zdb.NewMetricsDB(db, zdb.NewMetricsMemory(0))
+
 
 <!--
 Other stuff
