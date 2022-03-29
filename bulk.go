@@ -37,12 +37,11 @@ func (m *BulkInsert) OnConflict(c string) {
 
 // Values adds a set of values.
 func (m *BulkInsert) Values(values ...interface{}) {
-	m.insert.values(values...)
-	m.rows++
-
-	if m.rows >= m.Limit {
+	if m.rows+1 >= m.Limit {
 		m.doInsert()
 	}
+	m.insert.values(values...)
+	m.rows++
 }
 
 // Finish the operation, returning any errors.
