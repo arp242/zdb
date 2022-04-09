@@ -186,7 +186,7 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 	}
 
 	// Run migrations.
-	if opt.Migrate != nil {
+	if opt.Migrate != nil && zfs.Exists(opt.Files, "migrate") {
 		m, err := NewMigrate(db, opt.Files, opt.GoMigrations)
 		if err != nil {
 			return nil, fmt.Errorf("zdb.Connect: %w", err)
