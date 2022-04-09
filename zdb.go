@@ -203,7 +203,7 @@ func InsertID(ctx context.Context, idColumn, query string, params ...interface{}
 	return insertIDImpl(ctx, MustGetDB(ctx), idColumn, query, params...)
 }
 
-// Select one or more rows; dest needs to be a pointer to a slice.
+// Select zero or more rows; dest needs to be a pointer to a slice.
 //
 // Returns nil (and no error) if there are no rows.
 func Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error {

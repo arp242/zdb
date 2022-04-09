@@ -58,6 +58,7 @@ const (
 	DumpResult   // Show the query result.
 	DumpVertical // Print query result in vertical columns instead of horizontal.
 	DumpCSV      // Print query result as CSV.
+	DumpNul      // Print query result with columns separated by NUL (0x00) bytes.
 	DumpJSON     // Print query result as JSON.
 	DumpHTML     // Print query result as a HTML table.
 	DumpAll      // Dump all we can.
@@ -78,6 +79,7 @@ const (
 //   DumpResult     Show the query result (
 //   DumpVertical   Show vertical output instead of horizontal columns.
 //   DumpCSV        Show as CSV.
+//   DumpNul        Separate columns with NUL (0x00) bytes; useful to feed output to another printer.
 //   DumpJSON       Show as an array of JSON objects.
 //   DumpHTML       Show as a HTML table.
 func Dump(ctx context.Context, out io.Writer, query string, params ...interface{}) {
@@ -176,6 +178,8 @@ func Dump(ctx context.Context, out io.Writer, query string, params ...interface{
 				return dumpVertical(buf, rows, cols)
 			case dump.has(DumpCSV):
 				return dumpCSV(buf, rows, cols)
+			case dump.has(DumpNul):
+				return dumpNul(buf, rows, cols)
 			case dump.has(DumpJSON):
 				return dumpJSON(buf, rows, cols)
 			case dump.has(DumpHTML):
@@ -256,6 +260,33 @@ func dumpCSV(buf io.Writer, rows *Rows, cols []string) error {
 	}
 	cf.Flush()
 	return cf.Error()
+}
+
+func dumpNul(buf io.Writer, rows *Rows, cols []string) error {
+	for i, c := range cols {
+		if i > 0 {
+			buf.Write([]byte{'\x00'})
+		}
+		buf.Write([]byte(c))
+	}
+	buf.Write([]byte{'\n'})
+
+	for rows.Next() {
+		var row []interface{}
+		err := rows.Scan(&row)
+		if err != nil {
+			return err
+		}
+
+		for i, c := range row {
+			if i > 0 {
+				buf.Write([]byte{'\x00'})
+			}
+			buf.Write([]byte(formatParam(c, false)))
+		}
+		buf.Write([]byte{'\n'})
+	}
+	return nil
 }
 
 func dumpJSON(buf *bytes.Buffer, rows *Rows, cols []string) error {
