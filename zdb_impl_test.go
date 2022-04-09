@@ -54,6 +54,8 @@ func TestInfo(t *testing.T) {
 
 func TestPrepare(t *testing.T) {
 	date := time.Date(2020, 06, 18, 01, 02, 03, 04, time.UTC)
+	type strlist []string
+	type str string
 
 	tests := []struct {
 		query string
@@ -159,6 +161,27 @@ func TestPrepare(t *testing.T) {
 		// Invalid syntax for conditional; just leave it alone
 		{`select {{cond}}`, L{P{"xxx": false}},
 			`select {{cond}}`, L{}, ""},
+
+		// Conditional types
+		// string
+		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": "str"}},
+			`select true $1`, L{"str"}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": str("str")}},
+			`select true $1`, L{str("str")}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": ""}},
+			`select false $1`, L{""}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": str("")}},
+			`select false $1`, L{str("")}, ""},
+
+		// Slice
+		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": []string{"str", "str2"}}},
+			`select true $1, $2`, L{"str", "str2"}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": strlist{"str", "str2"}}},
+			`select true $1, $2`, L{"str", "str2"}, ""},
+		{`select {{:x true}}{{:x! false}}`, L{P{"x": []string{}}},
+			`select false`, L{}, ""},
+		{`select {{:x true}}{{:x! false}}`, L{P{"x": strlist{}}},
+			`select false`, L{}, ""},
 
 		// Expand slice
 		{`insert values (?)`, L{[]string{"a", "b"}},

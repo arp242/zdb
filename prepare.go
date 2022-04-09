@@ -339,25 +339,23 @@ func includeConditional(param interface{}, name string) (include, has bool, err 
 }
 
 func isTruthy(name string, cond interface{}) (bool, error) {
-	switch c := cond.(type) {
-	case bool:
-		return c, nil
-	case string:
-		return len(c) > 0, nil
-	case int:
-		return c > 0, nil
-	case int64:
-		return c > 0, nil
-	case []string:
-		return len(c) > 0, nil
-	case []int:
-		return len(c) > 0, nil
-	case []int64:
-		return len(c) > 0, nil
-	case time.Time:
-		return !c.IsZero(), nil
+	t := reflect.TypeOf(cond)
+	v := reflect.ValueOf(cond)
+	switch t.Kind() {
+	case reflect.Bool:
+		return v.Bool(), nil
+	case reflect.String, reflect.Array, reflect.Slice:
+		return v.Len() > 0, nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() > 0, nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return v.Uint() > 0, nil
 	default:
-		return false, fmt.Errorf("unsupported conditional type %T for %q", c, name)
+		switch c := cond.(type) {
+		case time.Time:
+			return !c.IsZero(), nil
+		}
+		return false, fmt.Errorf("unsupported conditional type %T for %q", cond, name)
 	}
 }
 
