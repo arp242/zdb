@@ -309,7 +309,7 @@ testing/debugging:
 
 ### Testing
 
-    StartTest()            Create a temporary database
+    RunTest()              Create a temporary database and run tests.
     TestQueries()          Test queries from fs.
 
     Dump(), DumpString()   Show result of any query.

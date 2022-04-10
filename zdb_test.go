@@ -1,36 +1,39 @@
-package zdb
+package zdb_test
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"os"
 	"testing"
 	"time"
+
+	"zgo.at/zdb"
 )
 
 var (
-	_ DB = zDB{}
-	_ DB = zTX{}
+	_ zdb.DB = zdb.E_zDB{}
+	_ zdb.DB = zdb.E_zTX{}
 )
 
 func TestUnwrap(t *testing.T) {
-	ctx := StartTest(t)
+	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
+		db := zdb.MustGetDB(ctx)
 
-	db := MustGetDB(ctx)
+		if zdb.Unwrap(db) != db {
+			t.Error()
+		}
 
-	if Unwrap(db) != db {
-		t.Error()
-	}
-
-	ldb := NewLogDB(db, os.Stdout, 0, "")
-	if Unwrap(ldb) != db {
-		t.Error()
-	}
-	ldb2 := NewLogDB(ldb, os.Stdout, 0, "")
-	if Unwrap(ldb2) != db {
-		t.Error()
-	}
+		ldb := zdb.NewLogDB(db, os.Stdout, 0, "")
+		if zdb.Unwrap(ldb) != db {
+			t.Error()
+		}
+		ldb2 := zdb.NewLogDB(ldb, os.Stdout, 0, "")
+		if zdb.Unwrap(ldb2) != db {
+			t.Error()
+		}
+	})
 }
 
 func TestError(t *testing.T) {
@@ -39,9 +42,9 @@ func TestError(t *testing.T) {
 		check func(error) bool
 		want  bool
 	}{
-		{sql.ErrNoRows, ErrNoRows, true},
-		{fmt.Errorf("x: %w", sql.ErrNoRows), ErrNoRows, true},
-		{errors.New("X"), ErrNoRows, false},
+		{sql.ErrNoRows, zdb.ErrNoRows, true},
+		{fmt.Errorf("x: %w", sql.ErrNoRows), zdb.ErrNoRows, true},
+		{errors.New("X"), zdb.ErrNoRows, false},
 	}
 
 	for i, tt := range tests {
@@ -55,44 +58,45 @@ func TestError(t *testing.T) {
 }
 
 func TestErrUnique(t *testing.T) {
-	ctx := StartTest(t)
+	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
+		err := zdb.Exec(ctx, `create table t (c varchar); create unique index test on t(c)`)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	err := Exec(ctx, `create table t (c varchar); create unique index test on t(c)`)
-	if err != nil {
-		t.Fatal(err)
-	}
+		err = zdb.Exec(ctx, `insert into t values ('a')`)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	err = Exec(ctx, `insert into t values ('a')`)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = Exec(ctx, `insert into t values ('a')`)
-	if err == nil {
-		t.Fatal("error is nil")
-	}
-	if !ErrUnique(err) {
-		t.Fatalf("wrong error: %#v", err)
-	}
+		err = zdb.Exec(ctx, `insert into t values ('a')`)
+		if err == nil {
+			t.Fatal("error is nil")
+		}
+		if !zdb.ErrUnique(err) {
+			t.Fatalf("wrong error: %#v", err)
+		}
+	})
 }
 
 func TestDate(t *testing.T) {
-	ctx := StartTest(t)
+	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
+		err := zdb.Exec(ctx, `create table t (a timestamp, b timestamp)`)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	err := Exec(ctx, `create table t (a timestamp, b timestamp)`)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	n := time.Now()
-	err = Exec(ctx, `insert into t values (?)`, L{n, &n})
-	if err != nil {
-		t.Fatal(err)
-	}
+		n := time.Now()
+		err = zdb.Exec(ctx, `insert into t values (?)`, zdb.L{n, &n})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestDialect(t *testing.T) {
-	ctx := StartTest(t)
-	db := MustGetDB(ctx)
-	t.Log(db.SQLDialect())
+	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
+		db := zdb.MustGetDB(ctx)
+		t.Log(db.SQLDialect())
+	})
 }

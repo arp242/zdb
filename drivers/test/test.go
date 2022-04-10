@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"testing"
 
 	"zgo.at/zdb/drivers"
 )
@@ -39,6 +40,9 @@ func (testDriver) ErrUnique(error) bool { return false }
 func (testDriver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, bool, error) {
 	db, err := sql.Open("test", "")
 	return db, true, err
+}
+func (testDriver) StartTest(*testing.T, *drivers.TestOptions) context.Context {
+	return context.Background()
 }
 
 func (testSQLDriver) Open(name string) (driver.Conn, error) {

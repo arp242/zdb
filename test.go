@@ -16,11 +16,39 @@ import (
 	"text/template"
 	"time"
 
+	"zgo.at/zdb/drivers"
 	"zgo.at/zstd/zbyte"
 	"zgo.at/zstd/zdebug"
 	"zgo.at/zstd/ztest"
 	"zgo.at/zstd/ztime"
 )
+
+// RunTest runs tests against all registered zdb SQL drivers.
+func RunTest(t *testing.T, f func(*testing.T, context.Context), opts ...drivers.TestOptions) {
+	if len(opts) > 1 {
+		t.Fatal("zdb.RunTest: more than one drivers.TestOptions")
+	}
+	var opt *drivers.TestOptions
+	if len(opts) == 1 {
+		opt = &opts[0]
+	}
+
+	d := drivers.Drivers()
+	switch len(d) {
+	case 0:
+		t.Fatal("zdb.RunTest: no registered zdb drivers; you need to import a driver in your test")
+	case 1:
+		ctx := d[0].StartTest(t, opt)
+		f(t, ctx)
+	default:
+		for _, dd := range d {
+			t.Run(dd.Name(), func(t *testing.T) {
+				ctx := dd.StartTest(t, opt)
+				f(t, ctx)
+			})
+		}
+	}
+}
 
 type DumpArg int32
 

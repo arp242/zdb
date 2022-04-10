@@ -163,22 +163,9 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 			return nil, &drivers.NotExistError{Driver: dialect.String(), Connect: conn}
 		}
 
-		s, file, err := findFile(opt.Files, insertDialect(db, "schema")...)
+		err := Create(db, opt.Files)
 		if err != nil {
 			return nil, fmt.Errorf("zdb.Connect: %w", err)
-		}
-		if strings.HasSuffix(file, ".gotxt") {
-			s, err = Template(db.SQLDialect(), string(s))
-			if err != nil {
-				return nil, fmt.Errorf("zdb.Connect: %w", err)
-			}
-		}
-
-		err = TX(WithDB(context.Background(), db), func(ctx context.Context) error {
-			return Exec(ctx, string(s))
-		})
-		if err != nil {
-			return nil, fmt.Errorf("zdb.Connect: running schema: %w", err)
 		}
 
 		// Always run migrations for new databases.
@@ -199,6 +186,28 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 		return db, m.Check()
 	}
 	return db, nil
+}
+
+// Create tables based on db/schema.{sql,gotxt}
+func Create(db DB, files fs.FS) error {
+	s, file, err := findFile(files, insertDialect(db, "schema")...)
+	if err != nil {
+		return err
+	}
+	if strings.HasSuffix(file, ".gotxt") {
+		s, err = Template(db.SQLDialect(), string(s))
+		if err != nil {
+			return err
+		}
+	}
+
+	err = TX(WithDB(context.Background(), db), func(ctx context.Context) error {
+		return Exec(ctx, string(s))
+	})
+	if err != nil {
+		return fmt.Errorf("running schema: %w", err)
+	}
+	return nil
 }
 
 // We use "+" because this won't conflict with anything else; URL-style "://"

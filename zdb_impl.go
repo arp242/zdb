@@ -231,8 +231,13 @@ func infoImpl(ctx context.Context, db DB) (ServerInfo, error) {
 // TODO: implement .gotxt support here too? The {{ .. }} from our own
 // mini-template syntax will clash though.
 func loadImpl(db DB, name string) (string, error) {
+	fsys := db.(interface{ queryFiles() fs.FS }).queryFiles()
+	if fsys == nil {
+		return "", errors.New("zdb.Load: Files not set")
+	}
+
 	name = strings.TrimSuffix(name, ".sql")
-	q, _, err := findFile(db.(interface{ queryFiles() fs.FS }).queryFiles(), insertDialect(db, name)...)
+	q, _, err := findFile(fsys, insertDialect(db, name)...)
 	if err != nil {
 		return "", fmt.Errorf("zdb.Load: %w", err)
 	}

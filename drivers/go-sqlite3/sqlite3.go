@@ -45,9 +45,12 @@
 package sqlite3
 
 import (
+	"context"
 	"strings"
+	"testing"
 
 	"github.com/mattn/go-sqlite3"
+	"zgo.at/zdb"
 	"zgo.at/zdb/drivers"
 )
 
@@ -71,4 +74,24 @@ func (driver) Name() string    { return "sqlite3" }
 func (driver) Dialect() string { return "sqlite" }
 func (driver) Match(dialect, driver string) bool {
 	return dialect == "sqlite3" || strings.HasPrefix(driver, "sqlite3")
+}
+
+func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context {
+	t.Helper()
+
+	copt := zdb.ConnectOptions{Connect: "sqlite+:memory:?cache=shared", Create: true}
+	if opt != nil && opt.Connect != "" {
+		copt.Connect = opt.Connect
+	}
+	if opt != nil && opt.Files != nil {
+		copt.Files = opt.Files
+	}
+
+	db, err := zdb.Connect(context.Background(), copt)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { db.Close() })
+	return zdb.WithDB(context.Background(), db)
 }

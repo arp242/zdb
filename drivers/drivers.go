@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"sync"
+	"testing"
 )
 
 // NotExistError is returned by a driver when a database doesn't exist and
@@ -41,6 +43,10 @@ type Driver interface {
 
 	// ErrUnique reports if this error reports a UNIQUE constraint violation.
 	ErrUnique(error) bool
+
+	// Start a new test. This is expected to set up a temporary database which
+	// is cleaned at the end.
+	StartTest(*testing.T, *TestOptions) context.Context
 }
 
 var (
@@ -87,4 +93,12 @@ func Test() func() {
 		defer driversMu.Unlock()
 		drivers = save
 	}
+}
+
+// TestOptions are options to pass to zdb.Connect() in the StartTest() method.
+//
+// This needs to be a new type to avoid import cycles.
+type TestOptions struct {
+	Connect string
+	Files   fs.FS
 }
