@@ -83,6 +83,10 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 
 	if !memory {
 		_, err = os.Stat(file)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, false, fmt.Errorf("sqlite3.Connect: %w", err)
+		}
+
 		if os.IsNotExist(err) {
 			exists = false
 			if !create {

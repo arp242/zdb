@@ -128,7 +128,7 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 		}
 	case DialectPostgreSQL:
 		if !info.Version.AtLeast("12.0") {
-			//err = fmt.Errorf("zdb.Connect: zdb requires PostgreSQL 12.0 or newer; have %q", info.Version)
+			err = fmt.Errorf("zdb.Connect: zdb requires PostgreSQL 12.0 or newer; have %q", info.Version)
 		}
 	}
 	if err != nil {
