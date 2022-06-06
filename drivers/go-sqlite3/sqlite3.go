@@ -25,11 +25,6 @@
 //
 //   - https://github.com/mattn/go-sqlite3/
 //
-// This will set the maximum number of open and idle connections to 16 and 4,
-// instead of Go's default of 0 and 2. To change this, you can use:
-//
-//    db.DBSQL().SetMaxOpenConns(100)
-//
 // To use a ConnectHook, you can DefaultHook() to automatically set the given
 // connection hook on every new connection. Alternatively, you can register it
 // first using the regular method:

@@ -20,6 +20,18 @@ type ConnectOptions struct {
 	Migrate    []string          // Migrations to run; nil for none, "all" for all, or a migration name.
 	MigrateLog func(name string) // Called for every migration that gets run.
 
+	// Set the maximum number of open and idle connections.
+	//
+	// The default for MaxOpenConns is 16, and the default for MaxIdleConns is
+	// 4, instead of Go's default of 0 and 2. Use a value <0 to skip the
+	// default.
+	//
+	// This can also be changed at runtime with:
+	//
+	//    db.DBSQL().SetMaxOpenConns(100)
+	MaxOpenConns int
+	MaxIdleConns int
+
 	// In addition to migrations from .sql files, you can run migrations from Go
 	// functions. See the documentation on Migrate for details.
 	GoMigrations map[string]func(context.Context) error
@@ -108,6 +120,15 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
+
+	if opt.MaxOpenConns == 0 {
+		opt.MaxOpenConns = 16
+	}
+	if opt.MaxIdleConns == 0 {
+		opt.MaxIdleConns = 4
+	}
+	sqlDB.SetMaxOpenConns(opt.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(opt.MaxIdleConns)
 
 	dialect = dialectNames[useDriver.Dialect()]
 	db := &zDB{db: sqlx.NewDb(sqlDB, useDriver.Name()), dialect: dialect}

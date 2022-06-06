@@ -1,11 +1,6 @@
 // Package pq provides a zdb driver for PostgreSQL.
 //
 // This uses https://github.com/lib/pq
-//
-// This will set the maximum number of open and idle connections to 25 each,
-// instead of Go's default of 0 and 2. To change this, you can use:
-//
-//    db.DBSQL().SetMaxOpenConns(100)
 package pq
 
 import (
@@ -78,9 +73,6 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 		}
 		return nil, false, fmt.Errorf("pq.Connect: %w", err)
 	}
-
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
 
 	return db, exists, nil
 }

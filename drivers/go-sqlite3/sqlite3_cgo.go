@@ -118,8 +118,5 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 		return nil, false, fmt.Errorf("sqlite3.Connect: %w", err)
 	}
 
-	db.SetMaxOpenConns(16)
-	db.SetMaxIdleConns(4)
-
 	return db, exists, nil
 }
