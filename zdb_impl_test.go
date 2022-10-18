@@ -460,7 +460,7 @@ func TestLoad(t *testing.T) {
 		db := zdb.MustGetDB(ctx)
 
 		{
-			got, err := zdb.Load(db, "select-1")
+			got, _, err := zdb.Load(db, "select-1")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -472,7 +472,7 @@ func TestLoad(t *testing.T) {
 
 		{
 			for _, n := range []string{"comment", "comment.sql"} {
-				got, err := zdb.Load(db, n)
+				got, _, err := zdb.Load(db, n)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -716,6 +716,6 @@ func BenchmarkLoad(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		_, _ = zdb.Load(db, "hit_list.GetTotalCount")
+		_, _, _ = zdb.Load(db, "hit_list.GetTotalCount")
 	}
 }
