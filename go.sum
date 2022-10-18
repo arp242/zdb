@@ -1,8 +1,8 @@
 github.com/go-sql-driver/mysql v1.6.0 h1:BCTh4TKNUYmOmMUcQ3IipzF5prigylS7XXjEkfCHuOE=
 github.com/go-sql-driver/mysql v1.6.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
-github.com/lib/pq v1.10.6 h1:jbk+ZieJ0D7EVGJYpL9QTz7/YW6UHbmdnZWYyK5cdBs=
-github.com/lib/pq v1.10.6/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
+github.com/lib/pq v1.10.7 h1:p7ZhMD+KsSRozJr34udlUrhboJwWAgCg34+/ZZNvZZw=
+github.com/lib/pq v1.10.7/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
 github.com/mattn/go-sqlite3 v1.14.15 h1:vfoHhTN1af61xCRSWzFIWzx2YskyMTwHLrExkBOjvxI=
 github.com/mattn/go-sqlite3 v1.14.15/go.mod h1:2eHXhiwb8IkHr+BDWZGa96P6+rkvnG63S2DGjv9HUNg=
-zgo.at/zstd v0.0.0-20220622111728-4a78555db760 h1:jPGal8kIHPUTZuaZOH4VQXj1mj4Pm0ZYHRzJ5eAyL+M=
-zgo.at/zstd v0.0.0-20220622111728-4a78555db760/go.mod h1:KYkLDHZN6APaRYHlL+hpwBJW/g9w+MLmXi4MKE5YteY=
+zgo.at/zstd v0.0.0-20221013104704-16fa49fadc62 h1:2YmbyyIJEC9yIVDGfuG/M7qAmHh+tgRKn4Lu/Iot3AQ=
+zgo.at/zstd v0.0.0-20221013104704-16fa49fadc62/go.mod h1:o/Q8+EtSahHnfkbB3t8wXE0FnoDTmJ0sBDlzezv9XeM=

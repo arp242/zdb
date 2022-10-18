@@ -3,6 +3,7 @@ package zdb
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"regexp"
 	"text/template"
 )
@@ -13,14 +14,41 @@ var TemplateFuncMap template.FuncMap
 
 // Template runs text/template on SQL to make writing compatible schemas a bit
 // easier.
-func Template(dialect Dialect, tpl string) ([]byte, error) {
+func Template(dialect Dialect, tpl string, params ...any) ([]byte, error) {
+	paramMap := map[string]any{}
+	for _, param := range params {
+		v := reflect.ValueOf(param)
+		for v = reflect.ValueOf(param); v.Kind() == reflect.Ptr; {
+			v = v.Elem()
+		}
+
+		var m map[string]any
+		if v.Type().ConvertibleTo(reflect.TypeOf(m)) {
+			m = v.Convert(reflect.TypeOf(m)).Interface().(map[string]interface{})
+		}
+		if m != nil {
+			for k, v := range m {
+				paramMap[k] = v
+			}
+		}
+
+		// Struct
+		if v.Kind() == reflect.Struct {
+			t := v.Type()
+			for i := 0; i < v.NumField(); i++ {
+				paramMap[t.Field(i).Name] = v.Field(i).Interface()
+			}
+		}
+
+	}
+
 	t, err := template.New("").Funcs(tplFuncs(dialect)).Parse(tpl)
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Template: %w", err)
 	}
 
 	buf := new(bytes.Buffer)
-	err = t.Execute(buf, nil)
+	err = t.Execute(buf, paramMap)
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Template: %w", err)
 	}

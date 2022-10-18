@@ -34,20 +34,27 @@ import (
 //
 // First I'd like to move internal/sqlx to here.
 
-func prepareImpl(ctx context.Context, db DB, query string, params ...interface{}) (string, []interface{}, error) {
+func prepareImpl(ctx context.Context, db DB, query string, params ...any) (string, []any, error) {
 	merged, named, dumpArgs, dumpOut, err := prepareParams(params)
 	if err != nil {
 		return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
 	}
 
+	var isTpl bool
 	if strings.HasPrefix(query, "load:") {
-		query, err = loadImpl(db, query[5:])
+		query, isTpl, err = loadImpl(db, query[5:])
 		if err != nil {
 			return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
 		}
 	}
 
-	if named {
+	if isTpl {
+		q, err := Template(db.SQLDialect(), query, merged)
+		if err != nil {
+			return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
+		}
+		query = string(q)
+	} else if named {
 		query, err = replaceConditionals(query, merged)
 		if err != nil {
 			return "", nil, fmt.Errorf("zdb.Prepare: %w", err)

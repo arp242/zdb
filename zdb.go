@@ -150,7 +150,7 @@ func Info(ctx context.Context) (ServerInfo, error) {
 //   zdb.QueryGet(ctx, "load:select-x", &foo, zdb.P{
 //       "param": "foo",
 //   })
-func Load(db DB, name string) (string, error) {
+func Load(db DB, name string) (string, bool, error) {
 	return loadImpl(db, name)
 }
 
