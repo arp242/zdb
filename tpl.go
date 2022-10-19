@@ -18,6 +18,10 @@ func Template(dialect Dialect, tpl string, params ...any) ([]byte, error) {
 	paramMap := map[string]any{}
 	for _, param := range params {
 		v := reflect.ValueOf(param)
+		if !v.IsValid() {
+			return nil, fmt.Errorf("zdb.Template: invalid template parameter type %#v", param)
+		}
+
 		for v = reflect.ValueOf(param); v.Kind() == reflect.Ptr; {
 			v = v.Elem()
 		}
@@ -39,7 +43,6 @@ func Template(dialect Dialect, tpl string, params ...any) ([]byte, error) {
 				paramMap[t.Field(i).Name] = v.Field(i).Interface()
 			}
 		}
-
 	}
 
 	t, err := template.New("").Funcs(tplFuncs(dialect)).Parse(tpl)

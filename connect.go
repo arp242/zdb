@@ -216,7 +216,7 @@ func Create(db DB, files fs.FS) error {
 		return err
 	}
 	if strings.HasSuffix(file, ".gotxt") {
-		s, err = Template(db.SQLDialect(), string(s), nil)
+		s, err = Template(db.SQLDialect(), string(s))
 		if err != nil {
 			return err
 		}
