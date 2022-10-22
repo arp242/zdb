@@ -78,6 +78,7 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 	set("on", "_foreign_keys", "_fk")             // Check FK constraints
 	set("on", "_defer_foreign_keys", "_defer_fk") // Check FKs after transaction commit
 	set("on", "_case_sensitive_like", "_cslike")  // Same as PostgreSQL
+	set("200", "_busy_timeout")                   // Default is to error immediately
 	set("-20000", "_cache_size")                  // 20M max. cache, instead of 2M
 	connect = fmt.Sprintf("file:%s?%s", file, q.Encode())
 

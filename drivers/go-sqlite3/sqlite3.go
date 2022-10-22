@@ -4,21 +4,24 @@
 //
 // Several connection parameters are set to different defaults in SQLite:
 //
-//   _journal_mode=wal          Almost always faster with better concurrency,
-//                              with little drawbacks for most use cases.
-//                              https://www.sqlite.org/wal.html
+//	_journal_mode=wal          Almost always faster with better concurrency,
+//	                           with little drawbacks for most use cases.
+//	                           https://www.sqlite.org/wal.html
 //
-//   _foreign_keys=on           Check FK constraints; by default they're not
-//                              enforced, which is probably not what you want.
+//	_foreign_keys=on           Check FK constraints; by default they're not
+//	                           enforced, which is probably not what you want.
 //
-//   _defer_foreign_keys=on     Delay FK checks until the transaction commit; by
-//                              default they're checked immediately (if
-//                              enabled).
+//	_busy_timeout=200          Wait 200ms for locks instead of immediately
+//	                           throwing an error.
 //
-//   _case_sensitive_like=on    LIKE is case-sensitive, like PostgreSQL.
+//	_defer_foreign_keys=on     Delay FK checks until the transaction commit; by
+//	                           default they're checked immediately (if
+//	                           enabled).
 //
-//   _cache_size=-20000         20M cache size, instead of 2M. Can be a
-//                              significant performance improvement.
+//	_case_sensitive_like=on    LIKE is case-sensitive, like PostgreSQL.
+//
+//	_cache_size=-20000         20M cache size, instead of 2M. Can be a
+//	                           significant performance improvement.
 //
 // You can still use "?_journal_mode=something_else" in the connection string to
 // set something different.
@@ -29,11 +32,11 @@
 // connection hook on every new connection. Alternatively, you can register it
 // first using the regular method:
 //
-//     sql.Register("sqlite3-hook1", &sqlite3.SQLiteDriver{
-//         ConnectHook: func(c *sqlite3.SQLiteConn) error {
-//             return c.RegisterFunc("hook1", func() string { return "hook1" }, true)
-//         },
-//     })
+//	sql.Register("sqlite3-hook1", &sqlite3.SQLiteDriver{
+//	    ConnectHook: func(c *sqlite3.SQLiteConn) error {
+//	        return c.RegisterFunc("hook1", func() string { return "hook1" }, true)
+//	    },
+//	})
 //
 // And then call zdb.Connect() with "sqlite3-hook1" as the driver name. Note the
 // driver name *must* start with "sqlite3".
