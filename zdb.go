@@ -15,15 +15,15 @@
 // Additional DumpArgs can be added to "dump" information to stderr for testing
 // and debugging:
 //
-//    DumpLocation   Show location of Dump call.
-//    DumpQuery      Show the query
-//    DumpExplain    Show query plain (WILL RUN QUERY TWICE!)
-//    DumpResult     Show the query result (WILL RUN QUERY TWICE!)
-//    DumpVertical   Show results in vertical format.
-//    DumpCSV        Print query result as CSV.
-//    DumpJSON       Print query result as JSON.
-//    DumpHTML       Print query result as a HTML table.
-//    DumpAll        Dump all we can.
+//	DumpLocation   Show location of Dump call.
+//	DumpQuery      Show the query
+//	DumpExplain    Show query plain (WILL RUN QUERY TWICE!)
+//	DumpResult     Show the query result (WILL RUN QUERY TWICE!)
+//	DumpVertical   Show results in vertical format.
+//	DumpCSV        Print query result as CSV.
+//	DumpJSON       Print query result as JSON.
+//	DumpHTML       Print query result as a HTML table.
+//	DumpAll        Dump all we can.
 //
 // Running the query twice for a select is usually safe (just slower), but
 // running insert, update, or delete twice may cause problems.
@@ -141,15 +141,15 @@ func Info(ctx context.Context) (ServerInfo, error) {
 // pg_stat_statements every query will have the file name inserted in the first
 // line; for example for "db/query/select-x.sql" the query sent to the database:
 //
-//   /* select-x */
-//   select x from y;
+//	/* select-x */
+//	select x from y;
 //
 // Typical usage with Query() is to use "load:name", instead of calling this
 // directly:
 //
-//   zdb.QueryGet(ctx, "load:select-x", &foo, zdb.P{
-//       "param": "foo",
-//   })
+//	zdb.QueryGet(ctx, "load:select-x", &foo, zdb.P{
+//	    "param": "foo",
+//	})
 func Load(db DB, name string) (string, bool, error) {
 	return loadImpl(db, name)
 }

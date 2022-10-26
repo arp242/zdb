@@ -192,9 +192,9 @@ func structOnlyError(t reflect.Type) error {
 // each row must only have one column which can scan into that type.  This
 // allows you to do something like:
 //
-//    rows, _ := db.Query("select id from people;")
-//    var ids []int
-//    scanAll(rows, &ids, false)
+//	rows, _ := db.Query("select id from people;")
+//	var ids []int
+//	scanAll(rows, &ids, false)
 //
 // and ids will be a list of the id results.  I realize that this is a desirable
 // interface to expose to users, but for now it will only be exposed via changes

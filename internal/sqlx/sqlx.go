@@ -47,9 +47,9 @@ func mapper() *reflectx.Mapper {
 
 // isScannable takes the reflect.Type and the actual dest value and returns
 // whether or not it's Scannable.  Something is scannable if:
-//   * it is not a struct
-//   * it implements sql.Scanner
-//   * it has no exported fields
+//   - it is not a struct
+//   - it implements sql.Scanner
+//   - it has no exported fields
 func isScannable(t reflect.Type) bool {
 	if reflect.PtrTo(t).Implements(_scannerInterface) {
 		return true

@@ -54,21 +54,21 @@ type ConnectOptions struct {
 // additional information. Several drivers are included in the
 // zgo.at/zdb/drivers package. To register a driver simply import it:
 //
-//     import _ "zgo.at/zdb/drivers/pq"
+//	import _ "zgo.at/zdb/drivers/pq"
 //
 // The connect string has the following layout (minus spaces):
 //
-//     dialect                           Use default connection parameters for this driver.
-//     dialect              + connect    Pass driver-specific connection string.
-//     driverName           + connect    Use a SQL driver name, instead of SQL dialect.
-//     dialect / driverName + connect    Specify both.
+//	dialect                           Use default connection parameters for this driver.
+//	dialect              + connect    Pass driver-specific connection string.
+//	driverName           + connect    Use a SQL driver name, instead of SQL dialect.
+//	dialect / driverName + connect    Specify both.
 //
 // The connectString is driver-specific; see the documentation of the driver for
 // details. The dialect is the "SQL dialect"; currently recognized dialects are:
 //
-//     postgresql    aliases: postgres psql pgsql
-//     sqlite        aliases: sqlite3
-//     mysql         aliases: mariadb
+//	postgresql    aliases: postgres psql pgsql
+//	sqlite        aliases: sqlite3
+//	mysql         aliases: mariadb
 //
 // For example, "postgresql+dbname=mydb", "pq+dbname=mydb", and
 // "postgresql/pq+dbname=mydb" are all identical, assuming pq is the registered
@@ -81,9 +81,9 @@ type ConnectOptions struct {
 // exist yet. If Files is given it will also look for the following files to set
 // up the database if it doesn't exist or is empty:
 //
-//   schema.gotxt           Run zdb.Template first.
-//   schema-{dialect}.sql   Schema for this SQL dialect.
-//   schema.sql
+//	schema.gotxt           Run zdb.Template first.
+//	schema-{dialect}.sql   Schema for this SQL dialect.
+//	schema.sql
 //
 // Migrate and GoMigrate are migrations to run, see the documentation of Migrate
 // for details.

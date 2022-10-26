@@ -1,8 +1,8 @@
 // The following environment variables, if set, will be used:
 //
-//	* SQLX_SQLITE_DSN
-//	* SQLX_POSTGRES_DSN
-//	* SQLX_MYSQL_DSN
+//   - SQLX_SQLITE_DSN
+//   - SQLX_POSTGRES_DSN
+//   - SQLX_MYSQL_DSN
 //
 // Set any of these variables to 'skip' to skip them.  Note that for MySQL,
 // the string '?parseTime=True' will be appended to the DSN if it's not there

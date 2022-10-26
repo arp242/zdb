@@ -100,16 +100,16 @@ const (
 // You can add some special sentinel values in the params to control the output
 // (they're not sent as parameters to the DB):
 //
-//   DumpAll
-//   DumpLocation   Show location of the Dump() cal.
-//   DumpQuery      Show the query with placeholders substituted.
-//   DumpExplain    Show the results of EXPLAIN (or EXPLAIN ANALYZE for PostgreSQL).
-//   DumpResult     Show the query result (
-//   DumpVertical   Show vertical output instead of horizontal columns.
-//   DumpCSV        Show as CSV.
-//   DumpNul        Separate columns with NUL (0x00) bytes; useful to feed output to another printer.
-//   DumpJSON       Show as an array of JSON objects.
-//   DumpHTML       Show as a HTML table.
+//	DumpAll
+//	DumpLocation   Show location of the Dump() cal.
+//	DumpQuery      Show the query with placeholders substituted.
+//	DumpExplain    Show the results of EXPLAIN (or EXPLAIN ANALYZE for PostgreSQL).
+//	DumpResult     Show the query result (
+//	DumpVertical   Show vertical output instead of horizontal columns.
+//	DumpCSV        Show as CSV.
+//	DumpNul        Separate columns with NUL (0x00) bytes; useful to feed output to another printer.
+//	DumpJSON       Show as an array of JSON objects.
+//	DumpHTML       Show as a HTML table.
 func Dump(ctx context.Context, out io.Writer, query string, params ...interface{}) {
 	var dump DumpArg
 	params = dump.extract(params)
@@ -229,7 +229,7 @@ func dumpHorizontal(buf io.Writer, rows *Rows, cols []string) error {
 	t.Write([]byte(strings.Join(cols, "\t") + "\n"))
 
 	for rows.Next() {
-		var row []interface{}
+		var row []any
 		err := rows.Scan(&row)
 		if err != nil {
 			return err
@@ -402,7 +402,7 @@ func ApplyParams(query string, params ...interface{}) string {
 	return query
 }
 
-func formatParam(a interface{}, quoted bool) string {
+func formatParam(a any, quoted bool) string {
 	if a == nil {
 		return "NULL"
 	}
@@ -486,14 +486,14 @@ func deIndent(in string) string {
 //
 // This is useful in tests in combination with zdb.Dump():
 //
-//     got := DumpString(ctx, `select * from factions`)
-//     want := `
-//         faction_id  name
-//         1           Peacekeepers
-//         2           Moya`
-//     if d := Diff(got, want); d != "" {
-//        t.Error(d)
-//     }
+//	got := DumpString(ctx, `select * from factions`)
+//	want := `
+//	    faction_id  name
+//	    1           Peacekeepers
+//	    2           Moya`
+//	if d := Diff(got, want); d != "" {
+//	   t.Error(d)
+//	}
 //
 // It normalizes the leading whitespace in want, making "does my database match
 // with what's expected?" fairly easy to test.
@@ -506,30 +506,30 @@ func Diff(out, want string) string {
 // for every .sql file you can create a _test.sql file, similar to how Go's
 // testing works; the following special comments are recognized:
 //
-//    -- params     Parameters for the query.
-//    -- want       Expected result.
+//	-- params     Parameters for the query.
+//	-- want       Expected result.
 //
 // Everything before the first special comment is run as a "setup". The
 // "-- params" and "-- want" comments can be repeated for multiple tests.
 //
 // Example:
 //
-//    db/query/select-sites.sql:
-//       select * from sites where site_id = :site and created_at > :start
+//	db/query/select-sites.sql:
+//	   select * from sites where site_id = :site and created_at > :start
 //
-//    db/query/select-sites_test.sql
-//      insert into sites () values (...)
+//	db/query/select-sites_test.sql
+//	  insert into sites () values (...)
 //
-//      -- params
-//      site_id:    1
-//      created_at: 2020-01-01
+//	  -- params
+//	  site_id:    1
+//	  created_at: 2020-01-01
 //
-//      -- want
-//      1
+//	  -- want
+//	  1
 //
-//      -- params
+//	  -- params
 //
-//      -- want
+//	  -- want
 func TestQueries(t *testing.T, files fs.FS) {
 	t.Helper()
 

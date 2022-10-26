@@ -134,9 +134,9 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...any) (strin
 
 // Prepare the paramers:
 //
-//  - Multiple named parameters are merged in a single map.
-//  - DumpArgs are removed.
-//  - Any io.Writer is removed.
+//   - Multiple named parameters are merged in a single map.
+//   - DumpArgs are removed.
+//   - Any io.Writer is removed.
 //
 // TODO: document that you can pass a io.Writer.
 func prepareParams(params []interface{}) (interface{}, bool, DumpArg, io.Writer, error) {
@@ -253,17 +253,17 @@ func isNamed(t reflect.Type, a interface{}) bool {
 //
 // This has two spaces in the resulting SQL:
 //
-//    "where {{:x x = :x}} order by a" → "where  order by a"
+//	"where {{:x x = :x}} order by a" → "where  order by a"
 //
 // And with newlines it's even worse:
 //
-//     where
-//	     {{:x x = :x}}
-//	   order by a
-//   →
-//	   where
+//	    where
+//		     {{:x x = :x}}
+//		   order by a
+//	  →
+//		   where
 //
-//	   order by a
+//		   order by a
 func replaceConditionals(query string, params ...interface{}) (string, error) {
 	for _, p := range zstring.IndexPairs(query, "{{:", "}}") {
 		s := p[0]
