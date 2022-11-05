@@ -65,7 +65,10 @@ func tplFuncs(dialect Dialect) template.FuncMap {
 		"sqlite": func(s string) string { return map[Dialect]string{DialectSQLite: s}[dialect] },
 		"psql":   func(s string) string { return map[Dialect]string{DialectPostgreSQL: s}[dialect] },
 		"mysql":  func(s string) string { return map[Dialect]string{DialectMariaDB: s}[dialect] },
-		"auto_increment": func() string {
+		"auto_increment": func(big ...bool) string {
+			if dialect == DialectPostgreSQL && len(big) > 0 {
+				return "bigserial      primary key"
+			}
 			return map[Dialect]string{
 				DialectPostgreSQL: "serial         primary key",
 				DialectSQLite:     "integer        primary key autoincrement",

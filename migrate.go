@@ -14,11 +14,11 @@ import (
 
 // Migrate allows running database migrations.
 type Migrate struct {
-	db    DB
-	files fs.FS
-	gomig map[string]func(context.Context) error
-	log   func(name string)
-	test  bool
+	db         DB
+	files      fs.FS
+	gomig      map[string]func(context.Context) error
+	log        func(name string)
+	test, show bool
 }
 
 // NewMigrate creates a new migration instance.
@@ -54,6 +54,10 @@ func (m *Migrate) Log(f func(name string)) { m.log = f }
 // ALTER and CREATE commands will automatically imply COMMIT. See:
 // https://mariadb.com/kb/en/sql-statements-that-cause-an-implicit-commit/
 func (m *Migrate) Test(t bool) { m.test = t }
+
+// Show sets the "show" flag; it won't run anything, just print the queries it
+// would run to stdout.
+func (m *Migrate) Show(v bool) { m.show = v }
 
 // List all migrations we know about, and all migrations that have already been
 // run.
@@ -195,6 +199,16 @@ func (m Migrate) Run(which ...string) error {
 			s, err := m.Schema(run)
 			if err != nil {
 				return fmt.Errorf("zdb.Migrate.Run: running %q: %w", run, err)
+			}
+			if m.show {
+				query, _, err := prepareImpl(ctx, MustGetDB(ctx), s)
+				if err != nil {
+					return fmt.Errorf("zdb.Migrate.Run: running %q: %w", run, err)
+				}
+
+				fmt.Println("-- " + run)
+				fmt.Println(query)
+				return nil
 			}
 			err = Exec(ctx, s)
 			if err != nil {
