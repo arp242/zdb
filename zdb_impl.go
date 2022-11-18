@@ -64,22 +64,22 @@ func (db zDB) SQLDialect() Dialect                          { return db.dialect 
 func (db zDB) Info(ctx context.Context) (ServerInfo, error) { return infoImpl(ctx, db) }
 func (db zDB) Close() error                                 { return db.db.Close() }
 
-func (db zDB) Exec(ctx context.Context, query string, params ...interface{}) error {
+func (db zDB) Exec(ctx context.Context, query string, params ...any) error {
 	return execImpl(ctx, db, query, params...)
 }
-func (db zDB) NumRows(ctx context.Context, query string, params ...interface{}) (int64, error) {
+func (db zDB) NumRows(ctx context.Context, query string, params ...any) (int64, error) {
 	return numRowsImpl(ctx, db, query, params...)
 }
-func (db zDB) InsertID(ctx context.Context, idColumn, query string, params ...interface{}) (int64, error) {
+func (db zDB) InsertID(ctx context.Context, idColumn, query string, params ...any) (int64, error) {
 	return insertIDImpl(ctx, db, idColumn, query, params...)
 }
-func (db zDB) Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db zDB) Get(ctx context.Context, dest any, query string, params ...any) error {
 	return getImpl(ctx, db, dest, query, params...)
 }
-func (db zDB) Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db zDB) Select(ctx context.Context, dest any, query string, params ...any) error {
 	return selectImpl(ctx, db, dest, query, params...)
 }
-func (db zDB) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
+func (db zDB) Query(ctx context.Context, query string, params ...any) (*Rows, error) {
 	return queryImpl(ctx, db, query, params...)
 }
 
@@ -92,16 +92,16 @@ func (db zDB) Begin(ctx context.Context, opts ...beginOpt) (context.Context, DB,
 func (db zDB) Rollback() error { return errors.New("cannot rollback, as this is not a transaction") }
 func (db zDB) Commit() error   { return errors.New("cannot commit, as this is not a transaction") }
 
-func (db zDB) ExecContext(ctx context.Context, query string, params ...interface{}) (sql.Result, error) {
+func (db zDB) ExecContext(ctx context.Context, query string, params ...any) (sql.Result, error) {
 	return db.db.ExecContext(ctx, query, params...)
 }
-func (db zDB) GetContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db zDB) GetContext(ctx context.Context, dest any, query string, params ...any) error {
 	return db.db.GetContext(ctx, dest, query, params...)
 }
-func (db zDB) SelectContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db zDB) SelectContext(ctx context.Context, dest any, query string, params ...any) error {
 	return db.db.SelectContext(ctx, dest, query, params...)
 }
-func (db zDB) QueryxContext(ctx context.Context, query string, params ...interface{}) (*sqlx.Rows, error) {
+func (db zDB) QueryxContext(ctx context.Context, query string, params ...any) (*sqlx.Rows, error) {
 	return db.db.QueryxContext(ctx, query, params...)
 }
 
@@ -126,22 +126,22 @@ func (db zTX) Close() error {
 	return db.parent.Close()
 }
 
-func (db zTX) Exec(ctx context.Context, query string, params ...interface{}) error {
+func (db zTX) Exec(ctx context.Context, query string, params ...any) error {
 	return execImpl(ctx, db, query, params...)
 }
-func (db zTX) NumRows(ctx context.Context, query string, params ...interface{}) (int64, error) {
+func (db zTX) NumRows(ctx context.Context, query string, params ...any) (int64, error) {
 	return numRowsImpl(ctx, db, query, params...)
 }
-func (db zTX) InsertID(ctx context.Context, idColumn, query string, params ...interface{}) (int64, error) {
+func (db zTX) InsertID(ctx context.Context, idColumn, query string, params ...any) (int64, error) {
 	return insertIDImpl(ctx, db, idColumn, query, params...)
 }
-func (db zTX) Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db zTX) Get(ctx context.Context, dest any, query string, params ...any) error {
 	return getImpl(ctx, db, dest, query, params...)
 }
-func (db zTX) Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db zTX) Select(ctx context.Context, dest any, query string, params ...any) error {
 	return selectImpl(ctx, db, dest, query, params...)
 }
-func (db zTX) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
+func (db zTX) Query(ctx context.Context, query string, params ...any) (*Rows, error) {
 	return queryImpl(ctx, db, query, params...)
 }
 
@@ -154,16 +154,16 @@ func (db zTX) Begin(ctx context.Context, opt ...beginOpt) (context.Context, DB, 
 func (db zTX) Rollback() error { return db.db.Rollback() }
 func (db zTX) Commit() error   { return db.db.Commit() }
 
-func (db zTX) ExecContext(ctx context.Context, query string, params ...interface{}) (sql.Result, error) {
+func (db zTX) ExecContext(ctx context.Context, query string, params ...any) (sql.Result, error) {
 	return db.db.ExecContext(ctx, query, params...)
 }
-func (db zTX) GetContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db zTX) GetContext(ctx context.Context, dest any, query string, params ...any) error {
 	return db.db.GetContext(ctx, dest, query, params...)
 }
-func (db zTX) SelectContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db zTX) SelectContext(ctx context.Context, dest any, query string, params ...any) error {
 	return db.db.SelectContext(ctx, dest, query, params...)
 }
-func (db zTX) QueryxContext(ctx context.Context, query string, params ...interface{}) (*sqlx.Rows, error) {
+func (db zTX) QueryxContext(ctx context.Context, query string, params ...any) (*sqlx.Rows, error) {
 	return db.db.QueryxContext(ctx, query, params...)
 }
 
@@ -262,10 +262,10 @@ func loadImpl(db DB, name string) (string, bool, error) {
 }
 
 type dbImpl interface {
-	ExecContext(ctx context.Context, query string, params ...interface{}) (sql.Result, error)
-	GetContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error
-	SelectContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error
-	QueryxContext(ctx context.Context, query string, params ...interface{}) (*sqlx.Rows, error)
+	ExecContext(ctx context.Context, query string, params ...any) (sql.Result, error)
+	GetContext(ctx context.Context, dest any, query string, params ...any) error
+	SelectContext(ctx context.Context, dest any, query string, params ...any) error
+	QueryxContext(ctx context.Context, query string, params ...any) (*sqlx.Rows, error)
 }
 
 func beginImpl(ctx context.Context, db DB, opts ...beginOpt) (context.Context, DB, error) {
@@ -318,7 +318,7 @@ func txImpl(ctx context.Context, db DB, fn func(context.Context) error) error {
 	return nil
 }
 
-func execImpl(ctx context.Context, db DB, query string, params ...interface{}) error {
+func execImpl(ctx context.Context, db DB, query string, params ...any) error {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
 		return fmt.Errorf("zdb.Exec: %w", err)
@@ -330,7 +330,7 @@ func execImpl(ctx context.Context, db DB, query string, params ...interface{}) e
 	return nil
 }
 
-func numRowsImpl(ctx context.Context, db DB, query string, params ...interface{}) (int64, error) {
+func numRowsImpl(ctx context.Context, db DB, query string, params ...any) (int64, error) {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
 		return 0, fmt.Errorf("zdb.NumRows: %w", err)
@@ -346,7 +346,7 @@ func numRowsImpl(ctx context.Context, db DB, query string, params ...interface{}
 	return n, nil
 }
 
-func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...interface{}) (int64, error) {
+func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...any) (int64, error) {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
 		return 0, fmt.Errorf("zdb.InsertID: %w", err)
@@ -360,7 +360,7 @@ func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...
 	return id[len(id)-1], nil
 }
 
-func selectImpl(ctx context.Context, db DB, dest interface{}, query string, params ...interface{}) error {
+func selectImpl(ctx context.Context, db DB, dest any, query string, params ...any) error {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
 		return fmt.Errorf("zdb.Select: %w", err)
@@ -372,7 +372,7 @@ func selectImpl(ctx context.Context, db DB, dest interface{}, query string, para
 	return nil
 }
 
-func getImpl(ctx context.Context, db DB, dest interface{}, query string, params ...interface{}) error {
+func getImpl(ctx context.Context, db DB, dest any, query string, params ...any) error {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
 		return fmt.Errorf("zdb.Get: %w", err)
@@ -384,7 +384,7 @@ func getImpl(ctx context.Context, db DB, dest interface{}, query string, params 
 	return nil
 }
 
-func queryImpl(ctx context.Context, db DB, query string, params ...interface{}) (*Rows, error) {
+func queryImpl(ctx context.Context, db DB, query string, params ...any) (*Rows, error) {
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Query: %w", err)

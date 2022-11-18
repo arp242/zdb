@@ -61,7 +61,7 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...any) (strin
 		}
 	}
 
-	qparams, _ := merged.([]interface{})
+	qparams, _ := merged.([]any)
 	if named {
 		var err error
 		query, qparams, err = sqlx.Named(query, merged)
@@ -139,7 +139,7 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...any) (strin
 //   - Any io.Writer is removed.
 //
 // TODO: document that you can pass a io.Writer.
-func prepareParams(params []interface{}) (interface{}, bool, DumpArg, io.Writer, error) {
+func prepareParams(params []any) (any, bool, DumpArg, io.Writer, error) {
 	if len(params) == 0 {
 		return nil, false, 0, nil, nil
 	}
@@ -147,8 +147,8 @@ func prepareParams(params []interface{}) (interface{}, bool, DumpArg, io.Writer,
 	var (
 		dumpArgs    DumpArg
 		dumpOut     io.Writer
-		mergedPos   []interface{}
-		mergedNamed = make(map[string]interface{})
+		mergedPos   []any
+		mergedNamed = make(map[string]any)
 		named       bool
 	)
 	for _, param := range params {
@@ -180,14 +180,14 @@ func prepareParams(params []interface{}) (interface{}, bool, DumpArg, io.Writer,
 			mergedPos = append(mergedPos, param)
 
 		case reflect.Map:
-			var m map[string]interface{}
+			var m map[string]any
 			if !t.ConvertibleTo(reflect.TypeOf(m)) {
 				mergedPos = append(mergedPos, param)
 				continue
 			}
 
 			named = true
-			m = reflect.ValueOf(param).Convert(reflect.TypeOf(m)).Interface().(map[string]interface{})
+			m = reflect.ValueOf(param).Convert(reflect.TypeOf(m)).Interface().(map[string]any)
 			for k, v := range m {
 				if _, ok := mergedNamed[k]; ok {
 					return nil, false, 0, nil, fmt.Errorf("parameter given more than once: %q", k)
@@ -221,7 +221,7 @@ func prepareParams(params []interface{}) (interface{}, bool, DumpArg, io.Writer,
 	return mergedPos, named, dumpArgs, dumpOut, nil
 }
 
-func typeOfElem(i interface{}) reflect.Type {
+func typeOfElem(i any) reflect.Type {
 	var t reflect.Type
 	for t = reflect.TypeOf(i); t.Kind() == reflect.Ptr; {
 		t = t.Elem()
@@ -229,7 +229,7 @@ func typeOfElem(i interface{}) reflect.Type {
 	return t
 }
 
-func isNamed(t reflect.Type, a interface{}) bool {
+func isNamed(t reflect.Type, a any) bool {
 	_, ok := a.(time.Time)
 	if ok {
 		return false
@@ -264,7 +264,7 @@ func isNamed(t reflect.Type, a interface{}) bool {
 //		   where
 //
 //		   order by a
-func replaceConditionals(query string, params ...interface{}) (string, error) {
+func replaceConditionals(query string, params ...any) (string, error) {
 	for _, p := range zstring.IndexPairs(query, "{{:", "}}") {
 		s := p[0]
 		e := p[1]
@@ -312,16 +312,16 @@ func replaceConditionals(query string, params ...interface{}) (string, error) {
 
 // TODO: we can simplify this a bit if we just always convert struct to map in
 // prepareParams.
-func includeConditional(param interface{}, name string) (include, has bool, err error) {
+func includeConditional(param any, name string) (include, has bool, err error) {
 	v := reflect.ValueOf(param)
 	for v = reflect.ValueOf(param); v.Kind() == reflect.Ptr; {
 		v = v.Elem()
 	}
 
 	// Map
-	var m map[string]interface{}
+	var m map[string]any
 	if v.Type().ConvertibleTo(reflect.TypeOf(m)) {
-		m = v.Convert(reflect.TypeOf(m)).Interface().(map[string]interface{})
+		m = v.Convert(reflect.TypeOf(m)).Interface().(map[string]any)
 	}
 	if m != nil {
 		v, ok := m[name]
@@ -345,7 +345,7 @@ func includeConditional(param interface{}, name string) (include, has bool, err 
 	return false, false, nil
 }
 
-func isTruthy(name string, cond interface{}) (bool, error) {
+func isTruthy(name string, cond any) (bool, error) {
 	t := reflect.TypeOf(cond)
 	v := reflect.ValueOf(cond)
 	switch t.Kind() {

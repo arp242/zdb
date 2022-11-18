@@ -28,7 +28,7 @@ func Template(dialect Dialect, tpl string, params ...any) ([]byte, error) {
 
 		var m map[string]any
 		if v.Type().ConvertibleTo(reflect.TypeOf(m)) {
-			m = v.Convert(reflect.TypeOf(m)).Interface().(map[string]interface{})
+			m = v.Convert(reflect.TypeOf(m)).Interface().(map[string]any)
 		}
 		if m != nil {
 			for k, v := range m {

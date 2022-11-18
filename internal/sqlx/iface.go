@@ -12,20 +12,20 @@ type Ext interface {
 
 	DriverName() string
 	Rebind(string) string
-	BindNamed(string, interface{}) (string, []interface{}, error)
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	BindNamed(string, any) (string, []any, error)
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
 // Queryer is an interface used by Get and Select
 type Queryer interface {
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryxContext(ctx context.Context, query string, args ...interface{}) (*Rows, error)
-	QueryRowxContext(ctx context.Context, query string, args ...interface{}) *Row
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryxContext(ctx context.Context, query string, args ...any) (*Rows, error)
+	QueryRowxContext(ctx context.Context, query string, args ...any) *Row
 }
 
 // ColScanner is an interface used by MapScan and SliceScan
 type ColScanner interface {
 	Columns() ([]string, error)
-	Scan(dest ...interface{}) error
+	Scan(dest ...any) error
 	Err() error
 }

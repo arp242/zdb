@@ -112,7 +112,7 @@ func Rebind(style PlaceholderStyle, query string) string {
 //
 // The query should use the "?" placeholder style, and the return value the
 // return value also uses the "?" style.
-func In(query string, args ...interface{}) (string, []interface{}, error) {
+func In(query string, args ...any) (string, []any, error) {
 	// TODO: automatically expand slices for a single ?, like zdb already does.
 	// Then we can remove/unexport this.
 
@@ -120,7 +120,7 @@ func In(query string, args ...interface{}) (string, []interface{}, error) {
 	// for non-slice arguments
 	type argMeta struct {
 		v      reflect.Value
-		i      interface{}
+		i      any
 		length int
 	}
 
@@ -167,7 +167,7 @@ func In(query string, args ...interface{}) (string, []interface{}, error) {
 		return query, args, nil
 	}
 
-	newArgs := make([]interface{}, 0, flatArgsCount)
+	newArgs := make([]any, 0, flatArgsCount)
 
 	var buf strings.Builder
 	buf.Grow(len(query) + len(", ?")*flatArgsCount)
@@ -218,7 +218,7 @@ func In(query string, args ...interface{}) (string, []interface{}, error) {
 	return buf.String(), newArgs, nil
 }
 
-func asSliceForIn(i interface{}) (reflect.Value, bool) {
+func asSliceForIn(i any) (reflect.Value, bool) {
 	if i == nil {
 		return reflect.Value{}, false
 	}
@@ -241,9 +241,9 @@ func asSliceForIn(i interface{}) (reflect.Value, bool) {
 	return v, true
 }
 
-func appendReflectSlice(args []interface{}, v reflect.Value, vlen int) []interface{} {
+func appendReflectSlice(args []any, v reflect.Value, vlen int) []any {
 	switch val := v.Interface().(type) {
-	case []interface{}:
+	case []any:
 		args = append(args, val...)
 	case []int:
 		for i := range val {

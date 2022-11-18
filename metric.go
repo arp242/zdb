@@ -14,7 +14,7 @@ import (
 )
 
 type MetricRecorder interface {
-	Record(d time.Duration, query string, params []interface{})
+	Record(d time.Duration, query string, params []any)
 }
 
 // MetricsMemory records metrics in memory.
@@ -41,7 +41,7 @@ func (m *MetricsMemory) Reset() {
 }
 
 // Record this query.
-func (m *MetricsMemory) Record(d time.Duration, query string, params []interface{}) {
+func (m *MetricsMemory) Record(d time.Duration, query string, params []any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -116,22 +116,22 @@ func (d metricDB) Begin(ctx context.Context, opts ...beginOpt) (context.Context,
 	return WithDB(ctx, mdb), mdb, nil
 }
 
-func (d metricDB) ExecContext(ctx context.Context, query string, params ...interface{}) (sql.Result, error) {
+func (d metricDB) ExecContext(ctx context.Context, query string, params ...any) (sql.Result, error) {
 	start := time.Now()
 	defer func() { d.recorder.Record(time.Now().Sub(start), query, params) }()
 	return d.DB.(dbImpl).ExecContext(ctx, query, params...)
 }
-func (d metricDB) GetContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (d metricDB) GetContext(ctx context.Context, dest any, query string, params ...any) error {
 	start := time.Now()
 	defer func() { d.recorder.Record(time.Now().Sub(start), query, params) }()
 	return d.DB.(dbImpl).GetContext(ctx, dest, query, params...)
 }
-func (d metricDB) SelectContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (d metricDB) SelectContext(ctx context.Context, dest any, query string, params ...any) error {
 	start := time.Now()
 	defer func() { d.recorder.Record(time.Now().Sub(start), query, params) }()
 	return d.DB.(dbImpl).SelectContext(ctx, dest, query, params...)
 }
-func (d metricDB) QueryxContext(ctx context.Context, query string, params ...interface{}) (*sqlx.Rows, error) {
+func (d metricDB) QueryxContext(ctx context.Context, query string, params ...any) (*sqlx.Rows, error) {
 	start := time.Now()
 	defer func() { d.recorder.Record(time.Now().Sub(start), query, params) }()
 	return d.DB.(dbImpl).QueryxContext(ctx, query, params...)

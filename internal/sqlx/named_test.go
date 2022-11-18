@@ -94,7 +94,7 @@ func TestCompileQuery(t *testing.T) {
 
 type Test struct{ t *testing.T }
 
-func (t Test) Error(err error, msg ...interface{}) {
+func (t Test) Error(err error, msg ...any) {
 	t.t.Helper()
 	if err != nil {
 		if len(msg) == 0 {
@@ -105,7 +105,7 @@ func (t Test) Error(err error, msg ...interface{}) {
 	}
 }
 
-func (t Test) Errorf(err error, format string, args ...interface{}) {
+func (t Test) Errorf(err error, format string, args ...any) {
 	t.t.Helper()
 	if err != nil {
 		t.t.Errorf(format, args...)
@@ -342,7 +342,7 @@ func TestNamedStruct(t *testing.T) {
 }
 
 func TestPlaceholderNamedMapper(t *testing.T) {
-	type A map[string]interface{}
+	type A map[string]any
 	m := reflectx.NewMapper("db", NameMapper)
 	query, args, err := bindNamedMapper(PlaceholderDollar, `select :x`, A{
 		"x": "X!",
@@ -395,7 +395,7 @@ func BenchmarkNamedStruct(b *testing.B) {
 func BenchmarkNamedMap(b *testing.B) {
 	b.StopTimer()
 	q1 := `INSERT INTO foo (a, b, c, d) VALUES (:name, :age, :first, :last)`
-	am := map[string]interface{}{
+	am := map[string]any{
 		"name":  "Jason Moiron",
 		"age":   30,
 		"first": "Jason",

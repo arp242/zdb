@@ -54,8 +54,8 @@ type DumpArg int32
 
 func (d DumpArg) has(flag DumpArg) bool { return d&flag != 0 }
 
-func (d *DumpArg) extract(params []interface{}) []interface{} {
-	var newParams = make([]interface{}, 0, len(params))
+func (d *DumpArg) extract(params []any) []any {
+	var newParams = make([]any, 0, len(params))
 	for _, p := range params {
 		b, ok := p.(DumpArg)
 		if !ok {
@@ -110,7 +110,7 @@ const (
 //	DumpNul        Separate columns with NUL (0x00) bytes; useful to feed output to another printer.
 //	DumpJSON       Show as an array of JSON objects.
 //	DumpHTML       Show as a HTML table.
-func Dump(ctx context.Context, out io.Writer, query string, params ...interface{}) {
+func Dump(ctx context.Context, out io.Writer, query string, params ...any) {
 	var dump DumpArg
 	params = dump.extract(params)
 
@@ -250,7 +250,7 @@ func dumpVertical(buf io.Writer, rows *Rows, cols []string) error {
 	t := tabwriter.NewWriter(buf, 4, 4, 2, ' ', 0)
 
 	for rows.Next() {
-		var row []interface{}
+		var row []any
 		err := rows.Scan(&row)
 		if err != nil {
 			return err
@@ -272,7 +272,7 @@ func dumpCSV(buf io.Writer, rows *Rows, cols []string) error {
 	}
 
 	for rows.Next() {
-		var row []interface{}
+		var row []any
 		err := rows.Scan(&row)
 		if err != nil {
 			return err
@@ -300,7 +300,7 @@ func dumpNul(buf io.Writer, rows *Rows, cols []string) error {
 	buf.Write([]byte{'\n'})
 
 	for rows.Next() {
-		var row []interface{}
+		var row []any
 		err := rows.Scan(&row)
 		if err != nil {
 			return err
@@ -318,14 +318,14 @@ func dumpNul(buf io.Writer, rows *Rows, cols []string) error {
 }
 
 func dumpJSON(buf *bytes.Buffer, rows *Rows, cols []string) error {
-	var j []map[string]interface{}
+	var j []map[string]any
 	for rows.Next() {
-		var row []interface{}
+		var row []any
 		err := rows.Scan(&row)
 		if err != nil {
 			return err
 		}
-		obj := make(map[string]interface{})
+		obj := make(map[string]any)
 		for i, c := range row {
 			obj[cols[i]] = c
 		}
@@ -350,7 +350,7 @@ func dumpHTML(buf *bytes.Buffer, rows *Rows, cols []string) error {
 	buf.WriteString("</tr></thead><tbody>\n")
 
 	for rows.Next() {
-		var row []interface{}
+		var row []any
 		err := rows.Scan(&row)
 		if err != nil {
 			return err
@@ -376,7 +376,7 @@ func dumpHTML(buf *bytes.Buffer, rows *Rows, cols []string) error {
 }
 
 // DumpString is like Dump(), but returns the result as a string.
-func DumpString(ctx context.Context, query string, params ...interface{}) string {
+func DumpString(ctx context.Context, query string, params ...any) string {
 	b := new(bytes.Buffer)
 	Dump(ctx, b, query, params...)
 	return strings.TrimSpace(b.String()) + "\n"
@@ -390,7 +390,7 @@ func DumpString(ctx context.Context, query string, params ...interface{}) string
 //
 // This supports ? placeholders and $1 placeholders *in order* ($\d+ is simply
 // replace with ?).
-func ApplyParams(query string, params ...interface{}) string {
+func ApplyParams(query string, params ...any) string {
 	query = regexp.MustCompile(`\$\d+`).ReplaceAllString(query, "?")
 	for _, p := range params {
 		query = strings.Replace(query, "?", formatParam(p, true), 1)

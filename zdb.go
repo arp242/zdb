@@ -55,12 +55,12 @@ type DB interface {
 	Info(ctx context.Context) (ServerInfo, error)
 	Close() error
 
-	Exec(ctx context.Context, query string, params ...interface{}) error
-	NumRows(ctx context.Context, query string, params ...interface{}) (int64, error)
-	InsertID(ctx context.Context, idColumn, query string, params ...interface{}) (int64, error)
-	Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error
-	Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error
-	Query(ctx context.Context, query string, params ...interface{}) (*Rows, error)
+	Exec(ctx context.Context, query string, params ...any) error
+	NumRows(ctx context.Context, query string, params ...any) (int64, error)
+	InsertID(ctx context.Context, idColumn, query string, params ...any) (int64, error)
+	Get(ctx context.Context, dest any, query string, params ...any) error
+	Select(ctx context.Context, dest any, query string, params ...any) error
+	Query(ctx context.Context, query string, params ...any) (*Rows, error)
 
 	TX(ctx context.Context, fb func(context.Context) error) error
 	Begin(ctx context.Context, opts ...beginOpt) (context.Context, DB, error)
@@ -69,12 +69,12 @@ type DB interface {
 }
 
 type (
-	// P ("params") is an alias for map[string]interface{}, just because it's
+	// P ("params") is an alias for map[string]any, just because it's
 	// less typing and looks less noisy 🙃
-	P map[string]interface{}
+	P map[string]any
 
 	// L ("list") is an alias for []interface.
-	L []interface{}
+	L []any
 
 	// SQL represents a safe SQL string that will be directly inserted in the
 	// query without any modification, rather than passed as a parameter.
@@ -187,31 +187,31 @@ func TX(ctx context.Context, fn func(context.Context) error) error {
 }
 
 // Exec executes a query without returning the result.
-func Exec(ctx context.Context, query string, params ...interface{}) error {
+func Exec(ctx context.Context, query string, params ...any) error {
 	return execImpl(ctx, MustGetDB(ctx), query, params...)
 }
 
 // NumRows executes a query and returns the number of affected rows.
-func NumRows(ctx context.Context, query string, params ...interface{}) (int64, error) {
+func NumRows(ctx context.Context, query string, params ...any) (int64, error) {
 	return numRowsImpl(ctx, MustGetDB(ctx), query, params...)
 }
 
 // InsertID runs a INSERT query and returns the ID column idColumn.
 //
 // If multiple rows are inserted it will return the ID of the last inserted row.
-func InsertID(ctx context.Context, idColumn, query string, params ...interface{}) (int64, error) {
+func InsertID(ctx context.Context, idColumn, query string, params ...any) (int64, error) {
 	return insertIDImpl(ctx, MustGetDB(ctx), idColumn, query, params...)
 }
 
 // Select zero or more rows; dest needs to be a pointer to a slice.
 //
 // Returns nil (and no error) if there are no rows.
-func Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func Select(ctx context.Context, dest any, query string, params ...any) error {
 	return selectImpl(ctx, MustGetDB(ctx), dest, query, params...)
 }
 
 // Get one row, returning sql.ErrNoRows if there are no rows.
-func Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func Get(ctx context.Context, dest any, query string, params ...any) error {
 	return getImpl(ctx, MustGetDB(ctx), dest, query, params...)
 }
 
@@ -223,7 +223,7 @@ func Get(ctx context.Context, dest interface{}, query string, params ...interfac
 // This won't return an error if there are no rows.
 // TODO: will it return nil or Rows which just does nothing? Make sure this is
 // tested and documented.
-func Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
+func Query(ctx context.Context, query string, params ...any) (*Rows, error) {
 	return queryImpl(ctx, MustGetDB(ctx), query, params...)
 }
 
@@ -235,19 +235,19 @@ func (r *Rows) Err() error                              { return r.r.Err() }
 func (r *Rows) Close() error                            { return r.r.Close() }
 func (r *Rows) Columns() ([]string, error)              { return r.r.Columns() }
 func (r *Rows) ColumnTypes() ([]*sql.ColumnType, error) { return r.r.ColumnTypes() }
-func (r *Rows) Scan(dest ...interface{}) error {
+func (r *Rows) Scan(dest ...any) error {
 	if len(dest) > 1 {
 		return r.r.Scan(dest...)
 	}
 
 	d := dest[0]
-	if m, ok := d.(*map[string]interface{}); ok {
+	if m, ok := d.(*map[string]any); ok {
 		if *m == nil {
-			*m = make(map[string]interface{})
+			*m = make(map[string]any)
 		}
 		return r.r.MapScan(*m)
 	}
-	if s, ok := d.(*[]interface{}); ok {
+	if s, ok := d.(*[]any); ok {
 		s2, err := r.r.SliceScan()
 		if err != nil {
 			return err
@@ -258,10 +258,10 @@ func (r *Rows) Scan(dest ...interface{}) error {
 	return r.r.StructScan(d)
 }
 
-// func (r *Rows) Scan(s ...interface{}) error        { return r.r.Scan(s...) }
-// func (r *Rows) Struct(d interface{}) error         { return r.r.StructScan(d) }
-// func (r *Rows) Slice() ([]interface{}, error)      { return r.r.SliceScan() }
-// func (r *Rows) Map(d map[string]interface{}) error { return r.r.MapScan(d) }
+// func (r *Rows) Scan(s ...any) error        { return r.r.Scan(s...) }
+// func (r *Rows) Struct(d any) error         { return r.r.StructScan(d) }
+// func (r *Rows) Slice() ([]any, error)      { return r.r.SliceScan() }
+// func (r *Rows) Map(d map[string]any) error { return r.r.MapScan(d) }
 
 // WithDB returns a copy of the context with the DB instance.
 func WithDB(ctx context.Context, db DB) context.Context {

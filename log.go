@@ -53,24 +53,24 @@ func (d logDB) Begin(ctx context.Context, opts ...beginOpt) (context.Context, DB
 	return WithDB(ctx, ldb), ldb, nil
 }
 
-func (d logDB) ExecContext(ctx context.Context, query string, params ...interface{}) (sql.Result, error) {
+func (d logDB) ExecContext(ctx context.Context, query string, params ...any) (sql.Result, error) {
 	defer d.log(ctx, query, params)()
 	return d.DB.(dbImpl).ExecContext(ctx, query, params...)
 }
-func (d logDB) GetContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (d logDB) GetContext(ctx context.Context, dest any, query string, params ...any) error {
 	defer d.log(ctx, query, params)()
 	return d.DB.(dbImpl).GetContext(ctx, dest, query, params...)
 }
-func (d logDB) SelectContext(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (d logDB) SelectContext(ctx context.Context, dest any, query string, params ...any) error {
 	defer d.log(ctx, query, params)()
 	return d.DB.(dbImpl).SelectContext(ctx, dest, query, params...)
 }
-func (d logDB) QueryxContext(ctx context.Context, query string, params ...interface{}) (*sqlx.Rows, error) {
+func (d logDB) QueryxContext(ctx context.Context, query string, params ...any) (*sqlx.Rows, error) {
 	defer d.log(ctx, query, params)()
 	return d.DB.(dbImpl).QueryxContext(ctx, query, params...)
 }
 
-func (d logDB) log(ctx context.Context, query string, params []interface{}) func() {
+func (d logDB) log(ctx context.Context, query string, params []any) func() {
 	if _, ok := GetDB(ctx); !ok {
 		return func() {}
 	}
@@ -87,11 +87,11 @@ func (d logDB) log(ctx context.Context, query string, params []interface{}) func
 
 // TODO: the reason we need these is because it's implemented like so:
 //
-//     func (db zDB) Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+//     func (db zDB) Get(ctx context.Context, dest any, query string, params ...any) error {
 //       return getImpl(ctx, db, dest, query, params...)
 //     }
 //
-//     func Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+//     func Get(ctx context.Context, dest any, query string, params ...any) error {
 //       return getImpl(ctx, MustGetDB(ctx), dest, query, params...)
 //     }
 //
@@ -110,22 +110,22 @@ func (d logDB) log(ctx context.Context, query string, params []interface{}) func
 // Need to think about a good solution for this. Things will be easier once we
 // unify zdb and internal/sqlx, too.
 
-func (db logDB) Exec(ctx context.Context, query string, params ...interface{}) error {
+func (db logDB) Exec(ctx context.Context, query string, params ...any) error {
 	return execImpl(ctx, db, query, params...)
 }
-func (db logDB) NumRows(ctx context.Context, query string, params ...interface{}) (int64, error) {
+func (db logDB) NumRows(ctx context.Context, query string, params ...any) (int64, error) {
 	return numRowsImpl(ctx, db, query, params...)
 }
-func (db logDB) InsertID(ctx context.Context, idColumn, query string, params ...interface{}) (int64, error) {
+func (db logDB) InsertID(ctx context.Context, idColumn, query string, params ...any) (int64, error) {
 	return insertIDImpl(ctx, db, idColumn, query, params...)
 }
-func (db logDB) Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db logDB) Get(ctx context.Context, dest any, query string, params ...any) error {
 	return getImpl(ctx, db, dest, query, params...)
 }
-func (db logDB) Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db logDB) Select(ctx context.Context, dest any, query string, params ...any) error {
 	return selectImpl(ctx, db, dest, query, params...)
 }
-func (db logDB) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
+func (db logDB) Query(ctx context.Context, query string, params ...any) (*Rows, error) {
 	return queryImpl(ctx, db, query, params...)
 }
 func (db logDB) TX(ctx context.Context, fn func(context.Context) error) error {
@@ -134,22 +134,22 @@ func (db logDB) TX(ctx context.Context, fn func(context.Context) error) error {
 func (db logDB) Rollback() error { return db.DB.Rollback() }
 func (db logDB) Commit() error   { return db.DB.Commit() }
 
-func (db metricDB) Exec(ctx context.Context, query string, params ...interface{}) error {
+func (db metricDB) Exec(ctx context.Context, query string, params ...any) error {
 	return execImpl(ctx, db, query, params...)
 }
-func (db metricDB) NumRows(ctx context.Context, query string, params ...interface{}) (int64, error) {
+func (db metricDB) NumRows(ctx context.Context, query string, params ...any) (int64, error) {
 	return numRowsImpl(ctx, db, query, params...)
 }
-func (db metricDB) InsertID(ctx context.Context, idColumn, query string, params ...interface{}) (int64, error) {
+func (db metricDB) InsertID(ctx context.Context, idColumn, query string, params ...any) (int64, error) {
 	return insertIDImpl(ctx, db, idColumn, query, params...)
 }
-func (db metricDB) Get(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db metricDB) Get(ctx context.Context, dest any, query string, params ...any) error {
 	return getImpl(ctx, db, dest, query, params...)
 }
-func (db metricDB) Select(ctx context.Context, dest interface{}, query string, params ...interface{}) error {
+func (db metricDB) Select(ctx context.Context, dest any, query string, params ...any) error {
 	return selectImpl(ctx, db, dest, query, params...)
 }
-func (db metricDB) Query(ctx context.Context, query string, params ...interface{}) (*Rows, error) {
+func (db metricDB) Query(ctx context.Context, query string, params ...any) (*Rows, error) {
 	return queryImpl(ctx, db, query, params...)
 }
 func (db metricDB) TX(ctx context.Context, fn func(context.Context) error) error {

@@ -14,7 +14,7 @@ import (
 // prohibitive.  *Rows.StructScan caches the reflect work of matching up column
 // positions to fields to avoid that overhead per scan, which means it is not safe
 // to run StructScan on the same Rows instance with different struct types.
-func (r *Rows) StructScan(dest interface{}) error {
+func (r *Rows) StructScan(dest any) error {
 	v := reflect.ValueOf(dest)
 
 	if v.Kind() != reflect.Ptr {
@@ -34,7 +34,7 @@ func (r *Rows) StructScan(dest interface{}) error {
 		if f, err := missingFields(r.fields); err != nil {
 			return fmt.Errorf("missing destination name %s in %T", columns[f], dest)
 		}
-		r.values = make([]interface{}, len(columns))
+		r.values = make([]any, len(columns))
 		r.started = true
 	}
 
@@ -50,7 +50,7 @@ func (r *Rows) StructScan(dest interface{}) error {
 	return r.Err()
 }
 
-func (r *Row) scanAny(dest interface{}, structOnly bool) error {
+func (r *Row) scanAny(dest any, structOnly bool) error {
 	if r.err != nil {
 		return r.err
 	}
@@ -94,7 +94,7 @@ func (r *Row) scanAny(dest interface{}, structOnly bool) error {
 	if f, err := missingFields(fields); err != nil {
 		return fmt.Errorf("missing destination name %s in %T", columns[f], dest)
 	}
-	values := make([]interface{}, len(columns))
+	values := make([]any, len(columns))
 
 	err = fieldsByTraversal(v, fields, values, true)
 	if err != nil {
@@ -104,21 +104,21 @@ func (r *Row) scanAny(dest interface{}, structOnly bool) error {
 	return r.Scan(values...)
 }
 
-// SliceScan a row, returning a []interface{} with values similar to MapScan.
+// SliceScan a row, returning a []any with values similar to MapScan.
 // This function is primarily intended for use where the number of columns
-// is not known.  Because you can pass an []interface{} directly to Scan,
+// is not known.  Because you can pass an []any directly to Scan,
 // it's recommended that you do that as it will not have to allocate new
 // slices per row.
-func SliceScan(r ColScanner) ([]interface{}, error) {
+func SliceScan(r ColScanner) ([]any, error) {
 	// ignore r.started, since we needn't use reflect for anything.
 	columns, err := r.Columns()
 	if err != nil {
-		return []interface{}{}, err
+		return []any{}, err
 	}
 
-	values := make([]interface{}, len(columns))
+	values := make([]any, len(columns))
 	for i := range values {
-		values[i] = new(interface{})
+		values[i] = new(any)
 	}
 
 	err = r.Scan(values...)
@@ -127,29 +127,29 @@ func SliceScan(r ColScanner) ([]interface{}, error) {
 	}
 
 	for i := range columns {
-		values[i] = *(values[i].(*interface{}))
+		values[i] = *(values[i].(*any))
 	}
 
 	return values, r.Err()
 }
 
-// MapScan scans a single Row into the dest map[string]interface{}.
+// MapScan scans a single Row into the dest map[string]any.
 // Use this to get results for SQL that might not be under your control
 // (for instance, if you're building an interface for an SQL server that
 // executes SQL from input).  Please do not use this as a primary interface!
 // This will modify the map sent to it in place, so reuse the same map with
 // care.  Columns which occur more than once in the result will overwrite
 // each other!
-func MapScan(r ColScanner, dest map[string]interface{}) error {
+func MapScan(r ColScanner, dest map[string]any) error {
 	// ignore r.started, since we needn't use reflect for anything.
 	columns, err := r.Columns()
 	if err != nil {
 		return err
 	}
 
-	values := make([]interface{}, len(columns))
+	values := make([]any, len(columns))
 	for i := range values {
-		values[i] = new(interface{})
+		values[i] = new(any)
 	}
 
 	err = r.Scan(values...)
@@ -158,7 +158,7 @@ func MapScan(r ColScanner, dest map[string]interface{}) error {
 	}
 
 	for i, column := range columns {
-		dest[column] = *(values[i].(*interface{}))
+		dest[column] = *(values[i].(*any))
 	}
 
 	return r.Err()
@@ -169,7 +169,7 @@ type rowsi interface {
 	Columns() ([]string, error)
 	Err() error
 	Next() bool
-	Scan(...interface{}) error
+	Scan(...any) error
 }
 
 // structOnlyError returns an error appropriate for type when a non-scannable
@@ -201,7 +201,7 @@ func structOnlyError(t reflect.Type) error {
 // to `Get` and `Select`.  The reason that this has been implemented like this is
 // this is the only way to not duplicate reflect work in the new API while
 // maintaining backwards compatibility.
-func scanAll(rows rowsi, dest interface{}, structOnly bool) error {
+func scanAll(rows rowsi, dest any, structOnly bool) error {
 	var v, vp reflect.Value
 
 	value := reflect.ValueOf(dest)
@@ -239,7 +239,7 @@ func scanAll(rows rowsi, dest interface{}, structOnly bool) error {
 	}
 
 	if !scannable {
-		var values []interface{}
+		var values []any
 		var m *reflectx.Mapper
 
 		switch r := rows.(type) {
@@ -253,7 +253,7 @@ func scanAll(rows rowsi, dest interface{}, structOnly bool) error {
 		if f, err := missingFields(fields); err != nil {
 			return fmt.Errorf("missing destination name %s in %T", columns[f], dest)
 		}
-		values = make([]interface{}, len(columns))
+		values = make([]any, len(columns))
 
 		for rows.Next() {
 			// create a new struct type (which returns PtrTo) and indirect it
@@ -305,7 +305,7 @@ func scanAll(rows rowsi, dest interface{}, structOnly bool) error {
 // StructScan will scan in the entire rows result, so if you do not want to
 // allocate structs for the entire result, use Queryx and see sqlx.Rows.StructScan.
 // If rows is sqlx.Rows, it will use its mapper, otherwise it will use the default.
-func StructScan(rows rowsi, dest interface{}) error {
+func StructScan(rows rowsi, dest any) error {
 	return scanAll(rows, dest, true)
 
 }
@@ -328,7 +328,7 @@ func baseType(t reflect.Type, expected reflect.Kind) (reflect.Type, error) {
 // lookups when iterating over many rows.  Empty traversals will get an
 // interface pointer. Because of the necessity of requesting ptrs or values,
 // it's considered a bit too specialized for inclusion in reflectx itself.
-func fieldsByTraversal(v reflect.Value, traversals [][]int, values []interface{}, ptrs bool) error {
+func fieldsByTraversal(v reflect.Value, traversals [][]int, values []any, ptrs bool) error {
 	v = reflect.Indirect(v)
 	if v.Kind() != reflect.Struct {
 		return errors.New("argument not a struct")
@@ -336,7 +336,7 @@ func fieldsByTraversal(v reflect.Value, traversals [][]int, values []interface{}
 
 	for i, traversal := range traversals {
 		if len(traversal) == 0 {
-			values[i] = new(interface{})
+			values[i] = new(any)
 			continue
 		}
 		f := reflectx.FieldByIndexes(v, traversal)

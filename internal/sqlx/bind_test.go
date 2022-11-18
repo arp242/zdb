@@ -47,7 +47,7 @@ func TestRebind(t *testing.T) {
 func TestBindMap(t *testing.T) {
 	haveQuery, haveArgs, err := bindMap(PlaceholderQuestion,
 		`INSERT INTO foo (a, b, c, d) VALUES (:name, :age, :first, :last)`,
-		map[string]interface{}{
+		map[string]any{
 			"name":  "Jason Moiron",
 			"age":   30,
 			"first": "Jason",
@@ -58,7 +58,7 @@ func TestBindMap(t *testing.T) {
 	}
 
 	wantQuery := `INSERT INTO foo (a, b, c, d) VALUES (?, ?, ?, ?)`
-	wantArgs := []interface{}{"Jason Moiron", 30, "Jason", "Moiron"}
+	wantArgs := []any{"Jason Moiron", 30, "Jason", "Moiron"}
 
 	if haveQuery != wantQuery {
 		t.Errorf("Query wrong\nhave: %s\nwant: %s", haveQuery, wantQuery)
@@ -71,50 +71,50 @@ func TestBindMap(t *testing.T) {
 func TestIn(t *testing.T) {
 	tests := []struct {
 		in        string
-		inArgs    []interface{}
+		inArgs    []any
 		wantQuery string
-		wantArgs  []interface{}
+		wantArgs  []any
 		wantErr   string
 	}{
 		{
 			`SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`,
-			[]interface{}{"foo", []int{0, 5, 7, 2, 9}, "bar"},
+			[]any{"foo", []int{0, 5, 7, 2, 9}, "bar"},
 
 			`SELECT * FROM foo WHERE x = ? AND v in (?, ?, ?, ?, ?) AND y = ?`,
-			[]interface{}{"foo", 0, 5, 7, 2, 9, "bar"},
+			[]any{"foo", 0, 5, 7, 2, 9, "bar"},
 			"",
 		},
 		{
 			`SELECT * FROM foo WHERE x in (?)`,
-			[]interface{}{[]int{1, 2, 3, 4, 5, 6, 7, 8}},
+			[]any{[]int{1, 2, 3, 4, 5, 6, 7, 8}},
 
 			`SELECT * FROM foo WHERE x in (?, ?, ?, ?, ?, ?, ?, ?)`,
-			[]interface{}{1, 2, 3, 4, 5, 6, 7, 8},
+			[]any{1, 2, 3, 4, 5, 6, 7, 8},
 			"",
 		},
 		{ // Don't treat []byte as a slice to be processed.
 			`SELECT * FROM foo WHERE x = ? AND y in (?)`,
-			[]interface{}{[]byte("foo"), []int{0, 5, 3}},
+			[]any{[]byte("foo"), []int{0, 5, 3}},
 
 			`SELECT * FROM foo WHERE x = ? AND y in (?, ?, ?)`,
-			[]interface{}{[]byte("foo"), 0, 5, 3},
+			[]any{[]byte("foo"), 0, 5, 3},
 			"",
 		},
 
 		{
 			`SELECT * FROM foo WHERE x = ? AND y IN (?)`,
-			[]interface{}{sql.NullString{Valid: true, String: "x"}, []string{"a", "b"}},
+			[]any{sql.NullString{Valid: true, String: "x"}, []string{"a", "b"}},
 
 			`SELECT * FROM foo WHERE x = ? AND y IN (?, ?)`,
-			[]interface{}{"x", "a", "b"},
+			[]any{"x", "a", "b"},
 			"",
 		},
 		{ // NullString with Valid: false is the same as "nil".
 			`SELECT * FROM foo WHERE x = ? AND y IN (?)`,
-			[]interface{}{sql.NullString{Valid: false}, []string{"a", "b"}},
+			[]any{sql.NullString{Valid: false}, []string{"a", "b"}},
 
 			`SELECT * FROM foo WHERE x = ? AND y IN (?, ?)`,
-			[]interface{}{nil, "a", "b"},
+			[]any{nil, "a", "b"},
 			"",
 		},
 
@@ -123,10 +123,10 @@ func TestIn(t *testing.T) {
 		// might not work, but we shouldn't parse if we don't need to.
 		{
 			`SELECT * FROM foo WHERE x = ? AND y = ?`,
-			[]interface{}{"foo", "bar", "baz"},
+			[]any{"foo", "bar", "baz"},
 
 			`SELECT * FROM foo WHERE x = ? AND y = ?`,
-			[]interface{}{"foo", "bar", "baz"},
+			[]any{"foo", "bar", "baz"},
 
 			"",
 		},
@@ -134,7 +134,7 @@ func TestIn(t *testing.T) {
 		// Too many bindvars;  slice present so should return error during parse
 		{
 			`SELECT * FROM foo WHERE x = ? and y = ?`,
-			[]interface{}{"foo", []int{1, 2, 3}, "bar"},
+			[]any{"foo", []int{1, 2, 3}, "bar"},
 
 			``, nil, "more arguments than placeholders",
 		},
@@ -142,7 +142,7 @@ func TestIn(t *testing.T) {
 		// Empty slice, should return error before parse
 		{
 			`SELECT * FROM foo WHERE x = ?`,
-			[]interface{}{[]int{}},
+			[]any{[]int{}},
 
 			``, nil, "empty slice passed",
 		},
@@ -150,7 +150,7 @@ func TestIn(t *testing.T) {
 		// Too *few* bindvars, should return an error
 		{
 			`SELECT * FROM foo WHERE x = ? AND y in (?)`,
-			[]interface{}{[]int{1, 2, 3}},
+			[]any{[]int{1, 2, 3}},
 
 			``, nil, "more placeholders than arguments",
 		},
@@ -158,10 +158,10 @@ func TestIn(t *testing.T) {
 		// https://github.com/jmoiron/sqlx/issues/688
 		{
 			`SELECT * FROM people WHERE name IN (?)`,
-			[]interface{}{[]string{"gopher"}},
+			[]any{[]string{"gopher"}},
 
 			`SELECT * FROM people WHERE name IN (?)`,
-			[]interface{}{"gopher"},
+			[]any{"gopher"},
 			"",
 		},
 	}
@@ -210,27 +210,27 @@ func BenchmarkRebind(b *testing.B) {
 func BenchmarkIn(b *testing.B) {
 	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
 	for i := 0; i < b.N; i++ {
-		_, _, _ = In(q, []interface{}{"foo", []int{0, 5, 7, 2, 9}, "bar"}...)
+		_, _, _ = In(q, []any{"foo", []int{0, 5, 7, 2, 9}, "bar"}...)
 	}
 }
 func BenchmarkIn1k(b *testing.B) {
 	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
-	var vals [1000]interface{}
+	var vals [1000]any
 	for i := 0; i < b.N; i++ {
-		_, _, _ = In(q, []interface{}{"foo", vals[:], "bar"}...)
+		_, _, _ = In(q, []any{"foo", vals[:], "bar"}...)
 	}
 }
 func BenchmarkIn1kInt(b *testing.B) {
 	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
 	var vals [1000]int
 	for i := 0; i < b.N; i++ {
-		_, _, _ = In(q, []interface{}{"foo", vals[:], "bar"}...)
+		_, _, _ = In(q, []any{"foo", vals[:], "bar"}...)
 	}
 }
 func BenchmarkIn1kString(b *testing.B) {
 	q := `SELECT * FROM foo WHERE x = ? AND v in (?) AND y = ?`
 	var vals [1000]string
 	for i := 0; i < b.N; i++ {
-		_, _, _ = In(q, []interface{}{"foo", vals[:], "bar"}...)
+		_, _, _ = In(q, []any{"foo", vals[:], "bar"}...)
 	}
 }

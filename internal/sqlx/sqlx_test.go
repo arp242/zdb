@@ -242,7 +242,7 @@ func loadDefaultFixture(db *DB, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exec := func(query string, params ...interface{}) {
+	exec := func(query string, params ...any) {
 		t.Helper()
 		_, err := tx.ExecContext(context.TODO(), db.Rebind(query), params...)
 		if err != nil {
@@ -496,7 +496,7 @@ func TestSelectSliceMapTime(t *testing.T) {
 			t.Fatal(err)
 		}
 		for rows.Next() {
-			m := map[string]interface{}{}
+			m := map[string]any{}
 			err := rows.MapScan(m)
 			if err != nil {
 				t.Error(err)
@@ -744,7 +744,7 @@ func TestUsage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		m := map[string]interface{}{}
+		m := map[string]any{}
 		for rows.Next() {
 			err = rows.MapScan(m)
 			if err != nil {
@@ -772,7 +772,7 @@ func TestUsage(t *testing.T) {
 
 		// test advanced querying
 		// test that NamedExec works with a map as well as a struct
-		_, err = db.NamedExec(context.TODO(), "INSERT INTO person (first_name, last_name, email) VALUES (:first, :last, :email)", map[string]interface{}{
+		_, err = db.NamedExec(context.TODO(), "INSERT INTO person (first_name, last_name, email) VALUES (:first, :last, :email)", map[string]any{
 			"first": "Bin",
 			"last":  "Smuth",
 			"email": "bensmith@allblacks.nz",
@@ -782,8 +782,8 @@ func TestUsage(t *testing.T) {
 		}
 
 		// ensure that if the named param happens right at the end it still works
-		// ensure that NamedQuery works with a map[string]interface{}
-		rows, err = db.NamedQuery(context.TODO(), "SELECT * FROM person WHERE first_name=:first", map[string]interface{}{"first": "Bin"})
+		// ensure that NamedQuery works with a map[string]any
+		rows, err = db.NamedQuery(context.TODO(), "SELECT * FROM person WHERE first_name=:first", map[string]any{"first": "Bin"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -937,7 +937,7 @@ func (p PropertyMap) Value() (driver.Value, error) {
 	return json.Marshal(p)
 }
 
-func (p PropertyMap) Scan(src interface{}) error {
+func (p PropertyMap) Scan(src any) error {
 	v := reflect.ValueOf(src)
 	if !v.IsValid() || v.CanAddr() && v.IsNil() {
 		return nil
@@ -1171,7 +1171,7 @@ func TestNamedQueries(t *testing.T) {
 		_, err = db.NamedExec(ctx, `
  			SELECT first_name, last_name, email
  			FROM person WHERE first_name=:first_name AND email=:email`,
-			map[string]interface{}{"first_name": "asd", "email": "def"})
+			map[string]any{"first_name": "asd", "email": "def"})
 		test.Error(err)
 
 		// test struct batch inserts
@@ -1189,7 +1189,7 @@ func TestNamedQueries(t *testing.T) {
 		test.Error(err)
 
 		// test map batch inserts
-		slsMap := []map[string]interface{}{
+		slsMap := []map[string]any{
 			{"first_name": "Ardie", "last_name": "Savea", "email": "asavea@ab.co.nz"},
 			{"first_name": "Sonny Bill", "last_name": "Williams", "email": "sbw@ab.co.nz"},
 			{"first_name": "Ngani", "last_name": "Laumape", "email": "nlaumape@ab.co.nz"},
@@ -1199,7 +1199,7 @@ func TestNamedQueries(t *testing.T) {
  			VALUES (:first_name, :last_name, :email) ;--`, slsMap)
 		test.Error(err)
 
-		type A map[string]interface{}
+		type A map[string]any
 
 		typedMap := []A{
 			{"first_name": "Ardie", "last_name": "Savea", "email": "asavea@ab.co.nz"},
@@ -1224,7 +1224,7 @@ func TestNamedQueries(t *testing.T) {
 		_, err = db.NamedExec(ctx, `
  			INSERT INTO person (first_name, last_name, email)
  			VALUES (:first_name, :last_name, :email)`,
-			map[string]interface{}{"first_name": "Julien", "last_name": "Savea", "email": "jsavea@ab.co.nz"})
+			map[string]any{"first_name": "Julien", "last_name": "Savea", "email": "jsavea@ab.co.nz"})
 		test.Error(err)
 
 		js := Person{

@@ -33,7 +33,7 @@ func TestLogDB(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.file, func(t *testing.T) {
-				get := func(ctx context.Context, useCtx bool, dest interface{}, query string, params ...interface{}) error {
+				get := func(ctx context.Context, useCtx bool, dest any, query string, params ...any) error {
 					if useCtx {
 						return zdb.Get(ctx, dest, query, params...)
 					}

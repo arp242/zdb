@@ -60,10 +60,10 @@ func TestPrepare(t *testing.T) {
 
 	tests := []struct {
 		query string
-		args  []interface{}
+		args  []any
 
 		wantQuery string
-		wantArg   []interface{}
+		wantArg   []any
 		wantErr   string
 	}{
 		// No arguments.
@@ -224,7 +224,7 @@ func TestPrepareDump(t *testing.T) {
 		func() {
 			buf := zdb.BufStderr(t)
 
-			err = zdb.Exec(ctx, `insert into tbl values (:val, 1), {{:val2 (:val2, 2)}}`, map[string]interface{}{
+			err = zdb.Exec(ctx, `insert into tbl values (:val, 1), {{:val2 (:val2, 2)}}`, map[string]any{
 				"val":  "hello",
 				"val2": "world",
 			}, zdb.DumpQuery)
@@ -245,7 +245,7 @@ func TestPrepareDump(t *testing.T) {
 		func() {
 			buf := zdb.BufStderr(t)
 
-			err = zdb.Exec(ctx, `select * from tbl where col1 = :val`, map[string]interface{}{
+			err = zdb.Exec(ctx, `select * from tbl where col1 = :val`, map[string]any{
 				"val": "hello",
 			}, zdb.DumpResult)
 			if err != nil {
@@ -263,7 +263,7 @@ func TestPrepareDump(t *testing.T) {
 		func() {
 			buf := zdb.BufStderr(t)
 
-			err = zdb.Exec(ctx, `select * from tbl where col1 = :val`, map[string]interface{}{
+			err = zdb.Exec(ctx, `select * from tbl where col1 = :val`, map[string]any{
 				"val": "hello",
 			}, zdb.DumpResult, zdb.DumpExplain)
 			if err != nil {
@@ -424,14 +424,14 @@ func TestQuery(t *testing.T) {
 				}
 				//fmt.Println("scan", s, i, ti, n)
 			case 1:
-				var r map[string]interface{}
+				var r map[string]any
 				err := rows.Scan(&r)
 				if err != nil {
 					t.Fatal(err)
 				}
 				//fmt.Println("map", r)
 			case 2:
-				var r []interface{}
+				var r []any
 				err := rows.Scan(&r)
 				if err != nil {
 					t.Fatal(err)
@@ -613,28 +613,28 @@ func TestPrepareIn(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
 		tests := []struct {
 			query  string
-			params []interface{}
+			params []any
 			want   string
 		}{
 			{``, nil, ` []interface {}(nil)`},
 			{
 				`select * from t where a=? and c in (?)`,
-				[]interface{}{1, []string{"A", "B"}},
+				[]any{1, []string{"A", "B"}},
 				`select * from t where a=? and c in (?, ?) []interface {}{1, "A", "B"}`,
 			},
 			{
 				`select * from t where a=? and c in (?)`,
-				[]interface{}{1, []int{1, 2}},
+				[]any{1, []int{1, 2}},
 				`select * from t where a=? and c in (1, 2) []interface {}{1}`,
 			},
 			{
 				`select * from t where a=? and c in (?)`,
-				[]interface{}{1, []int64{1, 2}},
+				[]any{1, []int64{1, 2}},
 				`select * from t where a=? and c in (1, 2) []interface {}{1}`,
 			},
 			{
 				`? ? ? ? ? ?`,
-				[]interface{}{1, 2, 3, []int64{4}, 5, []int64{6}},
+				[]any{1, 2, 3, []int64{4}, 5, []int64{6}},
 				`? ? ? 4 ? 6 []interface {}{1, 2, 3, 5}`,
 			},
 
@@ -643,7 +643,7 @@ func TestPrepareIn(t *testing.T) {
 			// rather than a []int32 :-/
 			{
 				`? (?) ?`,
-				[]interface{}{[]byte("ABC"), []rune("ZXC"), "C"},
+				[]any{[]byte("ABC"), []rune("ZXC"), "C"},
 				`? (?, ?, ?) ? []interface {}{[]uint8{0x41, 0x42, 0x43}, 90, 88, 67, "C"}`,
 			},
 		}
@@ -679,7 +679,7 @@ func BenchmarkPrepare(b *testing.B) {
  		where site=:site and start=:start and end=:end
  		{{:path and path like :path}}
  		{{:psql returning id}}`
-	arg := map[string]interface{}{
+	arg := map[string]any{
 		"path":  "/XXXX",
 		"site":  42,
 		"start": "2020-01-01",

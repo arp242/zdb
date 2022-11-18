@@ -45,15 +45,15 @@ var namedParseConfigs = func() []sqltoken.Config {
 // Named takes a query using named parameters and an argument and returns a new
 // query with a list of args that can be executed by a database.  The return
 // value uses the `?` bindvar.
-func Named(query string, arg interface{}) (string, []interface{}, error) {
+func Named(query string, arg any) (string, []any, error) {
 	return bindNamedMapper(PlaceholderQuestion, query, arg, mapper())
 }
 
 // NamedQuery binds a named query and then runs Query on the result using the
 // provided Ext (sqlx.Tx, sqlx.Db).
 //
-// It works with both structs and with map[string]interface{} types.
-func NamedQuery(ctx context.Context, e Ext, query string, arg interface{}) (*Rows, error) {
+// It works with both structs and with map[string]any types.
+func NamedQuery(ctx context.Context, e Ext, query string, arg any) (*Rows, error) {
 	q, args, err := bindNamedMapper(Placeholder(e.DriverName()), query, arg, mapperFor(e))
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func NamedQuery(ctx context.Context, e Ext, query string, arg interface{}) (*Row
 // NamedExec uses BindStruct to get a query executable by the driver and then
 // runs Exec on the result.  Returns an error from the binding or the query
 // execution itself.
-func NamedExec(ctx context.Context, e Ext, query string, arg interface{}) (sql.Result, error) {
+func NamedExec(ctx context.Context, e Ext, query string, arg any) (sql.Result, error) {
 	q, args, err := bindNamedMapper(Placeholder(e.DriverName()), query, arg, mapperFor(e))
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func NamedExec(ctx context.Context, e Ext, query string, arg interface{}) (sql.R
 	return e.ExecContext(ctx, q, args...)
 }
 
-func bindNamedMapper(style PlaceholderStyle, query string, arg interface{}, m *reflectx.Mapper) (string, []interface{}, error) {
+func bindNamedMapper(style PlaceholderStyle, query string, arg any, m *reflectx.Mapper) (string, []any, error) {
 	t := reflect.TypeOf(arg)
 	k := t.Kind()
 	switch {
@@ -89,22 +89,22 @@ func bindNamedMapper(style PlaceholderStyle, query string, arg interface{}, m *r
 	}
 }
 
-// convertMapStringInterface attempts to convert v to map[string]interface{}.
-// Unlike v.(map[string]interface{}), this function works on named types that
-// are convertible to map[string]interface{} as well.
-func convertMapStringInterface(v interface{}) (map[string]interface{}, bool) {
-	var m map[string]interface{}
+// convertMapStringInterface attempts to convert v to map[string]any.
+// Unlike v.(map[string]any), this function works on named types that
+// are convertible to map[string]any as well.
+func convertMapStringInterface(v any) (map[string]any, bool) {
+	var m map[string]any
 	mtype := reflect.TypeOf(m)
 	t := reflect.TypeOf(v)
 	if !t.ConvertibleTo(mtype) {
 		return nil, false
 	}
-	return reflect.ValueOf(v).Convert(mtype).Interface().(map[string]interface{}), true
+	return reflect.ValueOf(v).Convert(mtype).Interface().(map[string]any), true
 
 }
 
 // Bind map or struct.
-func bindAnyArgs(names []string, arg interface{}, m *reflectx.Mapper) ([]interface{}, error) {
+func bindAnyArgs(names []string, arg any, m *reflectx.Mapper) ([]any, error) {
 	if maparg, ok := convertMapStringInterface(arg); ok {
 		return bindMapArgs(names, maparg)
 	}
@@ -113,8 +113,8 @@ func bindAnyArgs(names []string, arg interface{}, m *reflectx.Mapper) ([]interfa
 
 // Generate a list of interfaces from a given struct type, given a list of names
 // to pull out of the struct.
-func bindArgs(names []string, arg interface{}, m *reflectx.Mapper) ([]interface{}, error) {
-	arglist := make([]interface{}, 0, len(names))
+func bindArgs(names []string, arg any, m *reflectx.Mapper) ([]any, error) {
+	arglist := make([]any, 0, len(names))
 
 	// grab the indirected value of arg
 	v := reflect.ValueOf(arg)
@@ -137,8 +137,8 @@ func bindArgs(names []string, arg interface{}, m *reflectx.Mapper) ([]interface{
 }
 
 // like bindArgs, but for maps.
-func bindMapArgs(names []string, arg map[string]interface{}) ([]interface{}, error) {
-	arglist := make([]interface{}, 0, len(names))
+func bindMapArgs(names []string, arg map[string]any) ([]any, error) {
+	arglist := make([]any, 0, len(names))
 
 	for _, name := range names {
 		val, ok := arg[name]
@@ -153,15 +153,15 @@ func bindMapArgs(names []string, arg map[string]interface{}) ([]interface{}, err
 // bindStruct binds a named parameter query with fields from a struct argument.
 // The rules for binding field names to parameter names follow the same
 // conventions as for StructScan, including obeying the `db` struct tags.
-func bindStruct(style PlaceholderStyle, query string, arg interface{}, m *reflectx.Mapper) (string, []interface{}, error) {
+func bindStruct(style PlaceholderStyle, query string, arg any, m *reflectx.Mapper) (string, []any, error) {
 	bound, names, err := rebindNamed([]byte(query), style)
 	if err != nil {
-		return "", []interface{}{}, err
+		return "", []any{}, err
 	}
 
 	arglist, err := bindAnyArgs(names, arg, m)
 	if err != nil {
-		return "", []interface{}{}, err
+		return "", []any{}, err
 	}
 
 	return bound, arglist, nil
@@ -210,25 +210,25 @@ func fixBound(bound string, loop int) string {
 
 // bindArray binds a named parameter query with fields from an array or slice of
 // structs argument.
-func bindArray(style PlaceholderStyle, query string, arg interface{}, m *reflectx.Mapper) (string, []interface{}, error) {
+func bindArray(style PlaceholderStyle, query string, arg any, m *reflectx.Mapper) (string, []any, error) {
 	// do the initial binding with PlaceholderQuestion; if style is not
 	// question, we can rebind it at the end.
 	bound, names, err := rebindNamed([]byte(query), PlaceholderQuestion)
 	if err != nil {
-		return "", []interface{}{}, err
+		return "", []any{}, err
 	}
 
 	arrayValue := reflect.ValueOf(arg)
 	arrayLen := arrayValue.Len()
 	if arrayLen == 0 {
-		return "", []interface{}{}, fmt.Errorf("length of array is 0: %#v", arg)
+		return "", []any{}, fmt.Errorf("length of array is 0: %#v", arg)
 	}
 
-	arglist := make([]interface{}, 0, len(names)*arrayLen)
+	arglist := make([]any, 0, len(names)*arrayLen)
 	for i := 0; i < arrayLen; i++ {
 		elemArglist, err := bindAnyArgs(names, arrayValue.Index(i).Interface(), m)
 		if err != nil {
-			return "", []interface{}{}, err
+			return "", []any{}, err
 		}
 		arglist = append(arglist, elemArglist...)
 	}
@@ -244,10 +244,10 @@ func bindArray(style PlaceholderStyle, query string, arg interface{}, m *reflect
 }
 
 // bindMap binds a named parameter query with a map of arguments.
-func bindMap(style PlaceholderStyle, query string, args map[string]interface{}) (string, []interface{}, error) {
+func bindMap(style PlaceholderStyle, query string, args map[string]any) (string, []any, error) {
 	bound, names, err := rebindNamed([]byte(query), style)
 	if err != nil {
-		return "", []interface{}{}, err
+		return "", []any{}, err
 	}
 
 	arglist, err := bindMapArgs(names, args)

@@ -36,7 +36,7 @@ func (m *BulkInsert) OnConflict(c string) {
 }
 
 // Values adds a set of values.
-func (m *BulkInsert) Values(values ...interface{}) {
+func (m *BulkInsert) Values(values ...any) {
 	if m.rows+1 >= m.Limit {
 		m.doInsert()
 	}
@@ -60,14 +60,14 @@ func (m *BulkInsert) doInsert() {
 	query, params := m.insert.SQL()
 	err := Exec(m.ctx, query, params...)
 	if err != nil {
-		fmtParams := make([]interface{}, 0, len(params))
+		fmtParams := make([]any, 0, len(params))
 		for _, p := range params {
 			fmtParams = append(fmtParams, formatParam(p, true))
 		}
 		m.errors = append(m.errors, fmt.Sprintf("%v (query=%q) (params=%v)", err, query, fmtParams))
 	}
 
-	m.insert.vals = make([][]interface{}, 0, 32)
+	m.insert.vals = make([][]any, 0, 32)
 	m.rows = 0
 }
 
@@ -75,18 +75,18 @@ type biBuilder struct {
 	table string
 	post  string
 	cols  []string
-	vals  [][]interface{}
+	vals  [][]any
 }
 
 func newBuilder(table string, cols ...string) biBuilder {
-	return biBuilder{table: table, cols: cols, vals: make([][]interface{}, 0, 32)}
+	return biBuilder{table: table, cols: cols, vals: make([][]any, 0, 32)}
 }
 
-func (b *biBuilder) values(vals ...interface{}) {
+func (b *biBuilder) values(vals ...any) {
 	b.vals = append(b.vals, vals)
 }
 
-func (b *biBuilder) SQL(vals ...string) (string, []interface{}) {
+func (b *biBuilder) SQL(vals ...string) (string, []any) {
 	var s strings.Builder
 	s.WriteString("insert into ")
 	s.WriteString(b.table)
@@ -96,7 +96,7 @@ func (b *biBuilder) SQL(vals ...string) (string, []interface{}) {
 	s.WriteString(") values ")
 
 	offset := 0
-	var params []interface{}
+	var params []any
 	for i := range b.vals {
 		s.WriteString("(")
 		for j := range b.vals[i] {

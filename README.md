@@ -135,8 +135,7 @@ any database:
     zdb.Exec(ctx, `insert into test (value) values ($1)`, "hello")
     zdb.Exec(ctx, `insert into test (value) values (:value)`, zdb.P{"value": "hello"})
 
-`zdb.P` is just a `map[string]interface{}`, except shorter. The "P" is for
-"Parameters".
+`zdb.P` is just a `map[string]any`, except shorter. The "P" is for "Parameters".
 
 You can pass multiple structs and/or maps with named parameters:
 
