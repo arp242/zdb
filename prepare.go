@@ -153,6 +153,7 @@ func prepareParams(params []any) (any, bool, DumpArg, io.Writer, error) {
 	)
 	for _, param := range params {
 		if param == nil {
+			mergedPos = append(mergedPos, param)
 			continue
 		}
 		if d, ok := param.(DumpArg); ok {

@@ -72,6 +72,7 @@ func tplFuncs(dialect Dialect) template.FuncMap {
 			return map[Dialect]string{
 				DialectPostgreSQL: "serial         primary key",
 				DialectSQLite:     "integer        primary key autoincrement",
+				DialectMariaDB:    "not null auto_increment primary key",
 			}[dialect]
 		},
 		"jsonb": func() string {
