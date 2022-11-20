@@ -126,7 +126,7 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...any) (strin
 		if dumpOut == nil {
 			dumpOut = stderr
 		}
-		Dump(ctx, dumpOut, query, append(qparams, dumpArgs)...)
+		Dump(WithDB(ctx, db), dumpOut, query, append(qparams, dumpArgs)...)
 	}
 
 	return query, qparams, nil
