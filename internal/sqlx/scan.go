@@ -9,6 +9,12 @@ import (
 	"zgo.at/zdb/internal/sqlx/reflectx"
 )
 
+type ErrMissingField struct{ Column, Type string }
+
+func (e ErrMissingField) Error() string {
+	return fmt.Sprintf("missing column %q in type %T", e.Column, e.Type)
+}
+
 // StructScan is like sql.Rows.Scan, but scans a single Row into a single Struct.
 // Use this and iterate over Rows manually when the memory load of Select() might be
 // prohibitive.  *Rows.StructScan caches the reflect work of matching up column
@@ -23,6 +29,7 @@ func (r *Rows) StructScan(dest any) error {
 
 	v = v.Elem()
 
+	var missErr error
 	if !r.started {
 		columns, err := r.Columns()
 		if err != nil {
@@ -32,7 +39,10 @@ func (r *Rows) StructScan(dest any) error {
 
 		r.fields = m.TraversalsByName(v.Type(), columns)
 		if f, err := missingFields(r.fields); err != nil {
-			return fmt.Errorf("missing destination name %s in %T", columns[f], dest)
+			missErr = &ErrMissingField{
+				Column: columns[f],
+				Type:   fmt.Sprintf("%T", dest),
+			}
 		}
 		r.values = make([]any, len(columns))
 		r.started = true
@@ -47,7 +57,12 @@ func (r *Rows) StructScan(dest any) error {
 	if err != nil {
 		return err
 	}
-	return r.Err()
+	err = r.Err()
+	if err != nil {
+		return err
+	}
+
+	return missErr
 }
 
 func (r *Row) scanAny(dest any, structOnly bool) error {
@@ -90,9 +105,14 @@ func (r *Row) scanAny(dest any, structOnly bool) error {
 
 	m := r.Mapper
 
+	var missErr error
 	fields := m.TraversalsByName(v.Type(), columns)
 	if f, err := missingFields(fields); err != nil {
-		return fmt.Errorf("missing destination name %s in %T", columns[f], dest)
+		missErr = &ErrMissingField{
+			Column: columns[f],
+			Type:   fmt.Sprintf("%T", dest),
+		}
+
 	}
 	values := make([]any, len(columns))
 
@@ -100,8 +120,14 @@ func (r *Row) scanAny(dest any, structOnly bool) error {
 	if err != nil {
 		return err
 	}
+
 	// scan into the struct field pointers and append to our results
-	return r.Scan(values...)
+	err = r.Scan(values...)
+	if err != nil {
+		return err
+	}
+
+	return missErr
 }
 
 // SliceScan a row, returning a []any with values similar to MapScan.
@@ -238,6 +264,7 @@ func scanAll(rows rowsi, dest any, structOnly bool) error {
 		return fmt.Errorf("non-struct dest type %s with >1 columns (%d)", base.Kind(), len(columns))
 	}
 
+	var missErr error
 	if !scannable {
 		var values []any
 		var m *reflectx.Mapper
@@ -251,7 +278,10 @@ func scanAll(rows rowsi, dest any, structOnly bool) error {
 
 		fields := m.TraversalsByName(base, columns)
 		if f, err := missingFields(fields); err != nil {
-			return fmt.Errorf("missing destination name %s in %T", columns[f], dest)
+			missErr = &ErrMissingField{
+				Column: columns[f],
+				Type:   fmt.Sprintf("%T", dest),
+			}
 		}
 		values = make([]any, len(columns))
 
@@ -293,7 +323,12 @@ func scanAll(rows rowsi, dest any, structOnly bool) error {
 		}
 	}
 
-	return rows.Err()
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	return missErr
 }
 
 // FIXME: StructScan was the very first bit of API in sqlx, and now unfortunately

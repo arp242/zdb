@@ -326,6 +326,15 @@ func ErrUnique(err error) bool {
 	return false
 }
 
+// ErrMissingFields reports if this error is because not all columns could be
+// scanned due to missing struct fields.
+//
+// All other columns are scanned; you can choose to ignore this error safely.
+func ErrMissingField(err error) bool {
+	var m *sqlx.ErrMissingField
+	return errors.As(err, &m)
+}
+
 // SQLDialect gets the SQL dialect.
 func SQLDialect(ctx context.Context) Dialect {
 	return MustGetDB(ctx).SQLDialect()

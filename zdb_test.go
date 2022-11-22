@@ -100,3 +100,33 @@ func TestDialect(t *testing.T) {
 		t.Log(db.SQLDialect())
 	})
 }
+
+func TestMissingFields(t *testing.T) {
+	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
+		err := zdb.Exec(ctx, `create table t (a text, b text, c text, d text)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = zdb.Exec(ctx, `insert into t values (?), (?)`,
+			zdb.L{"1", "2", "3", "4"},
+			zdb.L{"5", "6", "7", "8"},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var r []struct {
+			A string `db:"a"`
+			C string `db:"c"`
+			D string `db:"d"`
+		}
+		err = zdb.Select(ctx, &r, `select * from t`)
+		if err == nil || !zdb.ErrMissingField(err) {
+			t.Errorf("wrong error: %#v", err)
+		}
+		if have := fmt.Sprintf("%s", r); have != `[{1 3 4} {5 7 8}]` {
+			t.Error(have)
+		}
+	})
+}
