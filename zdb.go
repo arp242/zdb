@@ -221,6 +221,7 @@ func Get(ctx context.Context, dest any, query string, params ...any) error {
 // in memory to allow fetching the result one row at a time.
 //
 // This won't return an error if there are no rows.
+//
 // TODO: will it return nil or Rows which just does nothing? Make sure this is
 // tested and documented.
 func Query(ctx context.Context, query string, params ...any) (*Rows, error) {

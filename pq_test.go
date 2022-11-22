@@ -1,5 +1,5 @@
-//go:build testpg
-// +build testpg
+//go:build testpq
+// +build testpq
 
 package zdb_test
 

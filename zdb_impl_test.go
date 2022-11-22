@@ -322,7 +322,7 @@ func TestInsertID(t *testing.T) {
 		if zdb.SQLDialect(ctx) == zdb.DialectMariaDB {
 			tbl = `create table test (col_id integer auto_increment, v varchar(255), primary key(col_id))`
 		}
-		err := zdb.Exec(ctx, tbl, nil)
+		err := zdb.Exec(ctx, tbl)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -359,7 +359,7 @@ func TestInsertID(t *testing.T) {
 		}
 
 		{ // Invalid SQL
-			id, err := zdb.InsertID(ctx, `col_id`, `insert into test (no_such_col) values ($1)`, nil)
+			id, err := zdb.InsertID(ctx, `col_id`, `insert into test (no_such_col) values ($1)`)
 			if err == nil {
 				t.Error("err is nil")
 			}
@@ -528,17 +528,17 @@ func TestTX(t *testing.T) {
 
 		t.Run("nested", func(t *testing.T) {
 			err := zdb.TX(ctx, func(ctx context.Context) error {
-				err := zdb.Exec(ctx, `create table test_tx (c varchar)`, nil)
+				err := zdb.Exec(ctx, `create table test_tx (c varchar)`)
 				if err != nil {
 					return err
 				}
-				err = zdb.Exec(ctx, `insert into test_tx values ('outer')`, nil)
+				err = zdb.Exec(ctx, `insert into test_tx values ('outer')`)
 				if err != nil {
 					return err
 				}
 
 				return zdb.TX(ctx, func(ctx context.Context) error {
-					err := zdb.Exec(ctx, `insert into test_tx values ('inner')`, nil)
+					err := zdb.Exec(ctx, `insert into test_tx values ('inner')`)
 					return err
 				})
 			})
@@ -554,15 +554,15 @@ func TestTX(t *testing.T) {
 		})
 
 		t.Run("nested_inner_error", func(t *testing.T) {
-			zdb.Exec(ctx, `create table test_tx2 (c varchar)`, nil)
+			zdb.Exec(ctx, `create table test_tx2 (c varchar)`)
 			err := zdb.TX(ctx, func(ctx context.Context) error {
-				err := zdb.Exec(ctx, `insert into test_tx2 values ('outer')`, nil)
+				err := zdb.Exec(ctx, `insert into test_tx2 values ('outer')`)
 				if err != nil {
 					return err
 				}
 
 				return zdb.TX(ctx, func(ctx context.Context) error {
-					zdb.Exec(ctx, `insert into test_tx2 values ('inner')`, nil)
+					zdb.Exec(ctx, `insert into test_tx2 values ('inner')`)
 					return errors.New("oh noes")
 				})
 			})
@@ -570,24 +570,24 @@ func TestTX(t *testing.T) {
 				t.Fatal("err is nil")
 			}
 
-			got := zdb.DumpString(ctx, `select * from test_tx2`)
+			have := zdb.DumpString(ctx, `select * from test_tx2`)
 			want := "c\n"
-			if got != want {
-				t.Errorf("\ngot:  %q\nwant: %q", got, want)
+			if have != want {
+				t.Errorf("\nhave: %q\nwant: %q", have, want)
 			}
 		})
 
 		t.Run("nested_outer_error", func(t *testing.T) {
-			zdb.Exec(ctx, `create table test_tx3 (c varchar)`, nil)
+			zdb.Exec(ctx, `create table test_tx3 (c varchar)`)
 
 			err := zdb.TX(ctx, func(ctx context.Context) error {
-				err := zdb.Exec(ctx, `insert into test_tx3 values ('outer')`, nil)
+				err := zdb.Exec(ctx, `insert into test_tx3 values ('outer')`)
 				if err != nil {
 					return err
 				}
 
 				err = zdb.TX(ctx, func(ctx context.Context) error {
-					zdb.Exec(ctx, `insert into test_tx3 values ('inner')`, nil)
+					zdb.Exec(ctx, `insert into test_tx3 values ('inner')`)
 					return nil
 				})
 				if err != nil {

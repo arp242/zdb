@@ -2,6 +2,7 @@ package zdb_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -43,11 +44,11 @@ func TestBulkInsertError(t *testing.T) {
 			t.Fatal("error is nil")
 		}
 
-		want := `1 errors: zdb.Exec: 2 values for 3 columns (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=['''one"' 2 'a' '2021-06-18 12:00:00'])`
+		want := `2 values for 3 columns (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=['''one"' 2 'a' '2021-06-18 12:00:00'])`
 		if zdb.SQLDialect(ctx) == zdb.DialectPostgreSQL {
-			want = `1 errors: zdb.Exec: pq: INSERT has more target columns than expressions (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=['''one"' 2 'a' '2021-06-18 12:00:00'])`
+			want = `INSERT has more target columns than expressions`
 		}
-		if err.Error() != want {
+		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("wrong error:\n%v", err)
 		}
 	})
