@@ -8,13 +8,14 @@ import (
 
 // BulkInsert inserts as many rows as possible per query we send to the server.
 type BulkInsert struct {
-	rows    uint16
-	Limit   uint16
-	ctx     context.Context
-	table   string
-	columns []string
-	insert  biBuilder
-	errors  []string
+	rows     uint16
+	Limit    uint16
+	ctx      context.Context
+	table    string
+	columns  []string
+	insert   biBuilder
+	errors   []string
+	returned []any
 }
 
 // NewBulkInsert makes a new BulkInsert builder.
@@ -32,7 +33,30 @@ func NewBulkInsert(ctx context.Context, table string, columns []string) BulkInse
 // OnConflict sets the "on conflict [..]" part of the query. This needs to
 // include the "on conflict" itself.
 func (m *BulkInsert) OnConflict(c string) {
-	m.insert.post = c
+	m.insert.conflict = c
+}
+
+// Returning sets a column name in the "returning" part of the query.
+//
+// The values can be fetched with [Returned].
+func (m *BulkInsert) Returning(column string) {
+	m.returned = make([]any, 0, 32)
+	m.insert.returning = column
+}
+
+// Returned returns any rows that were returned; only useful of [Returning] was
+// set.
+//
+// This will only return values once, for example:
+//
+//	Values(...)    // Inserts 3 rows
+//	...
+//	Returned()     // Return the 3 rows
+//	Values(..)     // Inserts 1 row
+//	Returned()     // Returns the 1 row
+func (m *BulkInsert) Returned() []any {
+	defer func() { m.returned = m.returned[:0] }()
+	return m.returned
 }
 
 // Values adds a set of values.
@@ -45,6 +69,9 @@ func (m *BulkInsert) Values(values ...any) {
 }
 
 // Finish the operation, returning any errors.
+//
+// This can be called more than once, in cases where you want to have some
+// fine-grained control over when actual SQL is sent to the server.
 func (m *BulkInsert) Finish() error {
 	if m.rows > 0 {
 		m.doInsert()
@@ -58,13 +85,14 @@ func (m *BulkInsert) Finish() error {
 
 func (m *BulkInsert) doInsert() {
 	query, params := m.insert.SQL()
-	err := Exec(m.ctx, query, params...)
+	var err error
+	if m.insert.returning != "" {
+		err = Select(m.ctx, &m.returned, query, params...)
+	} else {
+		err = Exec(m.ctx, query, params...)
+	}
 	if err != nil {
-		fmtParams := make([]any, 0, len(params))
-		for _, p := range params {
-			fmtParams = append(fmtParams, formatParam(p, true))
-		}
-		m.errors = append(m.errors, fmt.Sprintf("%v (query=%q) (params=%v)", err, query, fmtParams))
+		m.errors = append(m.errors, err.Error())
 	}
 
 	m.insert.vals = make([][]any, 0, 32)
@@ -72,10 +100,11 @@ func (m *BulkInsert) doInsert() {
 }
 
 type biBuilder struct {
-	table string
-	post  string
-	cols  []string
-	vals  [][]any
+	table     string
+	conflict  string
+	returning string
+	cols      []string
+	vals      [][]any
 }
 
 func newBuilder(table string, cols ...string) biBuilder {
@@ -113,9 +142,14 @@ func (b *biBuilder) SQL(vals ...string) (string, []any) {
 		}
 	}
 
-	if b.post != "" {
+	if b.conflict != "" {
 		s.WriteRune(' ')
-		s.WriteString(b.post)
+		s.WriteString(b.conflict)
+	}
+
+	if b.returning != "" {
+		s.WriteString(" returning ")
+		s.WriteString(b.returning)
 	}
 
 	return s.String(), params
