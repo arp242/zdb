@@ -124,13 +124,11 @@ func (b *biBuilder) SQL(vals ...string) (string, []any) {
 	s.WriteString(strings.Join(b.cols, ","))
 	s.WriteString(") values ")
 
-	offset := 0
 	var params []any
 	for i := range b.vals {
 		s.WriteString("(")
 		for j := range b.vals[i] {
-			offset++
-			s.WriteString(fmt.Sprintf("$%d", offset))
+			s.WriteByte('?')
 			if j < len(b.vals[i])-1 {
 				s.WriteString(",")
 			}

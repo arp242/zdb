@@ -105,7 +105,7 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...any) (strin
 		}
 
 		if s, ok := zint.ToIntSlice(qparams[i]); ok {
-			query, err = replaceParam(query, i, SQL(zint.Join64(s, ", ")))
+			query, err = replaceParam(query, i, SQL(zint.Join(s, ", ")))
 			if err != nil {
 				return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
 			}

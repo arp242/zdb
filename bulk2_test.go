@@ -10,7 +10,7 @@ func TestBuilder(t *testing.T) {
 	b.values("one", "two", "three")
 	b.values("a", "b", "c")
 
-	want := `insert into TBL (col1,col2,col3) values ($1,$2,$3),($4,$5,$6)`
+	want := `insert into TBL (col1,col2,col3) values (?,?,?),(?,?,?)`
 	wantargs := []any{"one", "two", "three", "a", "b", "c"}
 
 	query, args := b.SQL()

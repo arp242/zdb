@@ -1,5 +1,4 @@
 //go:build testpgx
-// +build testpgx
 
 package zdb_test
 

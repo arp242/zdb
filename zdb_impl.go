@@ -5,7 +5,8 @@ package zdb
 // How this works:
 //
 // - We use sqlx.DB internally, but everything we return is a "zDB" or zTX". For
-//   users of zdb, there is no sqlx.
+//   users of zdb, there is no sqlx (the sqlx we use is a heavily modified
+//   version in internal/, which should eventually go away entirely).
 //
 // - Most of the actual implementations are in the *Impl() functions (the name
 //   avoids some conflicts with keywords, packages, and common variables).
@@ -16,11 +17,11 @@ package zdb
 // This is a little bit convoluted, but it solves some issues:
 //
 // - Some of the added methods (zdb.Prepare()) aren't on the sqlx.DB type, and
-//   would prefer a consistent API which is always the same (i.e. zDB.Get()
-//   and zdb.Get() are identical).
+//   I would prefer a consistent API which is always the same (i.e. zDB.Get()
+//   and zdb.Get() are exactly identical).
 //
 // - sqlx.DB and sqlx.Tx don't share some methods which makes passing around a
-//   single DB interface hard (i.e. sqlx.DB has no Commit() and sqlx.Tx has no
+//   single DB interface hard (sqlx.DB has no Commit() and sqlx.Tx has no
 //   Begin(). The zdb wrappers shims these methods out, making various things
 //   easier.
 //
@@ -119,7 +120,10 @@ func (db zTX) DBSQL() *sql.DB                               { return db.parent.D
 func (db zTX) SQLDialect() Dialect                          { return db.parent.dialect }
 func (db zTX) Info(ctx context.Context) (ServerInfo, error) { return db.parent.Info(ctx) }
 func (db zTX) Close() error {
-	err := db.Rollback() // Not sure if this is actually needed, but can't hurt.
+	// Not sure if this is actually needed, but can't hurt. Especially for
+	// MariaDB with its stupid "autocommit mode" it's probably a good idea to do
+	// an explicit rollback.
+	err := db.Rollback()
 	if err != nil {
 		return err
 	}
@@ -178,7 +182,6 @@ type (
 		Version    ServerVersion
 		DriverName string
 		Dialect    Dialect
-		// Maybe some more?
 	}
 	// ServerVersion represents a database version.
 	ServerVersion string

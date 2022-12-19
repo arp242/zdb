@@ -163,7 +163,8 @@ func Dump(ctx context.Context, out io.Writer, query string, params ...any) {
 		case DialectPostgreSQL:
 			err = Select(ctx, &explain, `explain analyze `+query, params...)
 		case DialectMariaDB:
-			// TODO
+			exp := DumpString(ctx, `explain `+query, params...)
+			explain = []string{exp}
 		case DialectSQLite:
 			var sqe []struct {
 				ID, Parent, Notused int

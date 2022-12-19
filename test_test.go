@@ -10,18 +10,23 @@ import (
 func TestDump(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
 		err := zdb.Exec(ctx, `create table tbl (
-			v   varchar   not null,
-			i   int not   null,
+			v   text      not null,
+			i   int       not null,
 			t   timestamp not null,
-			n   varchar   null
-		);
-		insert into tbl values
-			('hello',    42, '2006-01-02 15:04:05', 'v'),
+			n   text      null
+		);`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = zdb.Exec(ctx, `insert into tbl values
+			('hello',     42, '2006-01-02 15:04:05', 'v'),
 			('<zxc>,"',   0,  '2020-01-01 12:00:00', null);
 		`)
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		return
 
 		{
 			got := zdb.DumpString(ctx, `select * from tbl`)

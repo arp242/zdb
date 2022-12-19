@@ -52,3 +52,29 @@ zdb.LogDB: [1mlog_test.go:XX[0m
     1
     2
     3
+
+---
+
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  [1mQUERY[0m:
+    select i from x where i<3;
+  [1mEXPLAIN[0m:
+    id  select_type  table  type  possible_keys  key   key_len  ref   rows  Extra
+    1   SIMPLE       x      ALL   NULL           NULL  NULL     NULL  5     Using where
+  [1mRESULT[0m:
+    i
+    1
+    2
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  [1mQUERY[0m:
+    select i from x where i<4;
+  [1mEXPLAIN[0m:
+    id  select_type  table  type  possible_keys  key   key_len  ref   rows  Extra
+    1   SIMPLE       x      ALL   NULL           NULL  NULL     NULL  5     Using where
+  [1mRESULT[0m:
+    i
+    1
+    2
+    3

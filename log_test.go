@@ -26,7 +26,11 @@ func TestLogDB(t *testing.T) {
 	}
 
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
-		err := zdb.Exec(ctx, `create table x (i int); insert into x values (1), (2), (3), (4), (5)`)
+		err := zdb.Exec(ctx, `create table x (i int)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = zdb.Exec(ctx, `insert into x values (1), (2), (3), (4), (5)`)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,14 +61,11 @@ func TestLogDB(t *testing.T) {
 					}
 					out := buf.String()
 
-					want := string(ztest.Read(t, "testdata/logdb", tt.file))
-					if i := strings.Index(want, "\n---\n"); i >= 0 {
-						if zdb.SQLDialect(ctx) == zdb.DialectPostgreSQL {
-							want = want[i+5:]
-						} else {
-							want = want[:i]
-						}
-					}
+					want := strings.Split(string(ztest.Read(t, "testdata/logdb", tt.file)), "\n---\n")[map[zdb.Dialect]int{
+						zdb.DialectSQLite:     0,
+						zdb.DialectPostgreSQL: 1,
+						zdb.DialectMariaDB:    2,
+					}[zdb.SQLDialect(ctx)]]
 					want = strings.TrimSpace(want) + "\n\n"
 
 					out, want = prep(ctx, out, want)

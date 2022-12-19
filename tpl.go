@@ -14,6 +14,28 @@ var TemplateFuncMap template.FuncMap
 
 // Template runs text/template on SQL to make writing compatible schemas a bit
 // easier.
+//
+// Available template functions:
+//
+//	{{sqlite "str"}}         Include the string only for the given SQL dialect.
+//	{{psql   "str"}}
+//	{{maria  "str"}}
+//
+// Column types:
+//
+//	{{"auto_increment [large]}}     Auto-incrementing column; the optional
+//	                                [large] boolean can be used to make a
+//	                                bigserial/bigint.
+//	{{json}}                        JSON column type (jsonb, json, varchar)
+//	{{blob}}                        Binary column type (bytea, blob, binary)
+//
+// These only produce output for SQLite:
+//
+//	{{check_timestamp "colname"}}   Check constraint for timestamp
+//	{{check_date                    Check constraint for date
+//
+// You can set additional functions (or override any of the above) by adding
+// functions to [TemplateFuncMap].
 func Template(dialect Dialect, tpl string, params ...any) ([]byte, error) {
 	paramMap := map[string]any{}
 	for _, param := range params {
@@ -60,31 +82,36 @@ func Template(dialect Dialect, tpl string, params ...any) ([]byte, error) {
 }
 
 func tplFuncs(dialect Dialect) template.FuncMap {
-	// TODO: MariaDB for many of these.
 	f := template.FuncMap{
 		"sqlite": func(s string) string { return map[Dialect]string{DialectSQLite: s}[dialect] },
 		"psql":   func(s string) string { return map[Dialect]string{DialectPostgreSQL: s}[dialect] },
-		"mysql":  func(s string) string { return map[Dialect]string{DialectMariaDB: s}[dialect] },
+		"maria":  func(s string) string { return map[Dialect]string{DialectMariaDB: s}[dialect] },
 		"auto_increment": func(big ...bool) string {
-			if dialect == DialectPostgreSQL && len(big) > 0 {
-				return "bigserial      primary key"
+			if len(big) > 0 {
+				return map[Dialect]string{
+					DialectPostgreSQL: "bigserial      primary key",
+					DialectSQLite:     "integer        primary key autoincrement",
+					DialectMariaDB:    "bigint         not null auto_increment primary key",
+				}[dialect]
 			}
 			return map[Dialect]string{
 				DialectPostgreSQL: "serial         primary key",
 				DialectSQLite:     "integer        primary key autoincrement",
-				DialectMariaDB:    "not null auto_increment primary key",
+				DialectMariaDB:    "integer        not null auto_increment primary key",
 			}[dialect]
 		},
-		"jsonb": func() string {
+		"json": func() string {
 			return map[Dialect]string{
 				DialectPostgreSQL: "jsonb    ",
 				DialectSQLite:     "varchar  ",
+				DialectMariaDB:    "json     ",
 			}[dialect]
 		},
 		"blob": func() string {
 			return map[Dialect]string{
 				DialectPostgreSQL: "bytea   ",
 				DialectSQLite:     "blob    ",
+				DialectMariaDB:    "blob    ",
 			}[dialect]
 		},
 		"check_timestamp": func(col string) string {
@@ -97,12 +124,20 @@ func tplFuncs(dialect Dialect) template.FuncMap {
 				DialectSQLite: "check(" + col + " = strftime('%Y-%m-%d', " + col + "))",
 			}[dialect]
 		},
-		"cluster": func(tbl, idx string) string {
+
+		"jsonb": func() string { // TODO: remove; old alias for json
+			return map[Dialect]string{
+				DialectPostgreSQL: "jsonb    ",
+				DialectSQLite:     "varchar  ",
+				DialectMariaDB:    "json     ",
+			}[dialect]
+		},
+		"cluster": func(tbl, idx string) string { // TODO: remove; too obscure
 			return map[Dialect]string{
 				DialectPostgreSQL: `cluster ` + tbl + ` using "` + idx + `";`,
 			}[dialect]
 		},
-		"replica": func(tbl, idx string) string {
+		"replica": func(tbl, idx string) string { // TODO: remove; too obscure
 			return map[Dialect]string{
 				DialectPostgreSQL: `alter table ` + tbl + ` replica identity using index "` + idx + `";`,
 			}[dialect]

@@ -3,3 +3,19 @@ zdb.LogDB: [1mlog_test.go:XX[0m
 
 zdb.LogDB: [1mlog_test.go:XX[0m
   select i from x where i<4;
+
+---
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  select i from x where i<3;
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  select i from x where i<4;
+
+---
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  select i from x where i<3;
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  select i from x where i<4;

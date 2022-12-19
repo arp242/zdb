@@ -1,7 +1,7 @@
 // Package zdb provides a nice API to interact with SQL databases in Go.
 //
 // All query functions (Exec, NumRows, InsertID Get, Select, Query) use named
-// parameters (:name) are used if params contains a map or struct; positional
+// parameters (:name)used if params contains a map or struct; positional
 // parameters (? or $1) are used if it doesn't. You can add multiple structs or
 // maps, but mixing named and positional parameters is not allowed.
 //
@@ -71,9 +71,15 @@ type DB interface {
 type (
 	// P ("params") is an alias for map[string]any, just because it's
 	// less typing and looks less noisy 🙃
+	//
+	// Deprecated: map[string]any{..} is now a lot shorter and less ugly than
+	// map[string]interface{}{...}
 	P map[string]any
 
-	// L ("list") is an alias for []interface.
+	// L ("list") is an alias for []any.
+	//
+	// Deprecated: []any{..} is now a lot shorter and less ugly than
+	// []interface{}{..}
 	L []any
 
 	// SQL represents a safe SQL string that will be directly inserted in the
@@ -81,8 +87,8 @@ type (
 	//
 	// Use with wisdom! Careless use of this can open you to SQL injections.
 	// Generally speaking you rarely want to use this, except in some rare cases
-	// where 1) parameters won't work, and 2) you're really really sure this
-	// value is safe.
+	// where 1) parameters won't work, and 2) you're really sure this value is
+	// safe.
 	SQL string
 
 	// Dialect is an SQL dialect. This can be represented by multiple drivers;

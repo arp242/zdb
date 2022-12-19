@@ -21,3 +21,13 @@ zdb.LogDB: [1mlog_test.go:XX[0m
     Rows Removed by Filter: 2
   Planning Time: XXX ms
   Execution Time: XXX ms
+
+---
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  id  select_type  table  type  possible_keys  key   key_len  ref   rows  Extra
+  1   SIMPLE       x      ALL   NULL           NULL  NULL     NULL  5     Using where
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  id  select_type  table  type  possible_keys  key   key_len  ref   rows  Extra
+  1   SIMPLE       x      ALL   NULL           NULL  NULL     NULL  5     Using where

@@ -10,7 +10,6 @@ import (
 	"zgo.at/zdb/drivers"
 	"zgo.at/zdb/internal/sqlx"
 	"zgo.at/zstd/zfs"
-	"zgo.at/zstd/zstring"
 )
 
 // ConnectOptions are options for Connect().
@@ -239,7 +238,7 @@ func Create(db DB, files fs.FS) error {
 // "postgresql://postgresl://..." or "sqlite::memory" is weird and easy to get
 // wrong.
 func connectionString(c string) (conn string, driver string, d Dialect) {
-	dialect, conn := zstring.Split2(c, "+")
+	dialect, conn, _ := strings.Cut(c, "+")
 	if i := strings.IndexByte(dialect, '/'); i > -1 {
 		dialect, driver = dialect[:i], dialect[i+1:]
 	}
@@ -257,7 +256,7 @@ func insertDialect(db DB, name string) []string {
 	case DialectPostgreSQL:
 		return []string{name + "-postgres.sql", name + "-postgresql.sql", name + "-psql.sql", name + ".gotxt", name + ".sql"}
 	case DialectMariaDB:
-		return []string{name + "-mysql.sql", name + ".gotxt", name + ".sql"}
+		return []string{name + "-maria.sql", name + "-mariadb.sql", name + "-mysql.sql", name + ".gotxt", name + ".sql"}
 	default:
 		return []string{name + ".gotxt", name + ".sql"}
 	}

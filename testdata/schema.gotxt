@@ -1,21 +1,21 @@
 create table people (
-	person_id      integer   primary key autoincrement,
+	person_id      {{auto_increment}},
 	species_id     integer   not null  check(species_id > 0),
 	faction_id     integer   null      check(faction_id is null or faction_id > 0),
 	name           varchar   not null,
 	title          varchar   not null,
 	status         varchar   not null,
 
-	created_at     timestamp not null  default current_timestamp check(created_at = strftime('%Y-%m-%d %H:%M:%S', created_at))
+	created_at     timestamp not null  default current_timestamp {{check_timestamp "created_at"}}
 );
 
 create table species (
-	species_id     integer   primary key autoincrement,
+	species_id     {{auto_increment}},
 	name           varchar   not null  check(name <> '')
 );
 
 create table factions (
-	faction_id     integer   primary key autoincrement,
+	faction_id     {{auto_increment}},
 	name           varchar   not null  check(name <> '')
 );
 
@@ -50,3 +50,4 @@ values
 	('Rygel',       'Dominar',    'alive',    4,           2),
 	('Stark',       'Stykera',    'fahrbot',  1,           2),
 	('Zhaan',       'Priest',     'dead',     2,           2);
+

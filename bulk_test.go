@@ -45,9 +45,14 @@ func TestBulkInsertError(t *testing.T) {
 			t.Fatal("error is nil")
 		}
 
-		want := `2 values for 3 columns (query="insert into TBL (aa,bb,cc) values ($1,$2),($3,$4)") (params=['''one"' 2 'a' '2021-06-18 12:00:00'])`
-		if zdb.SQLDialect(ctx) == zdb.DialectPostgreSQL {
+		var want string
+		switch zdb.SQLDialect(ctx) {
+		case zdb.DialectSQLite:
+			want = `2 values for 3 columns`
+		case zdb.DialectPostgreSQL:
 			want = `INSERT has more target columns than expressions`
+		case zdb.DialectMariaDB:
+			want = `Column count doesn't match value count at row 1`
 		}
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("wrong error:\n%v", err)
@@ -59,9 +64,9 @@ func TestBulkInsertReturning(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
 		err := zdb.Exec(ctx, fmt.Sprintf(`create table TBL (id %s, aa text, bb text, cc text)`,
 			map[zdb.Dialect]string{
-				zdb.DialectPostgreSQL: "serial         primary key",
-				zdb.DialectSQLite:     "integer        primary key autoincrement",
-				zdb.DialectMariaDB:    "not null auto_increment primary key",
+				zdb.DialectPostgreSQL: "serial   primary key",
+				zdb.DialectSQLite:     "integer  primary key autoincrement",
+				zdb.DialectMariaDB:    "integer  not null auto_increment primary key",
 			}[zdb.SQLDialect(ctx)]))
 		if err != nil {
 			t.Fatal(err)

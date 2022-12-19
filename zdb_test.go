@@ -59,7 +59,11 @@ func TestError(t *testing.T) {
 
 func TestErrUnique(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
-		err := zdb.Exec(ctx, `create table t (c varchar); create unique index test on t(c)`)
+		err := zdb.Exec(ctx, `create table t (c text)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = zdb.Exec(ctx, `create unique index test on t(c)`)
 		if err != nil {
 			t.Fatal(err)
 		}

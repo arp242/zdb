@@ -215,7 +215,7 @@ func TestPrepare(t *testing.T) {
 
 func TestPrepareDump(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
-		err := zdb.Exec(ctx, `create table tbl (col1 varchar, col2 int);`)
+		err := zdb.Exec(ctx, `create table tbl (col1 text, col2 int);`)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -271,25 +271,36 @@ func TestPrepareDump(t *testing.T) {
 			}
 
 			out := buf.String()
-			want := `
-			[1mEXPLAIN[0m:
-			  SCAN tbl
-			  Time: 0.016 ms
-			[1mRESULT[0m:
-			  col1   col2
-			  hello  1`
-
-			if zdb.SQLDialect(ctx) == zdb.DialectPostgreSQL {
+			var want string
+			switch zdb.SQLDialect(ctx) {
+			case zdb.DialectSQLite:
 				want = `
-			[1mEXPLAIN[0m:
-			  Seq Scan on tbl  (cost=0.00..25.88 rows=6 width=36) (actual time=0.005..0.015 rows=1 loops=1)
-			    Filter: ((col1)::text = 'hello'::text)
-			  	Rows Removed by Filter: 1
-			  Planning Time: 0.123 ms
-			  Execution Time: 0.646 ms
-			[1mRESULT[0m:
-			  col1   col2
-			  hello  1`
+					[1mEXPLAIN[0m:
+					  SCAN tbl
+					  Time: 0.016 ms
+					[1mRESULT[0m:
+					  col1   col2
+					  hello  1`
+			case zdb.DialectPostgreSQL:
+				want = `
+					[1mEXPLAIN[0m:
+					  Seq Scan on tbl  (cost=0.00..25.88 rows=6 width=36) (actual time=0.005..0.015 rows=1 loops=1)
+						Filter: (col1 = 'hello'::text)
+						Rows Removed by Filter: 1
+					  Planning Time: 0.123 ms
+					  Execution Time: 0.646 ms
+					[1mRESULT[0m:
+					  col1   col2
+					  hello  1`
+			case zdb.DialectMariaDB:
+				want = `
+					[1mEXPLAIN[0m:
+					id  select_type  table  type  possible_keys  key   key_len  ref   rows  Extra
+					1   SIMPLE       tbl    ALL   NULL           NULL  NULL     NULL  2     Using where
+					[1mRESULT[0m:
+					col1   col2
+					hello  1
+				`
 			}
 
 			out, want = prep(ctx, out, want)
@@ -385,20 +396,23 @@ col_id  v
 
 func TestQuery(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
-
 		err := zdb.Exec(ctx, `
- 		create table tbl (
- 			s  varchar,
- 			i  int,
- 			t  timestamp,
- 			n  int null
- 		);
- 		insert into tbl values
- 			('Hello', 42,  '2020-06-18', null),
- 			('Hello', 42,  '2020-06-18', null),
- 			('Hello', 42,  '2020-06-18', null),
- 			('Hello', 42,  '2020-06-18', null);
- 	`)
+			create table tbl (
+				s  text,
+				i  int,
+				t  timestamp,
+				n  int null
+			);
+		`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = zdb.Exec(ctx, `insert into tbl values
+			('Hello', 42,  '2020-06-18', null),
+			('Hello', 42,  '2020-06-18', null),
+			('Hello', 42,  '2020-06-18', null),
+			('Hello', 42,  '2020-06-18', null);
+		`)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -528,7 +542,7 @@ func TestTX(t *testing.T) {
 
 		t.Run("nested", func(t *testing.T) {
 			err := zdb.TX(ctx, func(ctx context.Context) error {
-				err := zdb.Exec(ctx, `create table test_tx (c varchar)`)
+				err := zdb.Exec(ctx, `create table test_tx (c text)`)
 				if err != nil {
 					return err
 				}
@@ -554,7 +568,7 @@ func TestTX(t *testing.T) {
 		})
 
 		t.Run("nested_inner_error", func(t *testing.T) {
-			zdb.Exec(ctx, `create table test_tx2 (c varchar)`)
+			zdb.Exec(ctx, `create table test_tx2 (c text)`)
 			err := zdb.TX(ctx, func(ctx context.Context) error {
 				err := zdb.Exec(ctx, `insert into test_tx2 values ('outer')`)
 				if err != nil {
@@ -578,7 +592,7 @@ func TestTX(t *testing.T) {
 		})
 
 		t.Run("nested_outer_error", func(t *testing.T) {
-			zdb.Exec(ctx, `create table test_tx3 (c varchar)`)
+			zdb.Exec(ctx, `create table test_tx3 (c text)`)
 
 			err := zdb.TX(ctx, func(ctx context.Context) error {
 				err := zdb.Exec(ctx, `insert into test_tx3 values ('outer')`)

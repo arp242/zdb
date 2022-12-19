@@ -9,9 +9,8 @@ Features:
 - Deals with some SQL interoperability issues.
 - Basic migrations.
 
-PostgreSQL, SQLite, and MariaDB are supported, but MariaDB support is
-experimental and not thoroughly tested. Oracle MySQL is not supported as it's
-lacking some features.
+PostgreSQL, SQLite, and MariaDB are supported. Oracle MySQL is not supported as
+it's lacking some features.
 
 This requires the following versions because it uses some features introduced in
 those versions:
@@ -94,8 +93,8 @@ There are two ways to use zdb:
 Both are exactly identical, and there is no real difference. Personally I think
 that using `zdb.Get(ctx, ...)` is a lot easier, but some people are against
 storing the database connection on the context as matter of religion – I don't
-really see the problem and it makes a number of things easier. At any rate, you
-can use either according to your faith.
+really see the problem and it makes a number of things easier. You can use
+whatever fits your faith.
 
 You can create a context with `zdb.WithDB()`:
 
@@ -128,7 +127,7 @@ Most of these work as you would expect, and similar to database/sql and sqlx.
 The main difference is that Exec() doesn't return an `sql.Result` and that
 `NumRows()` and `InsertID()` exist for this use case.
 
-You can use `?`, `$n`, or names parameters; these are all identical and work on
+You can use `?`, `$n`, or named parameters; these are all identical and work on
 any database:
 
     zdb.Exec(ctx, `insert into test (value) values (?)`, "hello")
@@ -154,15 +153,16 @@ using named parameters:
     err := zdb.Select(ctx, &values, `
         select * from test
         where
-            value = :val {{:val2 and value not like :val2}}
+            value = :val
+            {{:val2 and value not like :val2}}
     `, zdb.P{
         "val":  "hello",
         "val2": "%world",
     })
 
-The text between `{{:param ... }}` will be omitted if `param` is `false` or the
-type's zero value. End with the parameter name with `!` to invert the match:
-`{{:param! ... }}`.
+The text between `{{:param ... }}` will be omitted if `param` is the type's zero
+value. End with the parameter name with `!` to invert the match: `{{:param! ...
+}}`.
 
 I find this is a fairly nice middle ground between writing plain SQL queries and
 using more complex query builder DSLs.
@@ -171,19 +171,9 @@ using more complex query builder DSLs.
 For more complex use cases you can use text/template; this only works for
 queries loaded from the filesystem, and the filenames need to end with `.gotxt`.
 
-The following functions are available:
+See the documentation on [Template()] for a list of template functions.
 
-    sqlite "str"        Include str only for SQLite.
-    psql   "str"        Include str only for PostgreSQL
-    mysql  "str"        Include str only for MySQL/MariaDB.
-
-    auto_increment      Return the column type for an auto-increment column.
-
-    jsonb               Return the column type for a JSON column.
-    blob                Return the column type for a binary data column.
-
-You can set additional functions (or override any of the above) by adding
-functions to `zdb.TemplateFuncMap`.
+[Template()]: https://godocs.io/zgo.at/zdb#Template
 
 #### Queries from filesystem
 Queries are loaded from the filesystem if the query starts with `load:`:

@@ -8,7 +8,9 @@ import (
 	"sort"
 	"strings"
 
+	"golang.org/x/exp/slices"
 	"zgo.at/zstd/zfs"
+	"zgo.at/zstd/zslice"
 	"zgo.at/zstd/zstring"
 )
 
@@ -35,7 +37,7 @@ func NewMigrate(db DB, files fs.FS, gomig map[string]func(context.Context) error
 		return nil, fmt.Errorf("zdb.NewMigrate: %w", err)
 	}
 
-	err = db.Exec(context.Background(), `create table if not exists version (name varchar)`)
+	err = db.Exec(context.Background(), `create table if not exists version (name varchar(512))`)
 	if err != nil {
 		return nil, fmt.Errorf("zdb.NewMigrate: create version table: %w", err)
 	}
@@ -78,7 +80,7 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 			isFor = DialectPostgreSQL
 		} else if zstring.HasSuffixes(f.Name(), "-sqlite3.sql", "-sqlite.sql") {
 			isFor = DialectSQLite
-		} else if zstring.HasSuffixes(f.Name(), "-mariadb.sql") {
+		} else if zstring.HasSuffixes(f.Name(), "-mariadb.sql", "-maria.sql", "mysql.sql") {
 			isFor = DialectMariaDB
 		}
 		if isFor != DialectUnknown && isFor != dialect {
@@ -86,7 +88,7 @@ func (m Migrate) List() (haveMig, ranMig []string, err error) {
 		}
 
 		haveMig = append(haveMig, zstring.TrimSuffixes(f.Name(), ".sql", ".gotxt",
-			"-postgres", "-postgresql", "-sqlite3", "-sqlite", "-mariadb"))
+			"-postgres", "-postgresql", "-sqlite3", "-sqlite", "-maria", "-mariadb", "-mysql"))
 	}
 	for k := range m.gomig {
 		haveMig = append(haveMig, k)
@@ -142,7 +144,7 @@ func (m Migrate) Check() error {
 		return fmt.Errorf("zdb.Migrate.Check: %w", err)
 	}
 
-	if d := zstring.Difference(haveMig, ranMig); len(d) > 0 {
+	if d := zslice.Difference(haveMig, ranMig); len(d) > 0 {
 		return &PendingMigrationsError{Pending: d}
 	}
 	return nil
@@ -155,8 +157,8 @@ func (m Migrate) Run(which ...string) error {
 		return fmt.Errorf("zdb.Migrate.Run: %w", err)
 	}
 
-	if zstring.ContainsAny(which, "all", "auto") {
-		which = zstring.Difference(haveMig, ranMig)
+	if zslice.ContainsAny(which, "all", "auto") {
+		which = zslice.Difference(haveMig, ranMig)
 	}
 
 	ctx := WithDB(context.Background(), m.db)
@@ -181,7 +183,7 @@ func (m Migrate) Run(which ...string) error {
 		}
 
 		version := strings.TrimSuffix(filepath.Base(run), ".sql")
-		if zstring.Contains(ranMig, version) {
+		if slices.Contains(ranMig, version) {
 			return fmt.Errorf("migration already run: %q (version entry: %q)", run, version)
 		}
 

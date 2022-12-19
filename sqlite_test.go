@@ -1,5 +1,4 @@
-//go:build !testpq && !testpgx && !testmaria
-// +build !testpq,!testpgx,!testmaria
+//go:build !testsqlite && !testpq && !testpgx && !testmaria
 
 package zdb_test
 

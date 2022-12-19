@@ -11,7 +11,7 @@ import (
 
 func TestMigrateList(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
-		err := zdb.Exec(ctx, `create table version (name varchar)`)
+		err := zdb.Exec(ctx, `create table version (name text)`)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -50,6 +50,9 @@ func TestMigrateList(t *testing.T) {
 			if zdb.SQLDialect(ctx) == zdb.DialectPostgreSQL {
 				want = "select 'migrate-pgsql';\n"
 			}
+			if zdb.SQLDialect(ctx) == zdb.DialectMariaDB {
+				want = "select 'migrate-mariadb';\n"
+			}
 			if got != want {
 				t.Errorf("\ngot:  %q\nwant: %q", got, want)
 			}
@@ -61,6 +64,9 @@ func TestMigrateList(t *testing.T) {
 			want = "select 'migrate-sqlite';\n"
 			if zdb.SQLDialect(ctx) == zdb.DialectPostgreSQL {
 				want = "select 'migrate-pgsql';\n"
+			}
+			if zdb.SQLDialect(ctx) == zdb.DialectMariaDB {
+				want = "select 'migrate-mariadb';\n"
 			}
 			if got != want {
 				t.Errorf("\ngot:  %q\nwant: %q", got, want)

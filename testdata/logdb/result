@@ -8,3 +8,29 @@ zdb.LogDB: [1mlog_test.go:XX[0m
   1
   2
   3
+
+---
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  i
+  1
+  2
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  i
+  1
+  2
+  3
+
+---
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  i
+  1
+  2
+
+zdb.LogDB: [1mlog_test.go:XX[0m
+  i
+  1
+  2
+  3
