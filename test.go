@@ -201,9 +201,10 @@ func Dump(ctx context.Context, out io.Writer, query string, params ...any) {
 
 			switch {
 			default:
+				if dump.has(DumpVertical) {
+					return dumpVertical(buf, rows, cols)
+				}
 				return dumpHorizontal(buf, rows, cols)
-			case dump.has(DumpVertical):
-				return dumpVertical(buf, rows, cols)
 			case dump.has(DumpCSV):
 				return dumpCSV(buf, rows, cols)
 			case dump.has(DumpNul):
@@ -211,7 +212,7 @@ func Dump(ctx context.Context, out io.Writer, query string, params ...any) {
 			case dump.has(DumpJSON):
 				return dumpJSON(buf, rows, cols)
 			case dump.has(DumpHTML):
-				return dumpHTML(buf, rows, cols)
+				return dumpHTML(buf, dump.has(DumpVertical), rows, cols)
 			}
 		}()
 		if err != nil {
@@ -340,7 +341,37 @@ func dumpJSON(buf *bytes.Buffer, rows *Rows, cols []string) error {
 	return nil
 }
 
-func dumpHTML(buf *bytes.Buffer, rows *Rows, cols []string) error {
+func dumpHTML(buf *bytes.Buffer, vertical bool, rows *Rows, cols []string) error {
+	if vertical {
+		i := 1
+		for rows.Next() {
+			var row []any
+			if err := rows.Scan(&row); err != nil {
+				return err
+			}
+
+			buf.WriteString("<table class='vertical'>\n")
+			fmt.Fprintf(buf, "<caption>RECORD %d</caption>\n", i)
+			buf.WriteString("<tbody>\n")
+			for j, r := range row {
+				buf.WriteString("<tr>\n")
+				buf.WriteString("<th>")
+				buf.WriteString(cols[j])
+				buf.WriteString("</th>\n")
+
+				buf.WriteString("  <td>")
+				buf.WriteString(template.HTMLEscapeString(formatParam(r, false)))
+				buf.WriteString("</td>\n")
+				buf.WriteString("</tr>\n")
+			}
+			buf.WriteString("</tbody>\n")
+			i++
+		}
+
+		buf.WriteString("</table>\n")
+		return nil
+	}
+
 	buf.WriteString("<table><thead><tr>\n")
 	for _, c := range cols {
 		buf.WriteString("  <th>")
@@ -351,8 +382,7 @@ func dumpHTML(buf *bytes.Buffer, rows *Rows, cols []string) error {
 
 	for rows.Next() {
 		var row []any
-		err := rows.Scan(&row)
-		if err != nil {
+		if err := rows.Scan(&row); err != nil {
 			return err
 		}
 
@@ -366,12 +396,6 @@ func dumpHTML(buf *bytes.Buffer, rows *Rows, cols []string) error {
 	}
 
 	buf.WriteString("</tbody></table>\n")
-
-	// out, err := json.MarshalIndent(j, "", "\t")
-	// if err != nil {
-	// 	return err
-	// }
-	// buf.Write(out)
 	return nil
 }
 
@@ -402,6 +426,7 @@ func ApplyParams(query string, params ...any) string {
 	return query
 }
 
+// TODO: also look at Value interface; at least when used to dump the query.
 func formatParam(a any, quoted bool) string {
 	if a == nil {
 		return "NULL"

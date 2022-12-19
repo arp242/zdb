@@ -160,12 +160,14 @@ func SliceScan(r ColScanner) ([]any, error) {
 }
 
 // MapScan scans a single Row into the dest map[string]any.
-// Use this to get results for SQL that might not be under your control
-// (for instance, if you're building an interface for an SQL server that
-// executes SQL from input).  Please do not use this as a primary interface!
-// This will modify the map sent to it in place, so reuse the same map with
-// care.  Columns which occur more than once in the result will overwrite
-// each other!
+//
+// Use this to get results for SQL that might not be under your control (for
+// instance, if you're building an interface for an SQL server that executes SQL
+// from input).
+//
+// Please do not use this as a primary interface! This will modify the map sent
+// to it in place, so reuse the same map with care.  Columns which occur more
+// than once in the result will overwrite each other!
 func MapScan(r ColScanner, dest map[string]any) error {
 	// ignore r.started, since we needn't use reflect for anything.
 	columns, err := r.Columns()
