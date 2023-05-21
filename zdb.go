@@ -209,7 +209,11 @@ func InsertID(ctx context.Context, idColumn, query string, params ...any) (int64
 	return insertIDImpl(ctx, MustGetDB(ctx), idColumn, query, params...)
 }
 
-// Select zero or more rows; dest needs to be a pointer to a slice.
+// Select zero or more rows; dest needs to be a pointer to a slice of:
+//
+//   - a struct to scan in to
+//   - map[string]any
+//   - []any
 //
 // Returns nil (and no error) if there are no rows.
 func Select(ctx context.Context, dest any, query string, params ...any) error {

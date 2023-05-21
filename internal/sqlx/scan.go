@@ -261,16 +261,63 @@ func scanAll(rows rowsi, dest any, structOnly bool) error {
 		return err
 	}
 
-	// if it's a base type make sure it only has 1 column;  if not return an error
+	// If it's a base type make sure it only has 1 column; if not return an error
+	sliceT := direct.Type().Elem()
+	if scannable && (sliceT.Kind() == reflect.Slice || sliceT.Kind() == reflect.Map) {
+		switch sliceT.Kind() {
+		case reflect.Map:
+			k, v := direct.Type().Elem().Key(), direct.Type().Elem().Elem()
+			if k.Kind() != reflect.String || v.Kind() != reflect.Interface {
+				return fmt.Errorf("dest map must by []map[string]any, not []map[%s]%s", k, v)
+			}
+
+			for rows.Next() {
+				r := make([]any, len(columns))
+				for i := range r {
+					r[i] = &r[i]
+				}
+				rows.Scan(r...)
+				if err != nil {
+					return err
+				}
+				m := make(map[string]any)
+				for i := range columns {
+					m[columns[i]] = r[i]
+				}
+				direct.Set(reflect.Append(direct, reflect.ValueOf(m)))
+			}
+			return nil
+		case reflect.Slice:
+			if t := direct.Type().Elem().Elem(); t.Kind() != reflect.Interface {
+				return fmt.Errorf("dest slice must by [][]any, not [][]%s", t)
+			}
+			for rows.Next() {
+				r := make([]any, len(columns))
+				for i := range r {
+					r[i] = &r[i]
+				}
+				err := rows.Scan(r...)
+				if err != nil {
+					return err
+				}
+				direct.Set(reflect.Append(direct, reflect.ValueOf(r)))
+			}
+			return nil
+		default:
+			return errors.New("slice must be [][]any or [][]map[string]any")
+		}
+	}
+
 	if scannable && len(columns) > 1 {
-		return fmt.Errorf("non-struct dest type %s with >1 columns (%d)", base.Kind(), len(columns))
+		return fmt.Errorf("non-struct or slice dest type %s with >1 columns (%d)", base.Kind(), len(columns))
 	}
 
 	var missErr error
 	if !scannable {
-		var values []any
-		var m *reflectx.Mapper
-
+		var (
+			values []any
+			m      *reflectx.Mapper
+		)
 		switch r := rows.(type) {
 		case *Rows:
 			m = r.Mapper
@@ -279,7 +326,8 @@ func scanAll(rows rowsi, dest any, structOnly bool) error {
 		}
 
 		fields := m.TraversalsByName(base, columns)
-		if f, err := missingFields(fields); err != nil {
+		f, err := missingFields(fields)
+		if err != nil {
 			missErr = &ErrMissingField{
 				Column: columns[f],
 				Type:   fmt.Sprintf("%T", dest),
@@ -288,7 +336,7 @@ func scanAll(rows rowsi, dest any, structOnly bool) error {
 		values = make([]any, len(columns))
 
 		for rows.Next() {
-			// create a new struct type (which returns PtrTo) and indirect it
+			// Create a new struct type (which returns PtrTo) and indirect it
 			vp = reflect.New(base)
 			v = reflect.Indirect(vp)
 
