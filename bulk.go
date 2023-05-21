@@ -15,7 +15,7 @@ type BulkInsert struct {
 	columns  []string
 	insert   biBuilder
 	errors   []string
-	returned []any
+	returned [][]any
 }
 
 // NewBulkInsert makes a new BulkInsert builder.
@@ -39,9 +39,9 @@ func (m *BulkInsert) OnConflict(c string) {
 // Returning sets a column name in the "returning" part of the query.
 //
 // The values can be fetched with [Returned].
-func (m *BulkInsert) Returning(column string) {
-	m.returned = make([]any, 0, 32)
-	m.insert.returning = column
+func (m *BulkInsert) Returning(columns ...string) {
+	m.returned = make([][]any, 0, 32)
+	m.insert.returning = columns
 }
 
 // Returned returns any rows that were returned; only useful of [Returning] was
@@ -54,7 +54,7 @@ func (m *BulkInsert) Returning(column string) {
 //	Returned()     // Return the 3 rows
 //	Values(..)     // Inserts 1 row
 //	Returned()     // Returns the 1 row
-func (m *BulkInsert) Returned() []any {
+func (m *BulkInsert) Returned() [][]any {
 	defer func() { m.returned = m.returned[:0] }()
 	return m.returned
 }
@@ -86,7 +86,7 @@ func (m *BulkInsert) Finish() error {
 func (m *BulkInsert) doInsert() {
 	query, params := m.insert.SQL()
 	var err error
-	if m.insert.returning != "" {
+	if len(m.insert.returning) > 0 {
 		err = Select(m.ctx, &m.returned, query, params...)
 	} else {
 		err = Exec(m.ctx, query, params...)
@@ -102,7 +102,7 @@ func (m *BulkInsert) doInsert() {
 type biBuilder struct {
 	table     string
 	conflict  string
-	returning string
+	returning []string
 	cols      []string
 	vals      [][]any
 }
@@ -145,9 +145,9 @@ func (b *biBuilder) SQL(vals ...string) (string, []any) {
 		s.WriteString(b.conflict)
 	}
 
-	if b.returning != "" {
+	if len(b.returning) > 0 {
 		s.WriteString(" returning ")
-		s.WriteString(b.returning)
+		s.WriteString(strings.Join(b.returning, ","))
 	}
 
 	return s.String(), params
