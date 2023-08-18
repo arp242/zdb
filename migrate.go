@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
-	"golang.org/x/exp/slices"
 	"zgo.at/zstd/zfs"
 	"zgo.at/zstd/zslice"
 	"zgo.at/zstd/zstring"

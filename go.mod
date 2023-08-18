@@ -7,8 +7,7 @@ require (
 	github.com/jackc/pgx/v5 v5.3.1
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.17
-	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	zgo.at/zstd v0.0.0-20230518015225-0920e0f78cb1
+	zgo.at/zstd v0.0.0-20230630011541-913635908466
 )
 
 require (
