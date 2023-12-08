@@ -209,7 +209,9 @@ func (m Migrate) Run(which ...string) error {
 				}
 
 				fmt.Println("-- " + run)
-				fmt.Println(query)
+				fmt.Println(strings.TrimRight(query, "\n"))
+				fmt.Println("\n-- Record migration.")
+				fmt.Println(ApplyParams(`insert into version (name) values (?)`, version))
 				return nil
 			}
 			err = Exec(ctx, s)
