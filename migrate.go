@@ -183,7 +183,7 @@ func (m Migrate) Run(which ...string) error {
 		}
 
 		version := strings.TrimSuffix(filepath.Base(run), ".sql")
-		if slices.Contains(ranMig, version) {
+		if !m.show && slices.Contains(ranMig, version) {
 			return fmt.Errorf("migration already run: %q (version entry: %q)", run, version)
 		}
 
