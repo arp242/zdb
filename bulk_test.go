@@ -28,6 +28,19 @@ func TestBulkInsert(t *testing.T) {
 	})
 }
 
+// Make sure that a bulk-insert without any Values() calls is not an error.
+func TestBulkInsertEmpty(t *testing.T) {
+	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
+		if err := zdb.Exec(ctx, `create table tbl (a text);`); err != nil {
+			t.Fatal(err)
+		}
+		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		if err := insert.Finish(); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 func TestBulkInsertError(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
 		err := zdb.Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
