@@ -76,7 +76,11 @@ func (m *BulkInsert) Finish() error {
 	if m.rows > 0 {
 		m.doInsert()
 	}
+	return m.Errors()
+}
 
+// Errors returns all errors that have been encounterd.
+func (m BulkInsert) Errors() error {
 	if len(m.errors) == 0 {
 		return nil
 	}
