@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"io"
+	"io/fs"
 	"regexp"
 	"strings"
 
@@ -40,6 +41,10 @@ func NewLogDB(db DB, out io.Writer, logWhat DumpArg, filter string) DB {
 		logWhat = DumpQuery | DumpExplain | DumpResult
 	}
 	return &logDB{DB: db, out: out, logWhat: logWhat | DumpLocation | dumpFromLogDB, filter: filter}
+}
+
+func (d logDB) queryFiles() fs.FS {
+	return d.DB.(interface{ queryFiles() fs.FS }).queryFiles()
 }
 
 func (d logDB) Unwrap() DB { return d.DB }
