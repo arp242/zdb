@@ -31,5 +31,5 @@ golang.org/x/text v0.14.0/go.mod h1:18ZOQIKpY8NJVqYksKHtTdi31H5itFRjB5/qKTNYzSU=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
-zgo.at/zstd v0.0.0-20231206020926-f20b0b1e56be h1:uCoZKZS+BrGcxNefHdxEVczvYcfb1hnRKss2l0/7zHQ=
-zgo.at/zstd v0.0.0-20231206020926-f20b0b1e56be/go.mod h1:o/Q8+EtSahHnfkbB3t8wXE0FnoDTmJ0sBDlzezv9XeM=
+zgo.at/zstd v0.0.0-20240521013615-10baa641d7d0 h1:s4v5EAzMGV4ly1t240XidEY1Cq0OuyZSZL57Kbz/Big=
+zgo.at/zstd v0.0.0-20240521013615-10baa641d7d0/go.mod h1:o/Q8+EtSahHnfkbB3t8wXE0FnoDTmJ0sBDlzezv9XeM=

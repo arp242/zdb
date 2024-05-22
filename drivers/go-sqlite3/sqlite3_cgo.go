@@ -14,7 +14,6 @@ import (
 
 	"github.com/mattn/go-sqlite3"
 	"zgo.at/zdb/drivers"
-	"zgo.at/zstd/zstring"
 )
 
 func (driver) ErrUnique(err error) bool {
@@ -23,7 +22,7 @@ func (driver) ErrUnique(err error) bool {
 }
 
 func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, bool, error) {
-	connect, driver := zstring.Split2(connect, "+++")
+	connect, driver, _ := strings.Cut(connect, "+++")
 	if driver == "" {
 		driver = "sqlite3"
 	}
