@@ -73,10 +73,7 @@ func (m *MetricsMemory) Queries() []struct {
 		}{k, v})
 	}
 
-	sort.Slice(l, func(i, j int) bool {
-		return l[i].Times.Sum() > l[j].Times.Sum()
-	})
-
+	sort.Slice(l, func(i, j int) bool { return l[i].Times.Sum() > l[j].Times.Sum() })
 	return l
 }
 

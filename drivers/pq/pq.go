@@ -87,7 +87,7 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 		os.Setenv("PGDATABASE", "zdb_test")
 	}
 
-	copt := zdb.ConnectOptions{Connect: "postgresql+", Create: true}
+	copt := zdb.ConnectOptions{Connect: "postgresql+", Create: !opt.NoCreate}
 	if opt != nil && opt.Connect != "" {
 		copt.Connect = opt.Connect
 	}
@@ -99,29 +99,34 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 		t.Fatalf("pq.StartTest: connecting to %q: %s", copt.Connect, err)
 	}
 
-	// The first test will create the zdb_test database, and every test after
-	// that runs in its own schema.
-	schema := fmt.Sprintf(`"zdb_test_%s"`, time.Now().Format("20060102T15:04:05.9999"))
-	err = db.Exec(context.Background(), `create schema `+schema)
-	if err != nil {
-		t.Fatalf("pq.StartTest: creating schema %s: %s", schema, err)
-	}
-	err = db.Exec(context.Background(), "set search_path to "+schema)
-	if err != nil {
-		t.Fatalf("pq.StartTest: setting search_path to %s: %s", schema, err)
-	}
-
-	// No easy way to copy the public schema, so just run the create again.
-	// TODO: migrate, too?
-	if copt.Files != nil {
-		err = zdb.Create(db, copt.Files)
+	var schema string
+	if !opt.NoCreate {
+		// The first test will create the zdb_test database, and every test after
+		// that runs in its own schema.
+		schema = fmt.Sprintf(`"zdb_test_%s"`, time.Now().Format("20060102T15:04:05.9999"))
+		err = db.Exec(context.Background(), `create schema `+schema)
 		if err != nil {
-			t.Fatalf("pq.StartTest: creating database in schema %s: %s", schema, err)
+			t.Fatalf("pq.StartTest: creating schema %s: %s", schema, err)
+		}
+		err = db.Exec(context.Background(), "set search_path to "+schema)
+		if err != nil {
+			t.Fatalf("pq.StartTest: setting search_path to %s: %s", schema, err)
+		}
+
+		// No easy way to copy the public schema, so just run the create again.
+		// TODO: migrate, too?
+		if copt.Files != nil {
+			err = zdb.Create(db, copt.Files)
+			if err != nil {
+				t.Fatalf("pq.StartTest: creating database in schema %s: %s", schema, err)
+			}
 		}
 	}
 
 	t.Cleanup(func() {
-		db.Exec(context.Background(), "drop schema "+schema+" cascade")
+		if !opt.NoCreate {
+			db.Exec(context.Background(), "drop schema "+schema+" cascade")
+		}
 		db.Close()
 	})
 	return zdb.WithDB(context.Background(), db)
