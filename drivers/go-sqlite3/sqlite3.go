@@ -77,6 +77,10 @@ func (driver) Match(dialect, driver string) bool {
 func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context {
 	t.Helper()
 
+	if opt == nil {
+		opt = &drivers.TestOptions{}
+	}
+
 	copt := zdb.ConnectOptions{Connect: "sqlite+:memory:?cache=shared", Create: !opt.NoCreate}
 	if opt != nil && opt.Connect != "" {
 		copt.Connect = opt.Connect

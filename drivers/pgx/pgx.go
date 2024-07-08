@@ -87,6 +87,9 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 	if e := os.Getenv("PGDATABASE"); e == "" {
 		os.Setenv("PGDATABASE", "zdb_test")
 	}
+	if opt == nil {
+		opt = &drivers.TestOptions{}
+	}
 
 	copt := zdb.ConnectOptions{Connect: "postgresql+", Create: !opt.NoCreate}
 	if opt != nil && opt.Connect != "" {

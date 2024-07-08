@@ -57,6 +57,9 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 	t.Helper()
 
 	dbname := "zdb_test_" + zcrypto.SecretString(10, "")
+	if opt == nil {
+		opt = &drivers.TestOptions{}
+	}
 
 	copt := zdb.ConnectOptions{Connect: "mysql+root@unix(/var/run/mysqld/mysqld.sock)/" + dbname, Create: !opt.NoCreate}
 	if opt != nil && opt.Connect != "" {
