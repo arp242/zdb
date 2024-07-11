@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"regexp"
 	"text/template"
+
+	"zgo.at/zstd/zcrypto"
 )
 
 // TemplateFuncMap are additional template functions for Template(). Existing
@@ -123,6 +125,9 @@ func tplFuncs(dialect Dialect) template.FuncMap {
 			return map[Dialect]string{
 				DialectSQLite: "check(" + col + " = strftime('%Y-%m-%d', " + col + "))",
 			}[dialect]
+		},
+		"random_text": func(n int) string {
+			return zcrypto.SecretString(n, "")
 		},
 
 		"jsonb": func() string { // TODO: remove; old alias for json
