@@ -182,7 +182,7 @@ func BeginIsolation(level sql.IsolationLevel) beginOpt {
 //
 // The context passed to the callback has the DB replaced with a transaction.
 // The transaction is committed if the fn returns nil, or will be rolled back if
-// it's not.
+// it's not. The error is propegated up unless it's [TXRollback].
 //
 // Multiple TX() calls can be nested, but they all run the same transaction and
 // are comitted only if the outermost transaction returns true.
@@ -191,6 +191,10 @@ func BeginIsolation(level sql.IsolationLevel) beginOpt {
 func TX(ctx context.Context, fn func(context.Context) error) error {
 	return txImpl(ctx, MustGetDB(ctx), fn)
 }
+
+// TXRollback can be returned from [TX] to roll back the transaction without
+// error.
+var TXRollback = errors.New("TXRollback")
 
 // Exec executes a query without returning the result.
 func Exec(ctx context.Context, query string, params ...any) error {

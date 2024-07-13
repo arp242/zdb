@@ -311,6 +311,13 @@ func txImpl(ctx context.Context, db DB, fn func(context.Context) error) error {
 
 	err = fn(txctx)
 	if err != nil {
+		if errors.Is(err, TXRollback) {
+			err := tx.Rollback()
+			if err != nil {
+				return fmt.Errorf("zdb.TX rollback: %w", err)
+			}
+			return nil
+		}
 		return fmt.Errorf("zdb.TX fn: %w", err)
 	}
 
