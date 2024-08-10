@@ -17,6 +17,7 @@ import (
 	"github.com/lib/pq"
 	"zgo.at/zdb"
 	"zgo.at/zdb/drivers"
+	"zgo.at/zstd/zcrypto"
 )
 
 func init() {
@@ -106,7 +107,7 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 	if !opt.NoCreate {
 		// The first test will create the zdb_test database, and every test after
 		// that runs in its own schema.
-		schema = fmt.Sprintf(`"zdb_test_%s"`, time.Now().Format("20060102T15:04:05.9999"))
+		schema = fmt.Sprintf(`"zdb_test_%s_%s"`, time.Now().Format("20060102T15:04:05.9999"), zcrypto.SecretString(4, ""))
 		err = db.Exec(context.Background(), `create schema `+schema)
 		if err != nil {
 			t.Fatalf("pq.StartTest: creating schema %s: %s", schema, err)
