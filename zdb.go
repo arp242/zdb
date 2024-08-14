@@ -50,7 +50,7 @@ import (
 //
 // See documentation on the top-level functions for more details on the methods.
 type DB interface {
-	DBSQL() *sql.DB
+	DBSQL() (*sql.DB, *sql.Tx)
 	SQLDialect() Dialect
 	Info(ctx context.Context) (ServerInfo, error)
 	Close() error
@@ -352,4 +352,10 @@ func ErrMissingField(err error) bool {
 // SQLDialect gets the SQL dialect.
 func SQLDialect(ctx context.Context) Dialect {
 	return MustGetDB(ctx).SQLDialect()
+}
+
+// DBSQL gets the database and transaction. The sql.DB is always set, but sql.Tx
+// is nil if this is not a transaction.
+func DBSQL(ctx context.Context) (*sql.DB, *sql.Tx) {
+	return MustGetDB(ctx).DBSQL()
 }

@@ -60,7 +60,7 @@ func (db zDB) rebind(query string) string     { return db.db.Rebind(query) }
 func (db zDB) ping(ctx context.Context) error { return db.db.PingContext(ctx) }
 func (db zDB) driverName() string             { return db.db.DriverName() }
 
-func (db zDB) DBSQL() *sql.DB                               { return db.db.DB }
+func (db zDB) DBSQL() (*sql.DB, *sql.Tx)                    { return db.db.DB, nil }
 func (db zDB) SQLDialect() Dialect                          { return db.dialect }
 func (db zDB) Info(ctx context.Context) (ServerInfo, error) { return infoImpl(ctx, db) }
 func (db zDB) Close() error                                 { return db.db.Close() }
@@ -116,7 +116,7 @@ func (db zTX) rebind(query string) string     { return db.parent.rebind(query) }
 func (db zTX) ping(ctx context.Context) error { return db.parent.ping(ctx) }
 func (db zTX) driverName() string             { return db.parent.driverName() }
 
-func (db zTX) DBSQL() *sql.DB                               { return db.parent.DBSQL() }
+func (db zTX) DBSQL() (*sql.DB, *sql.Tx)                    { p, _ := db.parent.DBSQL(); return p, db.db.Tx }
 func (db zTX) SQLDialect() Dialect                          { return db.parent.dialect }
 func (db zTX) Info(ctx context.Context) (ServerInfo, error) { return db.parent.Info(ctx) }
 func (db zTX) Close() error {

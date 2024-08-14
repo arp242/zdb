@@ -27,7 +27,8 @@ type ConnectOptions struct {
 	//
 	// This can also be changed at runtime with:
 	//
-	//    db.DBSQL().SetMaxOpenConns(100)
+	//    d, _ := db.DBSQL()
+	//    d.SetMaxOpenConns(100)
 	MaxOpenConns int
 	MaxIdleConns int
 
