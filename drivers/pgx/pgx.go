@@ -15,7 +15,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	"zgo.at/zdb"
 	"zgo.at/zdb/drivers"
 )
@@ -32,12 +33,14 @@ func (driver) ErrUnique(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
-func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, bool, error) {
+func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, bool, error) {
 	exists := true
-	db, err := sql.Open("pgx", connect)
+
+	pool, err := pgxpool.New(context.Background(), connect)
 	if err != nil {
-		return nil, false, fmt.Errorf("pgx.Connect: %w", err)
+		return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
 	}
+	db := stdlib.OpenDBFromPool(pool)
 
 	err = db.PingContext(ctx)
 	if err != nil {
@@ -58,24 +61,24 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 		if create && dbname != "" {
 			out, cerr := exec.Command("createdb", dbname).CombinedOutput()
 			if cerr != nil {
-				return nil, false, fmt.Errorf("pgx.Connect: %w: %s", cerr, out)
+				return nil, nil, false, fmt.Errorf("pgx.Connect: %w: %s", cerr, out)
 			}
 
 			db, err = sql.Open("pgx", connect)
 			if err != nil {
-				return nil, false, fmt.Errorf("pgx.Connect: %w", err)
+				return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
 			}
 
-			return db, false, nil
+			return db, pool, false, nil
 		}
 
 		if dbname != "" {
-			return nil, false, &drivers.NotExistError{Driver: "postgres", DB: dbname, Connect: connect}
+			return nil, nil, false, &drivers.NotExistError{Driver: "postgres", DB: dbname, Connect: connect}
 		}
-		return nil, false, fmt.Errorf("pgx.Connect: %w", err)
+		return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
 	}
 
-	return db, exists, nil
+	return db, pool, exists, nil
 }
 
 // StartTest starts a new test.

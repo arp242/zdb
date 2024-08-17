@@ -14,6 +14,6 @@ import (
 // wankery: https://github.com/mattn/go-sqlite3/pull/899 🤷
 func (driver) ErrUnique(err error) bool { return false }
 
-func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, bool, error) {
-	return nil, false, errors.New("go-sqlite3: not available: compiled with CGO_ENABLED=0")
+func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, bool, error) {
+	return nil, nil, false, errors.New("go-sqlite3: not available: compiled with CGO_ENABLED=0")
 }

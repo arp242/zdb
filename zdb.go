@@ -359,3 +359,16 @@ func SQLDialect(ctx context.Context) Dialect {
 func DBSQL(ctx context.Context) (*sql.DB, *sql.Tx) {
 	return MustGetDB(ctx).DBSQL()
 }
+
+// DriverConnection gets the driver connection; for example *pgx.Pool. May be
+// nil.
+func DriverConnection(db DB) any {
+	db = Unwrap(db)
+	if x, ok := db.(*zDB); ok {
+		return x.driverConn
+	}
+	if x, ok := db.(*zTX); ok {
+		return x.parent.driverConn
+	}
+	return nil
+}

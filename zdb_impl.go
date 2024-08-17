@@ -50,9 +50,10 @@ import (
 var ctxkey = &struct{ n string }{"zdb"}
 
 type zDB struct {
-	db      *sqlx.DB
-	dialect Dialect
-	queryFS fs.FS
+	db         *sqlx.DB
+	driverConn any
+	dialect    Dialect
+	queryFS    fs.FS
 }
 
 func (db zDB) queryFiles() fs.FS              { return db.queryFS }

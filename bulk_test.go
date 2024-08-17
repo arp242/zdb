@@ -75,7 +75,7 @@ func TestBulkInsertError(t *testing.T) {
 
 func TestBulkInsertReturning(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
-		err := zdb.Exec(ctx, fmt.Sprintf(`create table TBL (id %s, aa text, bb text, cc text)`,
+		err := zdb.Exec(ctx, fmt.Sprintf(`create table TBL (id %s, aa int, bb int, cc int)`,
 			map[zdb.Dialect]string{
 				zdb.DialectPostgreSQL: "serial   primary key",
 				zdb.DialectSQLite:     "integer  primary key autoincrement",

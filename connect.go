@@ -116,7 +116,7 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 		return nil, fmt.Errorf("zdb.Connect: no driver found: dialect=%q; driver=%q", dialect, driver)
 	}
 
-	sqlDB, exists, err := useDriver.Connect(ctx, conn, opt.Create)
+	sqlDB, driverConn, exists, err := useDriver.Connect(ctx, conn, opt.Create)
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
@@ -131,7 +131,7 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 	sqlDB.SetMaxIdleConns(opt.MaxIdleConns)
 
 	dialect = dialectNames[useDriver.Dialect()]
-	db := &zDB{db: sqlx.NewDb(sqlDB, useDriver.Name()), dialect: dialect}
+	db := &zDB{db: sqlx.NewDb(sqlDB, useDriver.Name()), dialect: dialect, driverConn: driverConn}
 
 	// These versions are required for zdb.
 	info, err := db.Info(WithDB(context.Background(), db))

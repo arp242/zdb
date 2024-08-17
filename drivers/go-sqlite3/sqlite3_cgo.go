@@ -21,7 +21,7 @@ func (driver) ErrUnique(err error) bool {
 	return errors.As(err, &sqlErr) && sqlErr.ExtendedCode == sqlite3.ErrConstraintUnique
 }
 
-func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, bool, error) {
+func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, bool, error) {
 	connect, driver, _ := strings.Cut(connect, "+++")
 	if driver == "" {
 		driver = "sqlite3"
@@ -56,7 +56,7 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 		file = connect[:i]
 		q, err = url.ParseQuery(connect[i+1:])
 		if err != nil {
-			return nil, false, fmt.Errorf("sqlite3.Connect: parse connection string: %w", err)
+			return nil, nil, false, fmt.Errorf("sqlite3.Connect: parse connection string: %w", err)
 		}
 	}
 
@@ -83,7 +83,7 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 	if !memory {
 		_, err = os.Stat(file)
 		if err != nil && !os.IsNotExist(err) {
-			return nil, false, fmt.Errorf("sqlite3.Connect: %w", err)
+			return nil, nil, false, fmt.Errorf("sqlite3.Connect: %w", err)
 		}
 
 		if os.IsNotExist(err) {
@@ -92,12 +92,12 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 				if abs, err := filepath.Abs(file); err == nil {
 					file = abs
 				}
-				return nil, false, &drivers.NotExistError{Driver: "sqlite3", DB: file, Connect: connect}
+				return nil, nil, false, &drivers.NotExistError{Driver: "sqlite3", DB: file, Connect: connect}
 			}
 
 			err = os.MkdirAll(filepath.Dir(file), 0755)
 			if err != nil {
-				return nil, false, fmt.Errorf("sqlite3.Connect: create DB dir: %w", err)
+				return nil, nil, false, fmt.Errorf("sqlite3.Connect: create DB dir: %w", err)
 			}
 		}
 	}
@@ -114,8 +114,8 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 
 	db, err := sql.Open(driver, connect)
 	if err != nil {
-		return nil, false, fmt.Errorf("sqlite3.Connect: %w", err)
+		return nil, nil, false, fmt.Errorf("sqlite3.Connect: %w", err)
 	}
 
-	return db, exists, nil
+	return db, nil, exists, nil
 }
