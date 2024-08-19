@@ -54,10 +54,8 @@ func Template(dialect Dialect, tpl string, params ...any) ([]byte, error) {
 		if v.Type().ConvertibleTo(reflect.TypeOf(m)) {
 			m = v.Convert(reflect.TypeOf(m)).Interface().(map[string]any)
 		}
-		if m != nil {
-			for k, v := range m {
-				paramMap[k] = v
-			}
+		for k, v := range m {
+			paramMap[k] = v
 		}
 
 		// Struct

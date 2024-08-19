@@ -41,9 +41,9 @@ func TestXXX(t *testing.T) {
 	// fmt.Printf("%T: %#[1]v\n", m.FieldByName(v, "asdasd")) // struct
 }
 
-func ival(v reflect.Value) int {
-	return v.Interface().(int)
-}
+//func ival(v reflect.Value) int {
+//	return v.Interface().(int)
+//}
 
 /*
 func TestBasic(t *testing.T) {

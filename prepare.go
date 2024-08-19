@@ -315,7 +315,7 @@ func replaceConditionals(query string, params ...any) (string, error) {
 // prepareParams.
 func includeConditional(param any, name string) (include, has bool, err error) {
 	v := reflect.ValueOf(param)
-	for v = reflect.ValueOf(param); v.Kind() == reflect.Ptr; {
+	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
 

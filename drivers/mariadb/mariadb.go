@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/go-sql-driver/mysql"
-	_ "github.com/go-sql-driver/mysql"
 	"zgo.at/zdb"
 	"zgo.at/zdb/drivers"
 	"zgo.at/zstd/zcrypto"

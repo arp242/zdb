@@ -118,7 +118,7 @@ func bindArgs(names []string, arg any, m *reflectx.Mapper) ([]any, error) {
 
 	// grab the indirected value of arg
 	v := reflect.ValueOf(arg)
-	for v = reflect.ValueOf(arg); v.Kind() == reflect.Ptr; {
+	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
 
