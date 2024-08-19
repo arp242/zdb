@@ -61,7 +61,7 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 		opt = &drivers.TestOptions{}
 	}
 
-	copt := zdb.ConnectOptions{Connect: "mysql+root@unix(/var/run/mysqld/mysqld.sock)/" + dbname, Create: !opt.NoCreate}
+	copt := zdb.ConnectOptions{Connect: "mysql+root@unix(/var/run/mysqld/mysqld.sock)/" + dbname, Create: true}
 	if opt != nil && opt.Connect != "" {
 		copt.Connect = opt.Connect
 	}
@@ -69,12 +69,10 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 		copt.Files = opt.Files
 	}
 
-	if !opt.NoCreate {
-		err := createdb(dbname)
-		if err != nil {
-			t.Fatal(err)
-			return nil
-		}
+	err := createdb(dbname)
+	if err != nil {
+		t.Fatal(err)
+		return nil
 	}
 
 	db, err := zdb.Connect(context.Background(), copt)

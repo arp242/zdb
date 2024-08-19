@@ -104,9 +104,4 @@ func Test() func() {
 type TestOptions struct {
 	Connect string
 	Files   fs.FS
-
-	// Run against the Connect string without creating a new database or
-	// cleaning anything up. You probably shouldn't use this, but some (rare)
-	// cases it's useful.
-	NoCreate bool
 }

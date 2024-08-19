@@ -81,7 +81,7 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 		opt = &drivers.TestOptions{}
 	}
 
-	copt := zdb.ConnectOptions{Connect: "sqlite+:memory:?cache=shared", Create: !opt.NoCreate}
+	copt := zdb.ConnectOptions{Connect: "sqlite+:memory:?cache=shared", Create: true}
 	if opt != nil && opt.Connect != "" {
 		copt.Connect = opt.Connect
 	}
