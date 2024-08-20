@@ -108,12 +108,12 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 	//   export PGOPTIONS='-csearch_path=foo'
 	//
 	// But pgx doesn't support PGOPTIONS. So invent our own that we pick up on.
-	schema := os.Getenv("PGSEARCHPATH")
-	if schema == "" {
-		schema = fmt.Sprintf(`"zdb_test_%s_%s"`, time.Now().Format("20060102T15:04:05.9999"),
-			zcrypto.SecretString(4, ""))
-		os.Setenv("PGSEARCHPATH", schema)
-	}
+	//
+	// TODO: don't use environment to pass information to Connect(), as this is
+	// racy.
+	schema := fmt.Sprintf(`"zdb_test_%s_%s"`, time.Now().Format("20060102T15:04:05.9999"),
+		zcrypto.SecretString(4, ""))
+	os.Setenv("PGSEARCHPATH", schema)
 
 	if e := os.Getenv("PGDATABASE"); e == "" {
 		os.Setenv("PGDATABASE", "zdb_test")
