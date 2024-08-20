@@ -88,6 +88,6 @@ func (t TestRows) Next(dest []driver.Value) error {
 		dest[i] = row[i]
 	}
 
-	t.rows = t.rows[1:]
+	//t.rows = t.rows[1:]
 	return nil
 }
