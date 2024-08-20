@@ -37,7 +37,15 @@ func (driver) ErrUnique(err error) bool {
 func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, bool, error) {
 	exists := true
 
-	pool, err := pgxpool.New(context.Background(), connect)
+	cfg, err := pgxpool.ParseConfig(connect)
+	if err != nil {
+		return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
+	}
+	schema := os.Getenv("PGSEARCHPATH")
+	if schema != "" {
+		cfg.ConnConfig.RuntimeParams["search_path"] = schema
+	}
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
 	}
@@ -79,6 +87,13 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 		return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
 	}
 
+	if schema != "" {
+		_, err = db.ExecContext(ctx, `create schema if not exists `+schema)
+		if err != nil {
+			return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
+		}
+	}
+
 	return db, pool, exists, nil
 }
 
@@ -88,6 +103,18 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context {
 	t.Helper()
 
+	// The psql way to pas this is with:
+	//
+	//   export PGOPTIONS='-csearch_path=foo'
+	//
+	// But pgx doesn't support PGOPTIONS. So invent our own that we pick up on.
+	schema := os.Getenv("PGSEARCHPATH")
+	if schema == "" {
+		schema = fmt.Sprintf(`"zdb_test_%s_%s"`, time.Now().Format("20060102T15:04:05.9999"),
+			zcrypto.SecretString(4, ""))
+		os.Setenv("PGSEARCHPATH", schema)
+	}
+
 	if e := os.Getenv("PGDATABASE"); e == "" {
 		os.Setenv("PGDATABASE", "zdb_test")
 	}
@@ -95,6 +122,7 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 		opt = &drivers.TestOptions{}
 	}
 
+	//copt := zdb.ConnectOptions{Connect: "postgresql+", Create: true, Schema: schema}
 	copt := zdb.ConnectOptions{Connect: "postgresql+", Create: true}
 	if opt != nil && opt.Connect != "" {
 		copt.Connect = opt.Connect
@@ -105,27 +133,6 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 	db, err := zdb.Connect(context.Background(), copt)
 	if err != nil {
 		t.Fatalf("pgx.StartTest: connecting to %q: %s", copt.Connect, err)
-	}
-
-	// The first test will create the zdb_test database, and every test after
-	// that runs in its own schema.
-	schema := fmt.Sprintf(`"zdb_test_%s_%s"`, time.Now().Format("20060102T15:04:05.9999"), zcrypto.SecretString(4, ""))
-	err = db.Exec(context.Background(), `create schema `+schema)
-	if err != nil {
-		t.Fatalf("pgx.StartTest: creating schema %s: %s", schema, err)
-	}
-	err = db.Exec(context.Background(), "set search_path to "+schema)
-	if err != nil {
-		t.Fatalf("pgx.StartTest: setting search_path to %s: %s", schema, err)
-	}
-
-	// No easy way to copy the public schema, so just run the create again.
-	// TODO: migrate, too?
-	if copt.Files != nil {
-		err = zdb.Create(db, copt.Files)
-		if err != nil {
-			t.Fatalf("pgx.StartTest: creating database in schema %s: %s", schema, err)
-		}
 	}
 
 	t.Cleanup(func() {
