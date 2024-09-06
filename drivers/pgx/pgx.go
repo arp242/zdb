@@ -77,7 +77,6 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 			if err != nil {
 				return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
 			}
-
 			return db, pool, false, nil
 		}
 
@@ -138,6 +137,20 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 	t.Cleanup(func() {
 		db.Exec(context.Background(), "drop schema "+schema+" cascade")
 		db.Close()
+
+		// TODO: Just closing the sql.DB isn't enough, as that won't close all
+		// the connections made from pgxpool.Pool. Need to explicitly close
+		// both.
+		//
+		// This should really be done on db.Close() for everything, but not so
+		// easy to wrap that as sql.DB is a struct rather than interface. Would
+		// probably be best to send a patch to pgx to add option or something.
+		// Need to look into it properly.
+		//
+		// However, in "real applications" it's usually not a big deal as
+		// connections as only closed on application exit (that is: basically
+		// never). So for now, it's an okay hack to just do this for tests.
+		zdb.DriverConnection(db).(*pgxpool.Pool).Close()
 	})
 	return zdb.WithDB(context.Background(), db)
 }
