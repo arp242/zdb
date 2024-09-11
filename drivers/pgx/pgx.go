@@ -9,8 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"regexp"
 	"testing"
 	"time"
 
@@ -34,12 +32,10 @@ func (driver) ErrUnique(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
-func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, bool, error) {
-	exists := true
-
+func (d driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, error) {
 	cfg, err := pgxpool.ParseConfig(connect)
 	if err != nil {
-		return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
+		return nil, nil, fmt.Errorf("pgx.Connect: %w", err)
 	}
 	schema := os.Getenv("PGSEARCHPATH")
 	if schema != "" {
@@ -47,7 +43,7 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 	}
 	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
-		return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
+		return nil, nil, fmt.Errorf("pgx.Connect: %w", err)
 	}
 	db := stdlib.OpenDBFromPool(pool)
 
@@ -58,42 +54,40 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 			pgErr  *pgconn.PgError
 		)
 		if errors.As(err, &pgErr) && pgErr.Code == "3D000" {
-			// TODO: we can parse the connection string with pgx now to get the
-			// database name.
-			x := regexp.MustCompile(`database "(.+?)" does not exist`).FindStringSubmatch(pgErr.Error())
-			if len(x) >= 2 {
-				dbname = x[1]
-				exists = true
-			}
+			dbname = cfg.ConnConfig.Database
 		}
 
 		if create && dbname != "" {
-			out, cerr := exec.Command("createdb", dbname).CombinedOutput()
-			if cerr != nil {
-				return nil, nil, false, fmt.Errorf("pgx.Connect: %w: %s", cerr, out)
-			}
-
-			db, err = sql.Open("pgx", connect)
+			cfg.ConnConfig.Database = "postgres"
+			pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 			if err != nil {
-				return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
+				return nil, nil, fmt.Errorf("pgx.Connect: %w", err)
 			}
-			return db, pool, false, nil
+			defer pool.Close()
+			_, err = pool.Exec(ctx, `create database `+dbname)
+			if err != nil {
+				return nil, nil, fmt.Errorf("pgx.Connect: %w", err)
+			}
+			pool.Close()
+
+			// Restart the function with "create" to false to avoid loops.
+			return d.Connect(ctx, connect, false)
 		}
 
 		if dbname != "" {
-			return nil, nil, false, &drivers.NotExistError{Driver: "postgres", DB: dbname, Connect: connect}
+			return nil, nil, &drivers.NotExistError{Driver: "postgres", DB: dbname, Connect: connect}
 		}
-		return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
+		return nil, nil, fmt.Errorf("pgx.Connect: %w", err)
 	}
 
 	if schema != "" {
 		_, err = db.ExecContext(ctx, `create schema if not exists `+schema)
 		if err != nil {
-			return nil, nil, false, fmt.Errorf("pgx.Connect: %w", err)
+			return nil, nil, fmt.Errorf("pgx.Connect: %w", err)
 		}
 	}
 
-	return db, pool, exists, nil
+	return db, pool, nil
 }
 
 // StartTest starts a new test.

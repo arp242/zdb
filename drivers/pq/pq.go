@@ -32,11 +32,10 @@ func (driver) ErrUnique(err error) bool {
 	var pqErr *pq.Error
 	return errors.As(err, &pqErr) && pqErr.Code == "23505"
 }
-func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, bool, error) {
-	exists := true
+func (d driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, error) {
 	db, err := sql.Open("postgres", connect)
 	if err != nil {
-		return nil, nil, false, fmt.Errorf("pq.Connect: %w", err)
+		return nil, nil, fmt.Errorf("pq.Connect: %w", err)
 	}
 
 	err = db.PingContext(ctx)
@@ -51,31 +50,26 @@ func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB
 			x := regexp.MustCompile(`pq: database "(.+?)" does not exist`).FindStringSubmatch(pqErr.Error())
 			if len(x) >= 2 {
 				dbname = x[1]
-				exists = true
 			}
 		}
 
 		if create && dbname != "" {
 			out, cerr := exec.Command("createdb", dbname).CombinedOutput()
 			if cerr != nil {
-				return nil, nil, false, fmt.Errorf("pq.Connect: %w: %s", cerr, out)
+				return nil, nil, fmt.Errorf("pq.Connect: %w: %s", cerr, out)
 			}
 
-			db, err = sql.Open("postgres", connect)
-			if err != nil {
-				return nil, nil, false, fmt.Errorf("pq.Connect: %w", err)
-			}
-
-			return db, nil, false, nil
+			// Restart the function with "create" to false to avoid loops.
+			return d.Connect(ctx, connect, false)
 		}
 
 		if dbname != "" {
-			return nil, nil, false, &drivers.NotExistError{Driver: "postgres", DB: dbname, Connect: connect}
+			return nil, nil, &drivers.NotExistError{Driver: "postgres", DB: dbname, Connect: connect}
 		}
-		return nil, nil, false, fmt.Errorf("pq.Connect: %w", err)
+		return nil, nil, fmt.Errorf("pq.Connect: %w", err)
 	}
 
-	return db, nil, exists, nil
+	return db, nil, nil
 }
 
 // StartTest starts a new test.

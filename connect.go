@@ -116,7 +116,7 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 		return nil, fmt.Errorf("zdb.Connect: no driver found: dialect=%q; driver=%q", dialect, driver)
 	}
 
-	sqlDB, driverConn, exists, err := useDriver.Connect(ctx, conn, opt.Create)
+	sqlDB, driverConn, err := useDriver.Connect(ctx, conn, opt.Create)
 	if err != nil {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
@@ -171,11 +171,9 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 
 	// The database can exist, but be empty. Consider a database to "exist" only
 	// if there's more than one table (any table).
-	if exists {
-		exists, err = hasTables(db)
-		if err != nil {
-			return nil, fmt.Errorf("zdb.Connect: %w", err)
-		}
+	exists, err := hasTables(db)
+	if err != nil {
+		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
 
 	// Create schema.

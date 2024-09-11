@@ -37,9 +37,9 @@ type (
 func (testDriver) Name() string         { return "test" }
 func (testDriver) Dialect() string      { return "postgresql" }
 func (testDriver) ErrUnique(error) bool { return false }
-func (testDriver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, bool, error) {
+func (testDriver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, error) {
 	db, err := sql.Open("test", "")
-	return db, nil, true, err
+	return db, nil, err
 }
 func (testDriver) StartTest(*testing.T, *drivers.TestOptions) context.Context {
 	return context.Background()

@@ -42,7 +42,7 @@ type Driver interface {
 	//
 	// It may optionally return a driverConn, for example *pgxpool.Pool. This
 	// can be nil.
-	Connect(ctx context.Context, connect string, create bool) (db *sql.DB, driverConn any, exists bool, err error)
+	Connect(ctx context.Context, connect string, create bool) (db *sql.DB, driverConn any, err error)
 
 	// ErrUnique reports if this error reports a UNIQUE constraint violation.
 	ErrUnique(error) bool

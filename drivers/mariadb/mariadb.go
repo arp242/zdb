@@ -35,20 +35,20 @@ func (driver) ErrUnique(err error) bool {
 	}
 	return false
 }
-func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, bool, error) {
+func (driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, error) {
 	// TODO: pass these better; can't just use "set sql_mode because of
 	// connection pooling, and should allow overriding parseTime like SQLite
 	db, err := sql.Open("mysql", connect+"?sql_mode=concat(@@sql_mode, ',ansi')&parseTime=true")
 	if err != nil {
-		return nil, nil, false, fmt.Errorf("mariadb.Connect: %w", err)
+		return nil, nil, fmt.Errorf("mariadb.Connect: %w", err)
 	}
 
 	err = db.PingContext(ctx)
 	if err != nil {
-		return nil, nil, false, fmt.Errorf("mariadb.Connect: %w", err)
+		return nil, nil, fmt.Errorf("mariadb.Connect: %w", err)
 	}
 
-	return db, nil, true, nil
+	return db, nil, nil
 }
 
 // TODO: needs to be improved.
