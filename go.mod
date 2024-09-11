@@ -1,21 +1,21 @@
 module zgo.at/zdb
 
-go 1.19
+go 1.21
 
 require (
 	github.com/go-sql-driver/mysql v1.8.1
-	github.com/jackc/pgx/v5 v5.6.0
+	github.com/jackc/pgx/v5 v5.7.1
 	github.com/lib/pq v1.10.9
-	github.com/mattn/go-sqlite3 v1.14.22
-	zgo.at/zstd v0.0.0-20240801180155-977f077a1a7f
+	github.com/mattn/go-sqlite3 v1.14.23
+	zgo.at/zstd v0.0.0-20240911164844-4342a9785d08
 )
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
-	github.com/jackc/puddle/v2 v2.2.1 // indirect
-	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	golang.org/x/crypto v0.27.0 // indirect
+	golang.org/x/sync v0.8.0 // indirect
+	golang.org/x/text v0.18.0 // indirect
 )
