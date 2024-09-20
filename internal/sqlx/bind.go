@@ -137,6 +137,9 @@ func In(query string, args ...any) (string, []any, error) {
 	}
 
 	for i, arg := range args {
+		if v := reflect.ValueOf(arg); arg == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
+			continue
+		}
 		if a, ok := arg.(driver.Valuer); ok {
 			var err error
 			arg, err = a.Value()

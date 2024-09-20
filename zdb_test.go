@@ -3,6 +3,7 @@ package zdb_test
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"os"
@@ -204,5 +205,63 @@ func TestSelect(t *testing.T) {
 				t.Fatalf("wrong error: %v", err)
 			}
 		})
+	})
+}
+
+type Time struct{ time.Time }
+
+func (t Time) Value() (driver.Value, error) {
+	return t.Time.Truncate(time.Microsecond), nil
+}
+func (t *Time) Scan(v any) error {
+	var s string
+	switch vv := v.(type) {
+	case nil: // Allow NULL; explicitly set to zero value.
+		t.Time = time.Time{}
+		return nil
+	case time.Time:
+		t.Time = vv
+		return nil
+	case *time.Time:
+		t.Time = *vv
+		return nil
+	case string:
+		s = vv
+	case []byte:
+		s = string(vv)
+	default:
+		return fmt.Errorf("Time.Scan: %#v", vv)
+	}
+	tt, err := time.Parse("2006-01-02 15:04:05.000000000", s)
+	t.Time = tt
+	return err
+}
+
+func TestNilPanic(t *testing.T) {
+	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
+		err := zdb.Exec(ctx, `create table tbl (a text, t timestamp)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = zdb.Exec(ctx, `insert into tbl values ('one', '1985-06-18 19:20:21')`)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var rows []struct {
+			A string `db:"a"`
+			T Time   `db:"t"`
+		}
+		var x *Time
+		err = zdb.Select(ctx, &rows, `select * from tbl where t = ?`, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		have := zdb.DumpString(ctx, `select * from tbl where t = ?`, x, zdb.DumpQuery)
+		want := "select * from tbl where t = '<nil>';\n"
+		if have != want {
+			t.Errorf("\nhave: %q\nwant: %q", have, want)
+		}
 	})
 }
