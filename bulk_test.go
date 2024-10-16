@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +21,36 @@ func TestBulkInsert(t *testing.T) {
 		insert := zdb.NewBulkInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
 		insert.Values("one", "two", "three")
 		insert.Values("a", "b", "c")
+
+		err = insert.Finish()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestBulkInsertRace(t *testing.T) {
+	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
+		err := zdb.Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		insert := zdb.NewBulkInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
+
+		var wg sync.WaitGroup
+		wg.Add(40)
+		for i := 0; i < 20; i++ {
+			go func() {
+				defer wg.Done()
+				insert.Values("one", "two", "three")
+			}()
+			go func() {
+				defer wg.Done()
+				insert.Values("a", "b", "c")
+			}()
+		}
+		wg.Wait()
 
 		err = insert.Finish()
 		if err != nil {

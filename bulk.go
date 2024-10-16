@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 )
 
 // BulkInsert inserts as many rows as possible per query we send to the server.
 type BulkInsert struct {
+	mu       *sync.Mutex
 	rows     uint16
 	Limit    uint16
 	ctx      context.Context
@@ -21,6 +23,7 @@ type BulkInsert struct {
 // NewBulkInsert makes a new BulkInsert builder.
 func NewBulkInsert(ctx context.Context, table string, columns []string) BulkInsert {
 	return BulkInsert{
+		mu:  new(sync.Mutex),
 		ctx: ctx,
 		// SQLITE_MAX_VARIABLE_NUMBER: https://www.sqlite.org/limits.html
 		Limit:   uint16(32766/len(columns) - 1),
@@ -55,12 +58,18 @@ func (m *BulkInsert) Returning(columns ...string) {
 //	Values(..)     // Inserts 1 row
 //	Returned()     // Returns the 1 row
 func (m *BulkInsert) Returned() [][]any {
-	defer func() { m.returned = m.returned[:0] }()
+	m.mu.Lock()
+	defer func() {
+		m.returned = m.returned[:0]
+		m.mu.Unlock()
+	}()
 	return m.returned
 }
 
 // Values adds a set of values.
 func (m *BulkInsert) Values(values ...any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.rows+1 >= m.Limit {
 		m.doInsert()
 	}
@@ -73,14 +82,18 @@ func (m *BulkInsert) Values(values ...any) {
 // This can be called more than once, in cases where you want to have some
 // fine-grained control over when actual SQL is sent to the server.
 func (m *BulkInsert) Finish() error {
+	m.mu.Lock()
 	if m.rows > 0 {
 		m.doInsert()
 	}
+	m.mu.Unlock()
 	return m.Errors()
 }
 
-// Errors returns all errors that have been encounterd.
+// Errors returns all errors that have been encountered.
 func (m BulkInsert) Errors() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if len(m.errors) == 0 {
 		return nil
 	}
