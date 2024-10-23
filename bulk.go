@@ -134,9 +134,9 @@ func (b *biBuilder) values(vals ...any) {
 
 func (b *biBuilder) SQL(vals ...string) (string, []any) {
 	var s strings.Builder
-	s.WriteString("insert into ")
+	s.WriteString(`insert into "`)
 	s.WriteString(b.table)
-	s.WriteString(" (")
+	s.WriteString(`" (`)
 
 	s.WriteString(strings.Join(b.cols, ","))
 	s.WriteString(") values ")
