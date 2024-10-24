@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/fs"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"text/tabwriter"
@@ -23,6 +24,11 @@ import (
 	"zgo.at/zstd/ztime"
 )
 
+// TestDrivers is a list of driver names to run tests against. These drivers
+// must be imported. The default is to run against all registered drivers, which
+// is not always desired.
+var TestDrivers []string
+
 // RunTest runs tests against all registered zdb SQL drivers.
 func RunTest(t *testing.T, f func(*testing.T, context.Context), opts ...drivers.TestOptions) {
 	if len(opts) > 1 {
@@ -34,6 +40,15 @@ func RunTest(t *testing.T, f func(*testing.T, context.Context), opts ...drivers.
 	}
 
 	d := drivers.Drivers()
+	if TestDrivers != nil {
+		var newd []drivers.Driver
+		for _, dd := range d {
+			if slices.Contains(TestDrivers, dd.Name()) {
+				newd = append(newd, dd)
+			}
+		}
+		d = newd
+	}
 	switch len(d) {
 	case 0:
 		t.Fatal("zdb.RunTest: no registered zdb drivers; you need to import a driver in your test")
