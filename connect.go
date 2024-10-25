@@ -131,7 +131,12 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 	sqlDB.SetMaxIdleConns(opt.MaxIdleConns)
 
 	dialect = dialectNames[useDriver.Dialect()]
-	db := &zDB{db: sqlx.NewDb(sqlDB, useDriver.Name()), dialect: dialect, driverConn: driverConn}
+	db := &zDB{
+		db:            sqlx.NewDb(sqlDB, useDriver.Name()),
+		dialect:       dialect,
+		driverConn:    driverConn,
+		connectString: conn,
+	}
 
 	// These versions are required for zdb.
 	info, err := db.Info(WithDB(context.Background(), db))

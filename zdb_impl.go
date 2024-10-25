@@ -50,16 +50,18 @@ import (
 var ctxkey = &struct{ n string }{"zdb"}
 
 type zDB struct {
-	db         *sqlx.DB
-	driverConn any
-	dialect    Dialect
-	queryFS    fs.FS
+	db            *sqlx.DB
+	driverConn    any
+	dialect       Dialect
+	queryFS       fs.FS
+	connectString string
 }
 
 func (db zDB) queryFiles() fs.FS              { return db.queryFS }
 func (db zDB) rebind(query string) string     { return db.db.Rebind(query) }
 func (db zDB) ping(ctx context.Context) error { return db.db.PingContext(ctx) }
 func (db zDB) driverName() string             { return db.db.DriverName() }
+func (db zDB) connect() string                { return db.connectString }
 
 func (db zDB) DBSQL() (*sql.DB, *sql.Tx)                    { return db.db.DB, nil }
 func (db zDB) SQLDialect() Dialect                          { return db.dialect }
@@ -116,6 +118,7 @@ func (db zTX) queryFiles() fs.FS              { return db.parent.queryFiles() }
 func (db zTX) rebind(query string) string     { return db.parent.rebind(query) }
 func (db zTX) ping(ctx context.Context) error { return db.parent.ping(ctx) }
 func (db zTX) driverName() string             { return db.parent.driverName() }
+func (db zTX) connect() string                { return db.parent.connect() }
 
 func (db zTX) DBSQL() (*sql.DB, *sql.Tx)                    { p, _ := db.parent.DBSQL(); return p, db.db.Tx }
 func (db zTX) SQLDialect() Dialect                          { return db.parent.dialect }
@@ -183,6 +186,7 @@ type (
 		Version    ServerVersion
 		DriverName string
 		Dialect    Dialect
+		Connect    string
 	}
 	// ServerVersion represents a database version.
 	ServerVersion string
@@ -203,6 +207,9 @@ func infoImpl(ctx context.Context, db DB) (ServerInfo, error) {
 		}
 	}
 
+	if d, ok := udb.(interface{ connect() string }); ok {
+		info.Connect = d.connect()
+	}
 	if d, ok := udb.(interface{ driverName() string }); ok {
 		info.DriverName = d.driverName()
 	}
