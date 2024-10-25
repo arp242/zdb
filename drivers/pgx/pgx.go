@@ -34,7 +34,7 @@ func (driver) ErrUnique(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 func (d driver) Connect(ctx context.Context, connect string, create bool) (*sql.DB, any, error) {
-	connect, schema := getSearchPath(connect)
+	_, schema := getSearchPath(connect)
 	cfg, err := pgxpool.ParseConfig(connect)
 	if err != nil {
 		return nil, nil, fmt.Errorf("pgx.Connect: %w", err)
