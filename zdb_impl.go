@@ -66,7 +66,19 @@ func (db zDB) connect() string                { return db.connectString }
 func (db zDB) DBSQL() (*sql.DB, *sql.Tx)                    { return db.db.DB, nil }
 func (db zDB) SQLDialect() Dialect                          { return db.dialect }
 func (db zDB) Info(ctx context.Context) (ServerInfo, error) { return infoImpl(ctx, db) }
-func (db zDB) Close() error                                 { return db.db.Close() }
+func (db zDB) Close() error {
+	err := db.db.Close()
+	if err != nil {
+		return err
+	}
+	if d, ok := db.driverConn.(interface{ Close() error }); ok {
+		return d.Close()
+	} else if d, ok := db.driverConn.(interface{ Close() }); ok {
+		// pgxpool.Pool doesn't return error.
+		d.Close()
+	}
+	return nil
+}
 
 func (db zDB) Exec(ctx context.Context, query string, params ...any) error {
 	return execImpl(ctx, db, query, params...)
