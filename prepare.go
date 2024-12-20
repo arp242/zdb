@@ -350,6 +350,11 @@ func isTruthy(name string, cond any) (bool, error) {
 	t := reflect.TypeOf(cond)
 	v := reflect.ValueOf(cond)
 	switch t.Kind() {
+	case reflect.Pointer:
+		if v.IsNil() {
+			return false, nil
+		}
+		return isTruthy(name, v.Elem().Interface())
 	case reflect.Bool:
 		return v.Bool(), nil
 	case reflect.String, reflect.Array, reflect.Slice:

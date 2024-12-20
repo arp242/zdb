@@ -54,9 +54,15 @@ func TestInfo(t *testing.T) {
 }
 
 func TestPrepare(t *testing.T) {
-	date := time.Date(2020, 06, 18, 01, 02, 03, 04, time.UTC)
-	type strlist []string
-	type str string
+	var (
+		s, s2      = "str", ""
+		ptr1, ptr2 = &s, &s2
+		date       = time.Date(2020, 06, 18, 01, 02, 03, 04, time.UTC)
+	)
+	type (
+		strlist []string
+		str     string
+	)
 
 	tests := []struct {
 		query string
@@ -192,6 +198,14 @@ func TestPrepare(t *testing.T) {
 		// 	`insert values ($1, $2)`, zdb.L{"a", "b"}, ""},
 		{`insert values (:x)`, zdb.L{zdb.P{"x": []string{"a", "b"}}},
 			`insert values ($1, $2)`, zdb.L{"a", "b"}, ""},
+
+		// Pointer
+		{`select {{:x true :x}}{{:x! false :x}}`, zdb.L{zdb.P{"x": ptr1}},
+			`select true $1`, zdb.L{ptr1}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, zdb.L{zdb.P{"x": (*string)(nil)}},
+			`select false $1`, zdb.L{(*string)(nil)}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, zdb.L{zdb.P{"x": ptr2}},
+			`select false $1`, zdb.L{ptr2}, ""},
 	}
 
 	for _, tt := range tests {

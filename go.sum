@@ -34,5 +34,5 @@ gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-zgo.at/zstd v0.0.0-20240911164844-4342a9785d08 h1:y0eGZeJqrpMe85jMoOiHYDYasQmsgaK8+ADF0eX7VEo=
-zgo.at/zstd v0.0.0-20240911164844-4342a9785d08/go.mod h1:o/Q8+EtSahHnfkbB3t8wXE0FnoDTmJ0sBDlzezv9XeM=
+zgo.at/zstd v0.0.0-20241125224656-49fafbb06ca9 h1:YJyyBpgi7ap1RL2gqHm787ZpWRvdC/j0qhxE5De/Txk=
+zgo.at/zstd v0.0.0-20241125224656-49fafbb06ca9/go.mod h1:iM1Z8Uk7YwHuvDGG3AmeFT+5F9taplO/dnLiVUP1F/s=
