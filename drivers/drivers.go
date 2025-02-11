@@ -102,6 +102,7 @@ func Test() func() {
 //
 // This needs to be a new type to avoid import cycles.
 type TestOptions struct {
-	Connect string
-	Files   fs.FS
+	Connect      string
+	Files        fs.FS
+	GoMigrations map[string]func(context.Context) error
 }

@@ -67,6 +67,9 @@ func (driver) StartTest(t *testing.T, opt *drivers.TestOptions) context.Context 
 	if opt != nil && opt.Files != nil {
 		copt.Files = opt.Files
 	}
+	if opt != nil && opt.GoMigrations != nil {
+		copt.GoMigrations = opt.GoMigrations
+	}
 
 	err := createdb(dbname)
 	if err != nil {
