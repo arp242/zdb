@@ -104,7 +104,7 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...any) (strin
 			continue
 		}
 
-		if s, ok := zint.ToIntSlice(qparams[i]); ok {
+		if s, ok := toIntSlice(qparams[i]); ok {
 			query, err = replaceParam(query, i, SQL(zint.Join(s, ", ")))
 			if err != nil {
 				return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
@@ -130,6 +130,72 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...any) (strin
 	}
 
 	return query, qparams, nil
+}
+
+// Converts any []int type to an []int64.
+func toIntSlice(v any) ([]int64, bool) {
+	var r []int64
+	switch vv := v.(type) {
+	case []int64:
+		r = vv
+	case []uint64:
+		vvv := make([]int64, len(vv))
+		for i := range vv {
+			vvv[i] = int64(vv[i])
+		}
+		r = vvv
+
+	case []int8:
+		vvv := make([]int64, len(vv))
+		for i := range vv {
+			vvv[i] = int64(vv[i])
+		}
+		r = vvv
+	case []int16:
+		vvv := make([]int64, len(vv))
+		for i := range vv {
+			vvv[i] = int64(vv[i])
+		}
+		r = vvv
+	case []int32:
+		vvv := make([]int64, len(vv))
+		for i := range vv {
+			vvv[i] = int64(vv[i])
+		}
+		r = vvv
+	case []int:
+		vvv := make([]int64, len(vv))
+		for i := range vv {
+			vvv[i] = int64(vv[i])
+		}
+		r = vvv
+	case []uint8:
+		vvv := make([]int64, len(vv))
+		for i := range vv {
+			vvv[i] = int64(vv[i])
+		}
+		r = vvv
+	case []uint16:
+		vvv := make([]int64, len(vv))
+		for i := range vv {
+			vvv[i] = int64(vv[i])
+		}
+		r = vvv
+	case []uint32:
+		vvv := make([]int64, len(vv))
+		for i := range vv {
+			vvv[i] = int64(vv[i])
+		}
+		r = vvv
+	case []uint:
+		vvv := make([]int64, len(vv))
+		for i := range vv {
+			vvv[i] = int64(vv[i])
+		}
+		r = vvv
+	}
+
+	return r, r != nil
 }
 
 // Prepare the paramers:
