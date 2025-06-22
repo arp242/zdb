@@ -122,7 +122,7 @@ func (db logDB) NumRows(ctx context.Context, query string, params ...any) (int64
 	return numRowsImpl(ctx, db, query, params...)
 }
 func (db logDB) InsertID(ctx context.Context, idColumn, query string, params ...any) (int64, error) {
-	return insertIDImpl(ctx, db, idColumn, query, params...)
+	return insertIDImpl[int64](ctx, db, idColumn, query, params...)
 }
 func (db logDB) Get(ctx context.Context, dest any, query string, params ...any) error {
 	return getImpl(ctx, db, dest, query, params...)
@@ -146,7 +146,7 @@ func (db metricDB) NumRows(ctx context.Context, query string, params ...any) (in
 	return numRowsImpl(ctx, db, query, params...)
 }
 func (db metricDB) InsertID(ctx context.Context, idColumn, query string, params ...any) (int64, error) {
-	return insertIDImpl(ctx, db, idColumn, query, params...)
+	return insertIDImpl[int64](ctx, db, idColumn, query, params...)
 }
 func (db metricDB) Get(ctx context.Context, dest any, query string, params ...any) error {
 	return getImpl(ctx, db, dest, query, params...)

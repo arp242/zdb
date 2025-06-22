@@ -35,6 +35,7 @@ package zdb
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -87,7 +88,7 @@ func (db zDB) NumRows(ctx context.Context, query string, params ...any) (int64, 
 	return numRowsImpl(ctx, db, query, params...)
 }
 func (db zDB) InsertID(ctx context.Context, idColumn, query string, params ...any) (int64, error) {
-	return insertIDImpl(ctx, db, idColumn, query, params...)
+	return insertIDImpl[int64](ctx, db, idColumn, query, params...)
 }
 func (db zDB) Get(ctx context.Context, dest any, query string, params ...any) error {
 	return getImpl(ctx, db, dest, query, params...)
@@ -153,7 +154,7 @@ func (db zTX) NumRows(ctx context.Context, query string, params ...any) (int64, 
 	return numRowsImpl(ctx, db, query, params...)
 }
 func (db zTX) InsertID(ctx context.Context, idColumn, query string, params ...any) (int64, error) {
-	return insertIDImpl(ctx, db, idColumn, query, params...)
+	return insertIDImpl[int64](ctx, db, idColumn, query, params...)
 }
 func (db zTX) Get(ctx context.Context, dest any, query string, params ...any) error {
 	return getImpl(ctx, db, dest, query, params...)
@@ -376,16 +377,17 @@ func numRowsImpl(ctx context.Context, db DB, query string, params ...any) (int64
 	return n, nil
 }
 
-func insertIDImpl(ctx context.Context, db DB, idColumn, query string, params ...any) (int64, error) {
+func insertIDImpl[T cmp.Ordered](ctx context.Context, db DB, idColumn, query string, params ...any) (T, error) {
+	var zero T
 	query, params, err := prepareImpl(ctx, db, query, params...)
 	if err != nil {
-		return 0, fmt.Errorf("zdb.InsertID: %w", err)
+		return zero, fmt.Errorf("zdb.InsertID: %w", err)
 	}
 
-	var id []int64
+	var id []T
 	err = db.(dbImpl).SelectContext(ctx, &id, query+" returning "+idColumn, params...)
 	if err != nil {
-		return 0, fmt.Errorf("zdb.InsertID: %w", err)
+		return zero, fmt.Errorf("zdb.InsertID: %w", err)
 	}
 	return id[len(id)-1], nil
 }

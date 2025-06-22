@@ -32,6 +32,7 @@ package zdb
 // This file contains the public API and all documentation.
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -209,8 +210,8 @@ func NumRows(ctx context.Context, query string, params ...any) (int64, error) {
 // InsertID runs a INSERT query and returns the ID column idColumn.
 //
 // If multiple rows are inserted it will return the ID of the last inserted row.
-func InsertID(ctx context.Context, idColumn, query string, params ...any) (int64, error) {
-	return insertIDImpl(ctx, MustGetDB(ctx), idColumn, query, params...)
+func InsertID[T cmp.Ordered](ctx context.Context, idColumn, query string, params ...any) (T, error) {
+	return insertIDImpl[T](ctx, MustGetDB(ctx), idColumn, query, params...)
 }
 
 // Select zero or more rows; dest needs to be a pointer to a slice of:

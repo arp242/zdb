@@ -353,7 +353,7 @@ func TestInsertID(t *testing.T) {
 		}
 
 		{ // One row
-			id, err := zdb.InsertID(ctx, `col_id`, `insert into test (v) values (:val)`, zdb.P{"val": "aa"})
+			id, err := zdb.InsertID[int64](ctx, `col_id`, `insert into test (v) values (:val)`, zdb.P{"val": "aa"})
 			if err != nil {
 				t.Error(err)
 			}
@@ -363,7 +363,7 @@ func TestInsertID(t *testing.T) {
 		}
 
 		{ // Multiple rows
-			id, err := zdb.InsertID(ctx, `col_id`, `insert into test (v) values (:val), ('bb')`, zdb.P{"val": "aa"})
+			id, err := zdb.InsertID[int32](ctx, `col_id`, `insert into test (v) values (:val), ('bb')`, zdb.P{"val": "aa"})
 			if err != nil {
 				t.Error(err)
 			}
@@ -373,7 +373,7 @@ func TestInsertID(t *testing.T) {
 		}
 
 		{
-			id, err := zdb.InsertID(ctx, `col_id`, `insert into test (v) values (?), (?)`,
+			id, err := zdb.InsertID[int](ctx, `col_id`, `insert into test (v) values (?), (?)`,
 				"X", "Y")
 			if err != nil {
 				t.Error(err)
@@ -384,7 +384,7 @@ func TestInsertID(t *testing.T) {
 		}
 
 		{ // Invalid SQL
-			id, err := zdb.InsertID(ctx, `col_id`, `insert into test (no_such_col) values ($1)`)
+			id, err := zdb.InsertID[int](ctx, `col_id`, `insert into test (no_such_col) values ($1)`)
 			if err == nil {
 				t.Error("err is nil")
 			}
