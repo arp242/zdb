@@ -27,7 +27,7 @@ import (
 // 5. Expand slices to multiple parameters ("sqlx.In()").
 // 6. Rebind to use the correct placeholder ("sqlx.Rebind()").
 //
-// I don't see any good reason to *not* just automatically do it, except to save
+// I don't see any good reason to not just automatically do it, except to save
 // dozens to hundreds of ns per query; that said, we should be a bit smarter
 // about this and we can cache some things; don't really need to tokenize the
 // same query over and over again.

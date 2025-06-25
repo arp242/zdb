@@ -82,29 +82,29 @@ func Rebind(style PlaceholderStyle, query string) string {
 		return query
 	}
 
-	// Add space enough for 10 params before we have to allocate
 	var (
+		// Add space for 10 params before we have to allocate
+		q      = make([]byte, 0, len(query)+10)
 		tokens = sqltoken.Tokenize(query, rebindConfigs[style])
-		rqb    = make([]byte, 0, len(query)+10)
-		j      int
+		i      int
 	)
 	for _, token := range tokens {
 		if token.Type != sqltoken.QuestionMark {
-			rqb = append(rqb, ([]byte)(token.Text)...)
+			q = append(q, ([]byte)(token.Text)...)
 			continue
 		}
 		switch style {
 		case PlaceholderDollar:
-			rqb = append(rqb, '$')
+			q = append(q, '$')
 		case PlaceholderNamed:
-			rqb = append(rqb, ':', 'a', 'r', 'g')
+			q = append(q, ':', 'a', 'r', 'g')
 		case PlaceholderAt:
-			rqb = append(rqb, '@', 'p')
+			q = append(q, '@', 'p')
 		}
-		j++
-		rqb = strconv.AppendInt(rqb, int64(j), 10)
+		i++
+		q = strconv.AppendInt(q, int64(i), 10)
 	}
-	return string(rqb)
+	return string(q)
 }
 
 // In expands slice values in args, returning the modified query string and a
@@ -140,6 +140,7 @@ func In(query string, args ...any) (string, []any, error) {
 		if v := reflect.ValueOf(arg); arg == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
 			continue
 		}
+
 		if a, ok := arg.(driver.Valuer); ok {
 			var err error
 			arg, err = a.Value()

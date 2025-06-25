@@ -39,6 +39,11 @@ func (m *BulkInsert) OnConflict(c string) {
 	m.insert.conflict = c
 }
 
+// Dump adds [zdb.DumpArgs] flags to any query BulkInsert runs.
+func (m *BulkInsert) Dump(d DumpArg) {
+	m.insert.dump = d
+}
+
 // Returning sets a column name in the "returning" part of the query.
 //
 // The values can be fetched with [Returned].
@@ -122,6 +127,7 @@ type biBuilder struct {
 	returning []string
 	cols      []string
 	vals      [][]any
+	dump      DumpArg
 }
 
 func newBuilder(table string, cols ...string) biBuilder {
@@ -141,7 +147,7 @@ func (b *biBuilder) SQL(vals ...string) (string, []any) {
 	s.WriteString(strings.Join(b.cols, ","))
 	s.WriteString(") values ")
 
-	var params []any
+	params := make([]any, 0, len(b.vals)*len(b.cols)+1)
 	for i := range b.vals {
 		s.WriteString("(")
 		for j := range b.vals[i] {
@@ -155,6 +161,9 @@ func (b *biBuilder) SQL(vals ...string) (string, []any) {
 		if i < len(b.vals)-1 {
 			s.WriteString(",")
 		}
+	}
+	if b.dump > 0 {
+		params = append(params, b.dump)
 	}
 
 	if b.conflict != "" {
