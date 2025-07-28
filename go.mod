@@ -8,8 +8,8 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/lib/pq v1.10.9
-	github.com/mattn/go-sqlite3 v1.14.28
-	zgo.at/zstd v0.0.0-20250622182727-a806a6a99733
+	github.com/mattn/go-sqlite3 v1.14.29
+	zgo.at/zstd v0.0.0-20250710181612-da3b12d1a381
 )
 
 require (
