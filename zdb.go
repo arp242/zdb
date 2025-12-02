@@ -251,6 +251,7 @@ func (r *Rows) Err() error                              { return r.r.Err() }
 func (r *Rows) Close() error                            { return r.r.Close() }
 func (r *Rows) Columns() ([]string, error)              { return r.r.Columns() }
 func (r *Rows) ColumnTypes() ([]*sql.ColumnType, error) { return r.r.ColumnTypes() }
+func (r *Rows) StructScan(dest any) error               { return r.r.StructScan(dest) }
 func (r *Rows) Scan(dest ...any) error {
 	if len(dest) > 1 {
 		return r.r.Scan(dest...)
