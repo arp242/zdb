@@ -6,10 +6,10 @@ toolchain go1.24.4
 
 require (
 	github.com/go-sql-driver/mysql v1.9.3
-	github.com/jackc/pgx/v5 v5.7.5
+	github.com/jackc/pgx/v5 v5.7.6
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.32
-	zgo.at/zstd v0.0.0-20250710181612-da3b12d1a381
+	zgo.at/zstd v0.0.0-20251128053228-ec259dea6715
 )
 
 require (
