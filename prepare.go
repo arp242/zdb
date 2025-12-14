@@ -13,7 +13,6 @@ import (
 
 	"zgo.at/zdb/internal/sqlx"
 	"zgo.at/zdb/internal/sqlx/reflectx"
-	"zgo.at/zstd/zint"
 	"zgo.at/zstd/zstring"
 )
 
@@ -61,59 +60,38 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...any) (strin
 		}
 	}
 
-	qparams, _ := merged.([]any)
+	// Sprintf SQL(..) strings in the query; do this before we process any other
+	// parameters so the SQL string can contain parameters.
+	if mergedMap, ok := merged.(map[string]any); ok {
+		p := make(map[string]string)
+		for k, v := range mergedMap {
+			if s, ok := v.(SQL); ok {
+				p[k] = string(s)
+				delete(mergedMap, k)
+			}
+		}
+		if len(p) > 0 {
+			query = sqlx.Printf(query, p)
+		}
+		merged = mergedMap
+	}
+
+	qparams, ok := merged.([]any)
+	if ok {
+		for _, p := range qparams {
+			if _, ok := p.(SQL); ok {
+				// TODO: should fix
+				return "", nil, fmt.Errorf("zdb.Prepare: SQL() strings can only be used as named parameters")
+			}
+		}
+	}
+
 	if named {
 		var err error
 		query, qparams, err = sqlx.Named(query, merged)
 		if err != nil {
 			return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
 		}
-	}
-
-	// Sprintf SQL types and []int slices directly in the query. This solves two
-	// cases:
-	//
-	// - IN (...) with a lot of parameters.
-	//   TODO: this one should be optional; when we start using prepared
-	//   statements/caching it will cause issues. Actually, maybe we can just
-	//   remove it; the reason it's here is because GoatCounter does "path not
-	//   in (.. list of filtered paths ..)", which can be quite large, but we
-	//   can maybe solve that in some other way (the reason it works like that
-	//   now is so that we only need to search the paths table once, instead of
-	//   every time for every widget on the dashboard).
-	//
-	// - The SQL type is useful for generated SQL (i.e. "interval ...") that
-	//   shouldn't be escaped.
-	var rm []int
-	for i := len(qparams) - 1; i >= 0; i-- {
-		// These are aliases of []uint8 and []int32; there isn't really any way
-		// to detect which is which AFAIK.
-		if _, ok := qparams[i].([]byte); ok {
-			continue
-		}
-		if _, ok := qparams[i].([]rune); ok {
-			continue
-		}
-
-		if s, ok := qparams[i].(SQL); ok {
-			query, err = replaceParam(query, i, s)
-			if err != nil {
-				return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
-			}
-			rm = append(rm, i)
-			continue
-		}
-
-		if s, ok := toIntSlice(qparams[i]); ok {
-			query, err = replaceParam(query, i, SQL(zint.Join(s, ", ")))
-			if err != nil {
-				return "", nil, fmt.Errorf("zdb.Prepare: %w", err)
-			}
-			rm = append(rm, i)
-		}
-	}
-	for _, i := range rm {
-		qparams = append(qparams[:i], qparams[i+1:]...)
 	}
 
 	query, qparams, err = sqlx.In(query, qparams...)
@@ -130,72 +108,6 @@ func prepareImpl(ctx context.Context, db DB, query string, params ...any) (strin
 	}
 
 	return query, qparams, nil
-}
-
-// Converts any []int type to an []int64.
-func toIntSlice(v any) ([]int64, bool) {
-	var r []int64
-	switch vv := v.(type) {
-	case []int64:
-		r = vv
-	case []uint64:
-		vvv := make([]int64, len(vv))
-		for i := range vv {
-			vvv[i] = int64(vv[i])
-		}
-		r = vvv
-
-	case []int8:
-		vvv := make([]int64, len(vv))
-		for i := range vv {
-			vvv[i] = int64(vv[i])
-		}
-		r = vvv
-	case []int16:
-		vvv := make([]int64, len(vv))
-		for i := range vv {
-			vvv[i] = int64(vv[i])
-		}
-		r = vvv
-	case []int32:
-		vvv := make([]int64, len(vv))
-		for i := range vv {
-			vvv[i] = int64(vv[i])
-		}
-		r = vvv
-	case []int:
-		vvv := make([]int64, len(vv))
-		for i := range vv {
-			vvv[i] = int64(vv[i])
-		}
-		r = vvv
-	case []uint8:
-		vvv := make([]int64, len(vv))
-		for i := range vv {
-			vvv[i] = int64(vv[i])
-		}
-		r = vvv
-	case []uint16:
-		vvv := make([]int64, len(vv))
-		for i := range vv {
-			vvv[i] = int64(vv[i])
-		}
-		r = vvv
-	case []uint32:
-		vvv := make([]int64, len(vv))
-		for i := range vv {
-			vvv[i] = int64(vv[i])
-		}
-		r = vvv
-	case []uint:
-		vvv := make([]int64, len(vv))
-		for i := range vv {
-			vvv[i] = int64(vv[i])
-		}
-		r = vvv
-	}
-
-	return r, r != nil
 }
 
 // Prepare the paramers:

@@ -107,6 +107,26 @@ func Rebind(style PlaceholderStyle, query string) string {
 	return string(q)
 }
 
+// Printf args directly in the query
+func Printf(query string, args map[string]string) string {
+	var (
+		q      = make([]byte, 0, len(query)+10)
+		tokens = sqltoken.Tokenize(query, sqltoken.Config{NoticeColonWord: true})
+	)
+	for _, t := range tokens {
+		if t.Type == sqltoken.ColonWord {
+			s, ok := args[t.Text[1:]]
+			if ok {
+				q = append(q, []byte(s)...)
+				continue
+			}
+		}
+
+		q = append(q, ([]byte)(t.Text)...)
+	}
+	return string(q)
+}
+
 // In expands slice values in args, returning the modified query string and a
 // new arg list that can be executed by a database.
 //

@@ -653,17 +653,17 @@ func TestPrepareIn(t *testing.T) {
 			{
 				`select * from t where a=? and c in (?)`,
 				[]any{1, []int{1, 2}},
-				`select * from t where a=? and c in (1, 2) []interface {}{1}`,
+				`select * from t where a=? and c in (?, ?) []interface {}{1, 1, 2}`,
 			},
 			{
 				`select * from t where a=? and c in (?)`,
 				[]any{1, []int64{1, 2}},
-				`select * from t where a=? and c in (1, 2) []interface {}{1}`,
+				`select * from t where a=? and c in (?, ?) []interface {}{1, 1, 2}`,
 			},
 			{
 				`? ? ? ? ? ?`,
 				[]any{1, 2, 3, []int64{4}, 5, []int64{6}},
-				`? ? ? 4 ? 6 []interface {}{1, 2, 3, 5}`,
+				`? ? ? ? ? ? []interface {}{1, 2, 3, 4, 5, 6}`,
 			},
 
 			// Note this is kinda wrong (or at least, unexpected), but this is how
@@ -679,6 +679,51 @@ func TestPrepareIn(t *testing.T) {
 		for _, tt := range tests {
 			t.Run("", func(t *testing.T) {
 				query, params, err := zdb.E_prepareImpl(ctx, zdb.MustGetDB(ctx), tt.query, tt.params...)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				if zdb.SQLDialect(ctx) == zdb.DialectPostgreSQL {
+					i := 0
+					tt.want = regexp.MustCompile(`\?`).ReplaceAllStringFunc(tt.want, func(m string) string {
+						i++
+						return fmt.Sprintf("$%d", i)
+					})
+				}
+
+				have := fmt.Sprintf("%s %#v", query, params)
+				if have != tt.want {
+					t.Errorf("\nhave: %#v\nwant: %#v", have, tt.want)
+				}
+			})
+		}
+	})
+}
+
+func TestSQLParameter(t *testing.T) {
+	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
+		tests := []struct {
+			query  string
+			params map[string]any
+			want   string
+		}{
+			{``, nil, ` []interface {}{}`},
+			{
+				`select * from y where z :in (:id)`,
+				map[string]any{"in": zdb.SQL("in"), "id": 2},
+				`select * from y where z in (?) []interface {}{2}`,
+			},
+
+			{
+				`select * from y where z :in (:id)`,
+				map[string]any{"in": zdb.SQL("in"), "notfound": zdb.SQL("XXX"), "id": 2},
+				`select * from y where z in (?) []interface {}{2}`,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run("", func(t *testing.T) {
+				query, params, err := zdb.E_prepareImpl(ctx, zdb.MustGetDB(ctx), tt.query, tt.params)
 				if err != nil {
 					t.Fatal(err)
 				}
