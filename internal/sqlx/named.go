@@ -124,7 +124,7 @@ func bindArgs(names []string, arg any, m *reflectx.Mapper) ([]any, error) {
 
 	err := m.TraversalsByNameFunc(v.Type(), names, func(i int, t []int) error {
 		if len(t) == 0 {
-			return fmt.Errorf("could not find name %s in %#v", names[i], arg)
+			return fmt.Errorf("could not find name %q in %#v", ":"+names[i], arg)
 		}
 
 		val := reflectx.FieldByIndexesReadOnly(v, t)
@@ -143,7 +143,7 @@ func bindMapArgs(names []string, arg map[string]any) ([]any, error) {
 	for _, name := range names {
 		val, ok := arg[name]
 		if !ok {
-			return arglist, fmt.Errorf("could not find name %s in %#v", name, arg)
+			return arglist, fmt.Errorf("could not find name %q in %#v", ":"+name, arg)
 		}
 		arglist = append(arglist, val)
 	}
