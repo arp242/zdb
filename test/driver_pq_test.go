@@ -3,5 +3,5 @@
 package zdb_test
 
 import (
-	_ "zgo.at/zdb/drivers/pq"
+	_ "zgo.at/zdb-drivers/pq"
 )

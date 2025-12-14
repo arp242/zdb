@@ -9,6 +9,10 @@
 // already.
 package sqlx
 
+// Disabled for now so we don't need to depend on the drivers; the zdb package
+// should test most of this, and it doesn't really see any changes.
+
+/*
 import (
 	"context"
 	"database/sql"
@@ -1454,3 +1458,4 @@ func TestNamedQuery(t *testing.T) {
 		}
 	})
 }
+*/
