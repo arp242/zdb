@@ -185,7 +185,7 @@ func TestInsertID(t *testing.T) {
 		}
 
 		{ // One row
-			id, err := zdb.InsertID[int64](ctx, `col_id`, `insert into test (v) values (:val)`, zdb.P{"val": "aa"})
+			id, err := zdb.InsertID[int64](ctx, `col_id`, `insert into test (v) values (:val)`, map[string]any{"val": "aa"})
 			if err != nil {
 				t.Error(err)
 			}
@@ -195,7 +195,7 @@ func TestInsertID(t *testing.T) {
 		}
 
 		{ // Multiple rows
-			id, err := zdb.InsertID[int32](ctx, `col_id`, `insert into test (v) values (:val), ('bb')`, zdb.P{"val": "aa"})
+			id, err := zdb.InsertID[int32](ctx, `col_id`, `insert into test (v) values (:val), ('bb')`, map[string]any{"val": "aa"})
 			if err != nil {
 				t.Error(err)
 			}

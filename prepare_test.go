@@ -47,135 +47,135 @@ func TestPrepare(t *testing.T) {
 			`select foo from bar`, nil, ""},
 
 		// Single named param from map
-		{`select :x`, L{P{"x": "Y"}},
-			`select $1`, L{"Y"}, ""},
+		{`select :x`, []any{map[string]any{"x": "Y"}},
+			`select $1`, []any{"Y"}, ""},
 
 		// Single named param from struct
-		{`select :x`, L{struct{ X string }{"Y"}},
-			`select $1`, L{"Y"}, ""},
+		{`select :x`, []any{struct{ X string }{"Y"}},
+			`select $1`, []any{"Y"}, ""},
 
 		// Both a map and struct → merge
-		{`select :x, :y`, L{P{"x": "Y"}, struct{ Y int }{42}},
-			`select $1, $2`, L{"Y", 42}, ""},
+		{`select :x, :y`, []any{map[string]any{"x": "Y"}, struct{ Y int }{42}},
+			`select $1, $2`, []any{"Y", 42}, ""},
 
 		// One positional
-		{`select $1`, L{"A"},
-			`select $1`, L{"A"}, ""},
-		{`select ?`, L{"A"},
-			`select $1`, L{"A"}, ""},
+		{`select $1`, []any{"A"},
+			`select $1`, []any{"A"}, ""},
+		{`select ?`, []any{"A"},
+			`select $1`, []any{"A"}, ""},
 
 		// Two positional
-		{`select $1, $2`, L{"A", "B"},
-			`select $1, $2`, L{"A", "B"}, ""},
-		{`select ?, ?`, L{"A", "B"},
-			`select $1, $2`, L{"A", "B"}, ""},
+		{`select $1, $2`, []any{"A", "B"},
+			`select $1, $2`, []any{"A", "B"}, ""},
+		{`select ?, ?`, []any{"A", "B"},
+			`select $1, $2`, []any{"A", "B"}, ""},
 
 		// time.Time shouldn't be seen as a named argument.
-		{`select ?`, L{date},
-			`select $1`, L{date}, ""},
-		{`select ?, ?`, L{date, date},
-			`select $1, $2`, L{date, date}, ""},
+		{`select ?`, []any{date},
+			`select $1`, []any{date}, ""},
+		{`select ?, ?`, []any{date, date},
+			`select $1, $2`, []any{date, date}, ""},
 
 		// Neither should structs implementing sql.Scanner
-		{`select ?`, L{sql.NullBool{Valid: true}},
-			`select $1`, L{sql.NullBool{Valid: true}}, ""},
-		{`select ?, ?`, L{sql.NullString{}, sql.NullString{}},
-			`select $1, $2`, L{sql.NullString{}, sql.NullString{}}, ""},
+		{`select ?`, []any{sql.NullBool{Valid: true}},
+			`select $1`, []any{sql.NullBool{Valid: true}}, ""},
+		{`select ?, ?`, []any{sql.NullString{}, sql.NullString{}},
+			`select $1, $2`, []any{sql.NullString{}, sql.NullString{}}, ""},
 
 		// True conditional from bool
-		{`select {{:yyy cond}} where 1=1`, L{P{"yyy": true}},
-			`select cond where 1=1`, L{}, ""},
-		{`select {{:yyy cond}} where 1=1`, L{struct{ YYY bool }{true}},
-			`select cond where 1=1`, L{}, ""},
-		{`select {{:yyy cond}} where 1=1`, L{P{"a": true}, struct{ YYY bool }{true}},
-			`select cond where 1=1`, L{}, ""},
+		{`select {{:yyy cond}} where 1=1`, []any{map[string]any{"yyy": true}},
+			`select cond where 1=1`, []any{}, ""},
+		{`select {{:yyy cond}} where 1=1`, []any{struct{ YYY bool }{true}},
+			`select cond where 1=1`, []any{}, ""},
+		{`select {{:yyy cond}} where 1=1`, []any{map[string]any{"a": true}, struct{ YYY bool }{true}},
+			`select cond where 1=1`, []any{}, ""},
 
 		// Negation with !
-		{`select {{:yyy! cond}} where 1=1`, L{P{"yyy": true}},
-			`select  where 1=1`, L{}, ""},
+		{`select {{:yyy! cond}} where 1=1`, []any{map[string]any{"yyy": true}},
+			`select  where 1=1`, []any{}, ""},
 		// Negation with !
-		{`select {{:yyy! cond}} where 1=1`, L{P{"yyy": false}},
-			`select cond where 1=1`, L{}, ""},
+		{`select {{:yyy! cond}} where 1=1`, []any{map[string]any{"yyy": false}},
+			`select cond where 1=1`, []any{}, ""},
 
 		// False conditional from bool
-		{`select {{:yyy cond}} where 1=1`, L{P{"yyy": false}},
-			`select  where 1=1`, L{}, ""},
-		{`select {{:yyy cond}} where 1=1`, L{struct{ YYY bool }{false}},
-			`select  where 1=1`, L{}, ""},
-		{`select {{:yyy cond}} where 1=1`, L{P{"a": false}, struct{ YYY bool }{false}},
-			`select  where 1=1`, L{}, ""},
+		{`select {{:yyy cond}} where 1=1`, []any{map[string]any{"yyy": false}},
+			`select  where 1=1`, []any{}, ""},
+		{`select {{:yyy cond}} where 1=1`, []any{struct{ YYY bool }{false}},
+			`select  where 1=1`, []any{}, ""},
+		{`select {{:yyy cond}} where 1=1`, []any{map[string]any{"a": false}, struct{ YYY bool }{false}},
+			`select  where 1=1`, []any{}, ""},
 
 		// Multiple conditionals
-		{`select {{:a cond}} {{:b cond2}} `, L{P{"a": true, "b": true}},
-			`select cond cond2 `, L{}, ""},
-		{`select {{:a cond}} {{:b cond2}} `, L{P{"a": false, "b": false}},
-			`select   `, L{}, ""},
+		{`select {{:a cond}} {{:b cond2}} `, []any{map[string]any{"a": true, "b": true}},
+			`select cond cond2 `, []any{}, ""},
+		{`select {{:a cond}} {{:b cond2}} `, []any{map[string]any{"a": false, "b": false}},
+			`select   `, []any{}, ""},
 
 		// Parameters inside conditionals
-		{`select {{:a x like :foo}} {{:b y = :bar}}`, L{P{"foo": "qwe", "bar": "zxc", "a": true, "b": true}},
-			`select x like $1 y = $2`, L{"qwe", "zxc"}, ""},
-		{`select {{:a x like :foo}} {{:b y = :bar}}`, L{P{"foo": "qwe", "bar": "zxc", "a": false, "b": true}},
-			`select  y = $1`, L{"zxc"}, ""},
+		{`select {{:a x like :foo}} {{:b y = :bar}}`, []any{map[string]any{"foo": "qwe", "bar": "zxc", "a": true, "b": true}},
+			`select x like $1 y = $2`, []any{"qwe", "zxc"}, ""},
+		{`select {{:a x like :foo}} {{:b y = :bar}}`, []any{map[string]any{"foo": "qwe", "bar": "zxc", "a": false, "b": true}},
+			`select  y = $1`, []any{"zxc"}, ""},
 
 		// Multiple conflicting params
-		{`select :x`, L{P{"x": 1}, P{"x": 2}},
+		{`select :x`, []any{map[string]any{"x": 1}, map[string]any{"x": 2}},
 			``, nil, "more than once"},
-		{`select {{:x cond}}`, L{P{"x": 1}, P{"x": 2}},
+		{`select {{:x cond}}`, []any{map[string]any{"x": 1}, map[string]any{"x": 2}},
 			``, nil, "more than once"},
 
 		// Mixing positional and named
-		{`select :x`, L{P{"x": 1}, 42},
+		{`select :x`, []any{map[string]any{"x": 1}, 42},
 			``, nil, "mix named and positional"},
 
 		// Conditional not found
-		{`select {{:x cond}}`, L{P{"z": 1}},
+		{`select {{:x cond}}`, []any{map[string]any{"z": 1}},
 			``, nil, "could not find"},
 
 		// Condtional with positional
-		{`select {{:x cond}}`, L{"z", 1},
-			`select {{:x cond}}`, L{"z", 1}, ""},
+		{`select {{:x cond}}`, []any{"z", 1},
+			`select {{:x cond}}`, []any{"z", 1}, ""},
 
 		// Invalid syntax for conditional; just leave it alone
-		{`select {{cond}}`, L{P{"yyy": false}},
-			`select {{cond}}`, L{}, ""},
+		{`select {{cond}}`, []any{map[string]any{"yyy": false}},
+			`select {{cond}}`, []any{}, ""},
 
 		// Conditional types
 		// string
-		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": "str"}},
-			`select true $1`, L{"str"}, ""},
-		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": str("str")}},
-			`select true $1`, L{str("str")}, ""},
-		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": ""}},
-			`select false $1`, L{""}, ""},
-		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": str("")}},
-			`select false $1`, L{str("")}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, []any{map[string]any{"x": "str"}},
+			`select true $1`, []any{"str"}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, []any{map[string]any{"x": str("str")}},
+			`select true $1`, []any{str("str")}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, []any{map[string]any{"x": ""}},
+			`select false $1`, []any{""}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, []any{map[string]any{"x": str("")}},
+			`select false $1`, []any{str("")}, ""},
 
 		// Slice
-		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": []string{"str", "str2"}}},
-			`select true $1, $2`, L{"str", "str2"}, ""},
-		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": strlist{"str", "str2"}}},
-			`select true $1, $2`, L{"str", "str2"}, ""},
-		{`select {{:x true}}{{:x! false}}`, L{P{"x": []string{}}},
-			`select false`, L{}, ""},
-		{`select {{:x true}}{{:x! false}}`, L{P{"x": strlist{}}},
-			`select false`, L{}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, []any{map[string]any{"x": []string{"str", "str2"}}},
+			`select true $1, $2`, []any{"str", "str2"}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, []any{map[string]any{"x": strlist{"str", "str2"}}},
+			`select true $1, $2`, []any{"str", "str2"}, ""},
+		{`select {{:x true}}{{:x! false}}`, []any{map[string]any{"x": []string{}}},
+			`select false`, []any{}, ""},
+		{`select {{:x true}}{{:x! false}}`, []any{map[string]any{"x": strlist{}}},
+			`select false`, []any{}, ""},
 
 		// Expand slice
-		{`insert values (?)`, L{[]string{"a", "b"}},
-			`insert values ($1, $2)`, L{"a", "b"}, ""},
+		{`insert values (?)`, []any{[]string{"a", "b"}},
+			`insert values ($1, $2)`, []any{"a", "b"}, ""},
 		// TODO: this only works for "?"; sqlx.In() and named parameters.
-		// {`insert values ($1)`, L{[]string{"a", "b"}},
-		// 	`insert values ($1, $2)`, L{"a", "b"}, ""},
-		{`insert values (:x)`, L{P{"x": []string{"a", "b"}}},
-			`insert values ($1, $2)`, L{"a", "b"}, ""},
+		// {`insert values ($1)`, []any{[]string{"a", "b"}},
+		// 	`insert values ($1, $2)`, []any{"a", "b"}, ""},
+		{`insert values (:x)`, []any{map[string]any{"x": []string{"a", "b"}}},
+			`insert values ($1, $2)`, []any{"a", "b"}, ""},
 
 		// Pointer
-		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": ptr1}},
-			`select true $1`, L{ptr1}, ""},
-		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": (*string)(nil)}},
-			`select false $1`, L{(*string)(nil)}, ""},
-		{`select {{:x true :x}}{{:x! false :x}}`, L{P{"x": ptr2}},
-			`select false $1`, L{ptr2}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, []any{map[string]any{"x": ptr1}},
+			`select true $1`, []any{ptr1}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, []any{map[string]any{"x": (*string)(nil)}},
+			`select false $1`, []any{(*string)(nil)}, ""},
+		{`select {{:x true :x}}{{:x! false :x}}`, []any{map[string]any{"x": ptr2}},
+			`select false $1`, []any{ptr2}, ""},
 	}
 
 	for _, tt := range tests {

@@ -88,7 +88,7 @@ func TestDate(t *testing.T) {
 		}
 
 		n := time.Now()
-		err = zdb.Exec(ctx, `insert into t values (?)`, zdb.L{n, &n})
+		err = zdb.Exec(ctx, `insert into t values (?)`, []any{n, &n})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -110,8 +110,8 @@ func TestMissingFields(t *testing.T) {
 		}
 
 		err = zdb.Exec(ctx, `insert into t values (?), (?)`,
-			zdb.L{"1", "2", "3", "4"},
-			zdb.L{"5", "6", "7", "8"},
+			[]any{"1", "2", "3", "4"},
+			[]any{"5", "6", "7", "8"},
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -139,8 +139,8 @@ func TestSelect(t *testing.T) {
 			t.Fatal(err)
 		}
 		err = zdb.Exec(ctx, `insert into t values (?), (?)`,
-			zdb.L{"1", "2", "3", "4"},
-			zdb.L{"5", "6", "7", "8"},
+			[]any{"1", "2", "3", "4"},
+			[]any{"5", "6", "7", "8"},
 		)
 		if err != nil {
 			t.Fatal(err)

@@ -70,19 +70,6 @@ type DB interface {
 }
 
 type (
-	// P ("params") is an alias for map[string]any, just because it's
-	// less typing and looks less noisy 🙃
-	//
-	// Deprecated: map[string]any{..} is now a lot shorter and less ugly than
-	// map[string]interface{}{...}
-	P map[string]any
-
-	// L ("list") is an alias for []any.
-	//
-	// Deprecated: []any{..} is now a lot shorter and less ugly than
-	// []interface{}{..}
-	L []any
-
 	// SQL represents a safe SQL string that will be directly inserted in the
 	// query without any modification, rather than passed as a parameter.
 	//
