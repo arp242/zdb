@@ -1,39 +1,32 @@
 name: 'test'
-on:   ['push', 'pull_request']
+on:
+  pull_request:
+    paths: ['**.go', 'go.mod', '.github/workflows/*']
+  push:
+    branches: ['main']
 
 jobs:
-  # Uncomment to get a debug shell.
-  # debug: {runs-on: 'ubuntu-latest', steps: [{uses: 'actions/checkout@v4'}, {uses: 'mxschmitt/action-tmate@v3'}]}
+  staticcheck:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - uses: 'actions/checkout@v6'
+      - uses: 'dominikh/staticcheck-action@v1.3.1'
+        with: {version: '2025.1'}
 
   test:
-    name:    'test (linux)'
-    runs-on: 'ubuntu-latest'
+    strategy:
+      matrix:
+        go: ['1.25.x']
+        # Tests don't run on Windows due to \r\n issues in test output. Pfff.
+        os: ['ubuntu-latest', 'ubuntu-24.04-arm', 'macos-latest']
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: 'actions/checkout@v4'
-      - name: 'test (linux)'
+      - uses: 'actions/checkout@v6'
+      - uses: 'actions/setup-go@v6'
+        with:
+          go-version: ${{ matrix.go }}
+      - shell: 'bash'
         run: |
-          go test -race ./...
-
-          # TODO: not sure why this doesn't work in CI?
-
-          #docker compose up -d --wait
-          #export PGHOST=localhost
-          #export PGPORT=5433
-          #export PGDATABASE=zdb
-          #export PGUSER=zdb
-          #export PGPASSWORD=zdb
-          #export PGSSLMODE=disable
-
-          #go test -race -tags=testpq  ./...
-          #go test -race -tags=testpgx ./...
-
-          # TODO
-          #go test -race -tags=testmaria ./...
-
-  staticcheck:
-    name:    'staticcheck'
-    runs-on: 'ubuntu-latest'
-    steps:
-      - uses: 'actions/checkout@v4'
-      - uses: 'dominikh/staticcheck-action@v1.3.1'
-        with: {version: '2025.1.1'}
+          go test $race ./...
+          cd test
+          go test $race ./...

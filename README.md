@@ -57,9 +57,10 @@ Usage
 You first need to register a driver similar to how you register a driver for
 database/sql; several drivers are available:
 
-- zgo.at/drivers/zdb-pq
-- zgo.at/drivers/zdb-mysql
-- zgo.at/drivers/zdb-go-sqlite3
+- zgo.at/zdb-drivers/pq
+- zgo.at/zdb-drivers/pgx
+- zgo.at/zdb-drivers/go-sqlite3
+- zgo.at/zdb-drivers/mysql
 
 Simply importing this package is enough; e.g.:
 

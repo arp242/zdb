@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"zgo.at/zdb"
-	"zgo.at/zdb/testdata"
+	"zgo.at/zdb/test/testdata"
 )
 
 func TestMigrateList(t *testing.T) {

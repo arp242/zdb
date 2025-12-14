@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestXXX(t *testing.T) {
+func TestMapper(t *testing.T) {
 	x := struct {
 		A int
 		B int `db:"bbb"`
