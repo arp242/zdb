@@ -49,7 +49,7 @@ type Driver interface {
 
 	// Start a new test. This is expected to set up a temporary database which
 	// is cleaned at the end.
-	StartTest(*testing.T, *TestOptions) context.Context
+	StartTest(testing.TB, *TestOptions) context.Context
 }
 
 var (

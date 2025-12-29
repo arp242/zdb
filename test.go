@@ -65,6 +65,42 @@ func RunTest(t *testing.T, f func(*testing.T, context.Context), opts ...drivers.
 	}
 }
 
+// RunBench runs benchmarks against all registered zdb SQL drivers.
+func RunBench(b *testing.B, f func(*testing.B, context.Context), opts ...drivers.TestOptions) {
+	if len(opts) > 1 {
+		b.Fatal("zdb.RunTest: more than one drivers.TestOptions")
+	}
+	var opt *drivers.TestOptions
+	if len(opts) == 1 {
+		opt = &opts[0]
+	}
+
+	d := drivers.Drivers()
+	if TestDrivers != nil {
+		var newd []drivers.Driver
+		for _, dd := range d {
+			if slices.Contains(TestDrivers, dd.Name()) {
+				newd = append(newd, dd)
+			}
+		}
+		d = newd
+	}
+	switch len(d) {
+	case 0:
+		b.Fatal("zdb.RunTest: no registered zdb drivers; you need to import a driver in your test")
+	case 1:
+		ctx := d[0].StartTest(b, opt)
+		f(b, ctx)
+	default:
+		for _, dd := range d {
+			b.Run(dd.Name(), func(b *testing.B) {
+				ctx := dd.StartTest(b, opt)
+				f(b, ctx)
+			})
+		}
+	}
+}
+
 type DumpArg int32
 
 func (d DumpArg) has(flag DumpArg) bool { return d&flag != 0 }

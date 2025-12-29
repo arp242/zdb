@@ -12,6 +12,19 @@ import (
 	_ "zgo.at/zdb-drivers/go-sqlite3"
 )
 
+func BenchmarkBulkInsert(b *testing.B) {
+	zdb.RunBench(b, func(b *testing.B, ctx context.Context) {
+		bb := zdb.NewBulkInsert(ctx, "TBL", []string{"col1", "col2", "col3"})
+		b.ResetTimer()
+		for b.Loop() {
+			for range 100 {
+				bb.Values("one", "two", "three")
+			}
+			bb.Finish()
+		}
+	})
+}
+
 func TestBulkInsert(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
 		err := zdb.Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
