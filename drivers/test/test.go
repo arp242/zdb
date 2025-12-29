@@ -41,7 +41,7 @@ func (testDriver) Connect(ctx context.Context, connect string, create bool) (*sq
 	db, err := sql.Open("test", "")
 	return db, nil, err
 }
-func (testDriver) StartTest(*testing.T, *drivers.TestOptions) context.Context {
+func (testDriver) StartTest(testing.TB, *drivers.TestOptions) context.Context {
 	return context.Background()
 }
 
