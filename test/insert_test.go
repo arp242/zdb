@@ -200,5 +200,16 @@ func TestUpdate(t *testing.T) {
 				t.Fatal("\n" + have)
 			}
 		}
+
+		{ // Updating a column that has ,noinsert
+			err = zdb.Update(ctx, &row, "other")
+			if !ztest.ErrorContains(err, `column "other" has ,noinsert`) {
+				t.Fatal(err)
+			}
+			want := "id  str   NoTag\n1   all1  ro2\n"
+			if have := zdb.DumpString(ctx, "select * from tbl"); have != want {
+				t.Fatal("\n" + have)
+			}
+		}
 	})
 }

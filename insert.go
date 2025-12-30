@@ -160,7 +160,7 @@ func Update(ctx context.Context, t Tabler, columns ...string) error {
 
 	var (
 		tbl              = t.Table()
-		cols, vals, opts = zreflect.Fields(t, "db", "noinsert")
+		cols, vals, opts = zreflect.Fields(t, "db", "")
 	)
 
 	idCol, err := idcol(opts)
@@ -179,6 +179,12 @@ func Update(ctx context.Context, t Tabler, columns ...string) error {
 	)
 	for i := range cols {
 		if i == idCol {
+			continue
+		}
+		if slices.Contains(opts[i], "noinsert") {
+			if slices.Contains(columns, cols[i]) {
+				return fmt.Errorf("zdb.Update: column %q has ,noinsert", cols[i])
+			}
 			continue
 		}
 		if updateAll {
