@@ -34,7 +34,7 @@ zgo.at/zdb-drivers/go-sqlite3 v0.0.0-20251229200649-f359db3f2221 h1:7poNP/sWo4hU
 zgo.at/zdb-drivers/go-sqlite3 v0.0.0-20251229200649-f359db3f2221/go.mod h1:kWwccuo0EHY2kmv+2R6vI2x6QtBBtuCPX8WPw4cW1wM=
 zgo.at/zdb-drivers/mariadb v0.0.0-20251229200649-f359db3f2221 h1:ubOiOaQoRT2YGwKX4bBYQdlBs/Jmu9DL3IuPFP1N9YY=
 zgo.at/zdb-drivers/mariadb v0.0.0-20251229200649-f359db3f2221/go.mod h1:ogU7ZVrO+keTV4944cmMp9GDDNgCtEefTpgjjvHD+xI=
-zgo.at/zdb-drivers/pgx v0.0.0-20251230081904-ff701a2f492b h1:IMi7nJSUwZKq+ql2eo5Hu+f1/Eb4+tOVjvUC/0d0cbA=
-zgo.at/zdb-drivers/pgx v0.0.0-20251230081904-ff701a2f492b/go.mod h1:TE6QT2UVgx/XvPnDeE1NY0JeRDUIJExvqfPDVmLAEpg=
+zgo.at/zdb-drivers/pgx v0.0.0-20251230090326-099d410c9ba7 h1:AMhAN17fKorEcBQreFj+mqd1/kiITGNi33kgX5m0t3o=
+zgo.at/zdb-drivers/pgx v0.0.0-20251230090326-099d410c9ba7/go.mod h1:TE6QT2UVgx/XvPnDeE1NY0JeRDUIJExvqfPDVmLAEpg=
 zgo.at/zstd v0.0.0-20251128053228-ec259dea6715 h1:WGhTl8paofaxx17xbLm05p7YHJOtKQYZGMFWazihlbI=
 zgo.at/zstd v0.0.0-20251128053228-ec259dea6715/go.mod h1:dyNG54iOA/2VkhABg0GsVOZImH35iLeJ0OpVjHUKbyA=

@@ -8,7 +8,7 @@ require (
 	zgo.at/zdb v0.0.0-20251229200430-f9358a291e07
 	zgo.at/zdb-drivers/go-sqlite3 v0.0.0-20251229200649-f359db3f2221
 	zgo.at/zdb-drivers/mariadb v0.0.0-20251229200649-f359db3f2221
-	zgo.at/zdb-drivers/pgx v0.0.0-20251230081904-ff701a2f492b
+	zgo.at/zdb-drivers/pgx v0.0.0-20251230090326-099d410c9ba7
 	zgo.at/zstd v0.0.0-20251128053228-ec259dea6715
 )
 

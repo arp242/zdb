@@ -14,7 +14,7 @@ import (
 
 func BenchmarkBulkInsert(b *testing.B) {
 	zdb.RunBench(b, func(b *testing.B, ctx context.Context) {
-		bb := zdb.NewBulkInsert(ctx, "TBL", []string{"col1", "col2", "col3"})
+		bb := zdb.NewBulkInsert(ctx, "tbl", []string{"col1", "col2", "col3"})
 		b.ResetTimer()
 		for b.Loop() {
 			for range 100 {
@@ -27,12 +27,12 @@ func BenchmarkBulkInsert(b *testing.B) {
 
 func TestBulkInsert(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
-		err := zdb.Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
+		err := zdb.Exec(ctx, `create table tbl (aa text, bb text, cc text);`)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		insert := zdb.NewBulkInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
+		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
 		insert.Values("one", "two", "three")
 		insert.Values("a", "b", "c")
 
@@ -45,12 +45,12 @@ func TestBulkInsert(t *testing.T) {
 
 func TestBulkInsertRace(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
-		err := zdb.Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
+		err := zdb.Exec(ctx, `create table tbl (aa text, bb text, cc text);`)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		insert := zdb.NewBulkInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
+		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
 
 		var wg sync.WaitGroup
 		wg.Add(40)
@@ -88,12 +88,12 @@ func TestBulkInsertEmpty(t *testing.T) {
 
 func TestBulkInsertError(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
-		err := zdb.Exec(ctx, `create table TBL (aa text, bb text, cc text);`)
+		err := zdb.Exec(ctx, `create table tbl (aa text, bb text, cc text);`)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		insert := zdb.NewBulkInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
+		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
 		insert.Values("'one\"", 2)
 		a := "a"
 		insert.Values(&a, time.Date(2021, 6, 18, 12, 00, 00, 0, time.UTC))
@@ -120,7 +120,7 @@ func TestBulkInsertError(t *testing.T) {
 
 func TestBulkInsertReturning(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
-		err := zdb.Exec(ctx, fmt.Sprintf(`create table TBL (id %s, aa int, bb int, cc int)`,
+		err := zdb.Exec(ctx, fmt.Sprintf(`create table tbl (id %s, aa int, bb int, cc int)`,
 			map[zdb.Dialect]string{
 				zdb.DialectPostgreSQL: "serial   primary key",
 				zdb.DialectSQLite:     "integer  primary key autoincrement",
@@ -130,7 +130,7 @@ func TestBulkInsertReturning(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		insert := zdb.NewBulkInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
+		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
 		insert.Returning("id")
 		insert.Limit = 2
 
@@ -184,7 +184,7 @@ func TestBulkInsertReturning(t *testing.T) {
 
 func TestBulkInsertReturningMultiple(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
-		err := zdb.Exec(ctx, fmt.Sprintf(`create table TBL (id %s, aa text, bb text, cc text)`,
+		err := zdb.Exec(ctx, fmt.Sprintf(`create table tbl (id %s, aa text, bb text, cc text)`,
 			map[zdb.Dialect]string{
 				zdb.DialectPostgreSQL: "serial   primary key",
 				zdb.DialectSQLite:     "integer  primary key autoincrement",
@@ -194,7 +194,7 @@ func TestBulkInsertReturningMultiple(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		insert := zdb.NewBulkInsert(ctx, "TBL", []string{"aa", "bb", "cc"})
+		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
 		insert.Returning("id", "aa", "bb")
 
 		insert.Values("a 1", "b 1", "c 1")
