@@ -36,9 +36,6 @@ func idcol(opts [][]string) (int, error) {
 			col = i
 		}
 	}
-	if col == -1 {
-		return col, errors.New("no ,id column")
-	}
 	return col, nil
 }
 
@@ -167,6 +164,9 @@ func Update(ctx context.Context, t Tabler, columns ...string) error {
 	idCol, err := idcol(opts)
 	if err != nil {
 		return fmt.Errorf("zdb.Update: %w", err)
+	}
+	if idCol == -1 {
+		return errors.New("zdb.Update: no ,id column")
 	}
 	if reflect.ValueOf(vals[idCol]).IsZero() {
 		return errors.New("zdb.Update: ID column is zero value")
