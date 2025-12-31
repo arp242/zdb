@@ -94,16 +94,16 @@ func Insert(ctx context.Context, t Tabler, onConflict ...string) error {
 	}
 
 	for i := range cols {
-		cols[i] = quoteIdentifier(cols[i])
+		cols[i] = QuoteIdentifier(cols[i])
 	}
 	q := fmt.Sprintf(`insert into %s (%s) values (?) %s`,
-		quoteIdentifier(t.Table()),
+		QuoteIdentifier(t.Table()),
 		strings.Join(cols, ", "),
 		strings.Join(onConflict, " "))
 	if idColName == "" {
 		err = Exec(ctx, q, params)
 	} else {
-		q += " returning " + quoteIdentifier(idColName)
+		q += " returning " + QuoteIdentifier(idColName)
 		err = Get(ctx, idVal, q, params)
 	}
 	if err != nil {
@@ -112,7 +112,8 @@ func Insert(ctx context.Context, t Tabler, onConflict ...string) error {
 	return nil
 }
 
-func quoteIdentifier(ident string) string {
+// QuoteIdentifier quotes ident as an SQL identifier.
+func QuoteIdentifier(ident string) string {
 	var b strings.Builder
 	b.Grow(len(ident) + 2)
 	b.WriteByte('"')
@@ -170,7 +171,7 @@ func Update(ctx context.Context, t Tabler, columns ...string) error {
 	if reflect.ValueOf(vals[idCol]).IsZero() {
 		return errors.New("zdb.Update: ID column is zero value")
 	}
-	where, whereParam := fmt.Sprintf(`%s = ?`, quoteIdentifier(cols[idCol])), vals[idCol]
+	where, whereParam := fmt.Sprintf(`%s = ?`, QuoteIdentifier(cols[idCol])), vals[idCol]
 
 	var (
 		updateAll = len(columns) == 1 && columns[0] == UpdateAll
@@ -189,15 +190,15 @@ func Update(ctx context.Context, t Tabler, columns ...string) error {
 		}
 		if updateAll {
 			if !slices.Contains(opts[i], "readonly") {
-				set, params = append(set, quoteIdentifier(cols[i])+` = ?`), append(params, vals[i])
+				set, params = append(set, QuoteIdentifier(cols[i])+` = ?`), append(params, vals[i])
 			}
 		} else if slices.Contains(columns, cols[i]) {
-			set, params = append(set, quoteIdentifier(cols[i])+` = ?`), append(params, vals[i])
+			set, params = append(set, QuoteIdentifier(cols[i])+` = ?`), append(params, vals[i])
 		}
 	}
 
 	q := fmt.Sprintf(`update %s set %s where %s`,
-		quoteIdentifier(tbl), strings.Join(set, ", "), where)
+		QuoteIdentifier(tbl), strings.Join(set, ", "), where)
 	err = Exec(ctx, q, append(params, whereParam)...)
 	if err != nil {
 		return fmt.Errorf("zdb.Update: %w", err)
