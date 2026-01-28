@@ -12,19 +12,6 @@ import (
 	_ "zgo.at/zdb-drivers/go-sqlite3"
 )
 
-func BenchmarkBulkInsert(b *testing.B) {
-	zdb.RunBench(b, func(b *testing.B, ctx context.Context) {
-		bb := zdb.NewBulkInsert(ctx, "tbl", []string{"col1", "col2", "col3"})
-		b.ResetTimer()
-		for b.Loop() {
-			for range 100 {
-				bb.Values("one", "two", "three")
-			}
-			bb.Finish()
-		}
-	})
-}
-
 func TestBulkInsert(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
 		err := zdb.Exec(ctx, `create table tbl (aa text, bb text, cc text);`)
@@ -32,7 +19,10 @@ func TestBulkInsert(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		insert, err := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		if err != nil {
+			t.Fatal(err)
+		}
 		insert.Values("one", "two", "three")
 		insert.Values("a", "b", "c")
 
@@ -50,7 +40,10 @@ func TestBulkInsertRace(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		insert, err := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		var wg sync.WaitGroup
 		wg.Add(40)
@@ -79,7 +72,10 @@ func TestBulkInsertEmpty(t *testing.T) {
 		if err := zdb.Exec(ctx, `create table tbl (a text);`); err != nil {
 			t.Fatal(err)
 		}
-		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		insert, err := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		if err != nil {
+			t.Fatal(err)
+		}
 		if err := insert.Finish(); err != nil {
 			t.Fatal(err)
 		}
@@ -93,8 +89,11 @@ func TestBulkInsertError(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
-		insert.Values("'one\"", 2)
+		insert, err := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		insert.Values(`'one"`, 2) // Not enough columns
 		a := "a"
 		insert.Values(&a, time.Date(2021, 6, 18, 12, 00, 00, 0, time.UTC))
 
@@ -130,7 +129,10 @@ func TestBulkInsertReturning(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		insert, err := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		if err != nil {
+			t.Fatal(err)
+		}
 		insert.Returning("id")
 		insert.Limit = 2
 
@@ -194,7 +196,10 @@ func TestBulkInsertReturningMultiple(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		insert := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		insert, err := zdb.NewBulkInsert(ctx, "tbl", []string{"aa", "bb", "cc"})
+		if err != nil {
+			t.Fatal(err)
+		}
 		insert.Returning("id", "aa", "bb")
 
 		insert.Values("a 1", "b 1", "c 1")
@@ -212,6 +217,22 @@ func TestBulkInsertReturningMultiple(t *testing.T) {
 		}
 		if l := len(insert.Returned()); l != 0 {
 			t.Errorf("len = %d", l)
+		}
+	})
+}
+
+func BenchmarkBulkInsert(b *testing.B) {
+	zdb.RunBench(b, func(b *testing.B, ctx context.Context) {
+		bb, err := zdb.NewBulkInsert(ctx, "tbl", []string{"col1", "col2", "col3"})
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		for b.Loop() {
+			for range 100 {
+				bb.Values("one", "two", "three")
+			}
+			bb.Finish()
 		}
 	})
 }
