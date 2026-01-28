@@ -14,19 +14,20 @@ jobs:
         with: {version: '2025.1'}
 
   test:
-    strategy:
-      matrix:
-        go: ['1.25.x']
-        # Tests don't run on Windows due to \r\n issues in test output. Pfff.
-        os: ['ubuntu-latest', 'ubuntu-24.04-arm', 'macos-latest']
-    runs-on: ${{ matrix.os }}
+    runs-on: 'ubuntu-latest'
     steps:
       - uses: 'actions/checkout@v6'
       - uses: 'actions/setup-go@v6'
-        with:
-          go-version: ${{ matrix.go }}
-      - shell: 'bash'
-        run: |
-          go test $race ./...
+        with: {go-version: 'stable'}
+      - run: |
+          go test -race ./...
           cd test
-          go test $race ./...
+          go test -race ./...
+
+          docker compose up -d --wait || {
+            docker compose logs
+            exit 1
+          }
+
+          go test -race -tags=testpq  ./...
+          go test -race -tags=testpgx ./...
