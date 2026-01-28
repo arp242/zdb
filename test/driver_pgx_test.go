@@ -13,8 +13,12 @@ func init() {
 		os.Setenv("PGHOST", "localhost")
 	}
 	if _, ok := os.LookupEnv("PGDATABASE"); !ok {
-		os.Setenv("PGDATABASE", "zdb_test")
+		os.Setenv("PGDATABASE", "zdb")
 	}
-
-	// PGHOST=localhost PGUSER=goatcounter PGPASSWORD=goatcounter PGDATABASE=goatcounter go test -tags=testpgx ./...
+	if _, ok := os.LookupEnv("PGUSER"); !ok {
+		os.Setenv("PGUSER", "zdb")
+	}
+	if _, ok := os.LookupEnv("PGPASSWORD"); !ok {
+		os.Setenv("PGPASSWORD", "zdb")
+	}
 }
