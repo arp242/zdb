@@ -270,7 +270,10 @@ Bulk insert
 -----------
 `BulkInsert` makes it easier to bulk insert values:
 
-    ins := zdb.NewBulkInsert(ctx, "table", []string{"col1", "col2", "col3"})
+    ins, err := zdb.NewBulkInsert(ctx, "table", []string{"col1", "col2", "col3"})
+    if err != nil {
+        // ...
+    }
     for _, v := range listOfValues {
         ins.Values(v.Col1, v.Col2, v.Col3)
     }
