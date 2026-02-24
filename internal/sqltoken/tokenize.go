@@ -372,13 +372,6 @@ SingleQuoteString:
 		case '\'':
 			token(Literal)
 			goto BaseState
-		case '\\':
-			if i < len(s) {
-				i++
-			} else {
-				token(Literal)
-				goto Done
-			}
 		}
 	}
 	token(Literal)
