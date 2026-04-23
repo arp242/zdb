@@ -27,6 +27,10 @@ type BulkInsert struct {
 
 // NewBulkInsert makes a new BulkInsert builder.
 func NewBulkInsert(ctx context.Context, table string, columns []string) (BulkInsert, error) {
+	if len(columns) == 0 {
+		return BulkInsert{}, errors.New("NewBulkInsert: len(columns) == 0")
+	}
+
 	var (
 		psql = SQLDialect(ctx) == DialectPostgreSQL
 		ins  = newBuilder(table, psql, columns...)
