@@ -135,10 +135,9 @@ func TestEmbeddedSimple(t *testing.T) {
 	type Item struct {
 		ID MyID
 	}
-	z := Item{}
 
 	m := NewMapper("db", nil)
-	m.TypeMap(reflect.TypeOf(z))
+	m.TypeMap(reflect.TypeFor[Item]())
 }
 
 /*
@@ -330,8 +329,7 @@ func TestInlineStruct(t *testing.T) {
 func TestRecursiveStruct(t *testing.T) {
 	type Person struct{ Parent *Person }
 	m := NewMapper("db", strings.ToLower)
-	var p *Person
-	m.TypeMap(reflect.TypeOf(p))
+	m.TypeMap(reflect.TypeFor[*Person]())
 }
 
 /*
@@ -772,7 +770,7 @@ func TestFieldByIndexes(t *testing.T) {
 }
 
 func TestMustBe(t *testing.T) {
-	typ := reflect.TypeOf(E1{})
+	typ := reflect.TypeFor[E1]()
 	mustBe(typ, reflect.Struct)
 
 	defer func() {
@@ -793,7 +791,7 @@ func TestMustBe(t *testing.T) {
 		}
 	}()
 
-	typ = reflect.TypeOf("string")
+	typ = reflect.TypeFor[string]()
 	mustBe(typ, reflect.Struct)
 	t.Error("got here, didn't expect to")
 }
@@ -890,7 +888,7 @@ func BenchmarkTraversalsByName(b *testing.B) {
 	type D struct{ C C }
 
 	m := NewMapper("", nil)
-	t := reflect.TypeOf(D{})
+	t := reflect.TypeFor[D]()
 	names := []string{"C", "B", "A", "Value"}
 
 	b.ResetTimer()
@@ -909,7 +907,7 @@ func BenchmarkTraversalsByNameFunc(b *testing.B) {
 	type D struct{ C C }
 
 	m := NewMapper("", nil)
-	t := reflect.TypeOf(D{})
+	t := reflect.TypeFor[D]()
 	names := []string{"C", "B", "A", "Z", "Y"}
 
 	b.ResetTimer()

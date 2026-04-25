@@ -93,8 +93,7 @@ func bindNamedMapper(style PlaceholderStyle, query string, arg any, m *reflectx.
 // Unlike v.(map[string]any), this function works on named types that
 // are convertible to map[string]any as well.
 func convertMapStringInterface(v any) (map[string]any, bool) {
-	var m map[string]any
-	mtype := reflect.TypeOf(m)
+	mtype := reflect.TypeFor[map[string]any]()
 	t := reflect.TypeOf(v)
 	if !t.ConvertibleTo(mtype) {
 		return nil, false
@@ -118,7 +117,7 @@ func bindArgs(names []string, arg any, m *reflectx.Mapper) ([]any, error) {
 
 	// grab the indirected value of arg
 	v := reflect.ValueOf(arg)
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 
@@ -225,7 +224,7 @@ func bindArray(style PlaceholderStyle, query string, arg any, m *reflectx.Mapper
 	}
 
 	arglist := make([]any, 0, len(names)*arrayLen)
-	for i := 0; i < arrayLen; i++ {
+	for i := range arrayLen {
 		elemArglist, err := bindAnyArgs(names, arrayValue.Index(i).Interface(), m)
 		if err != nil {
 			return "", []any{}, err

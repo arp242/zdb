@@ -276,7 +276,7 @@ func loadImpl(db DB, name string) (string, bool, error) {
 	// other comments, as it requires parsing the SQL and this is "good enough"
 	// to allow some comments in the SQL files, while also not cluttering the
 	// SQL stats/logs with them.
-	for _, line := range bytes.Split(bytes.TrimSpace(q), []byte("\n")) {
+	for line := range bytes.SplitSeq(bytes.TrimSpace(q), []byte("\n")) {
 		if !bytes.HasPrefix(bytes.TrimSpace(line), []byte("--")) {
 			b.Write(line)
 			b.WriteRune('\n')

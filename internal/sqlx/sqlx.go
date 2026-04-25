@@ -51,7 +51,7 @@ func mapper() *reflectx.Mapper {
 //   - it implements sql.Scanner
 //   - it has no exported fields
 func isScannable(t reflect.Type) bool {
-	if reflect.PtrTo(t).Implements(_scannerInterface) {
+	if reflect.PointerTo(t).Implements(_scannerInterface) {
 		return true
 	}
 	if t.Kind() != reflect.Struct {
@@ -78,7 +78,7 @@ func mapperFor(i any) *reflectx.Mapper {
 	}
 }
 
-var _scannerInterface = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
+var _scannerInterface = reflect.TypeFor[sql.Scanner]()
 
 // Row is a reimplementation of sql.Row in order to gain access to the underlying
 // sql.Rows.Columns() data, necessary for StructScan.

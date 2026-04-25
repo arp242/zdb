@@ -47,7 +47,7 @@ func TestBulkInsertRace(t *testing.T) {
 
 		var wg sync.WaitGroup
 		wg.Add(40)
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			go func() {
 				defer wg.Done()
 				insert.Values("one", "two", "three")

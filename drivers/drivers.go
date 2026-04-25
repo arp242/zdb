@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/fs"
+	"maps"
 	"sync"
 	"testing"
 )
@@ -87,9 +88,7 @@ func Test() func() {
 	defer driversMu.Unlock()
 
 	save := make(map[string]Driver)
-	for k, v := range drivers {
-		save[k] = v
-	}
+	maps.Copy(save, drivers)
 	drivers = make(map[string]Driver)
 	return func() {
 		driversMu.Lock()

@@ -3,6 +3,7 @@ package zdb
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"reflect"
 	"regexp"
 	"text/template"
@@ -46,17 +47,15 @@ func Template(dialect Dialect, tpl string, params ...any) ([]byte, error) {
 			return nil, fmt.Errorf("zdb.Template: invalid template parameter type %#v", param)
 		}
 
-		for v = reflect.ValueOf(param); v.Kind() == reflect.Ptr; {
+		for v = reflect.ValueOf(param); v.Kind() == reflect.Pointer; {
 			v = v.Elem()
 		}
 
 		var m map[string]any
-		if v.Type().ConvertibleTo(reflect.TypeOf(m)) {
-			m = v.Convert(reflect.TypeOf(m)).Interface().(map[string]any)
+		if v.Type().ConvertibleTo(reflect.TypeFor[map[string]any]()) {
+			m = v.Convert(reflect.TypeFor[map[string]any]()).Interface().(map[string]any)
 		}
-		for k, v := range m {
-			paramMap[k] = v
-		}
+		maps.Copy(paramMap, m)
 
 		// Struct
 		if v.Kind() == reflect.Struct {
@@ -146,8 +145,6 @@ func tplFuncs(dialect Dialect) template.FuncMap {
 			}[dialect]
 		},
 	}
-	for k, v := range TemplateFuncMap {
-		f[k] = v
-	}
+	maps.Copy(f, TemplateFuncMap)
 	return f
 }

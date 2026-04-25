@@ -149,7 +149,7 @@ func prepareParams(params []any) (any, bool, DumpArg, io.Writer, error) {
 
 		// If this implements Value() then we never want to merge it with other
 		// structs or maps.
-		if t.Implements(reflect.TypeOf((*driver.Valuer)(nil)).Elem()) {
+		if t.Implements(reflect.TypeFor[driver.Valuer]()) {
 			mergedPos = append(mergedPos, param)
 			continue
 		}
@@ -160,13 +160,13 @@ func prepareParams(params []any) (any, bool, DumpArg, io.Writer, error) {
 
 		case reflect.Map:
 			var m map[string]any
-			if !t.ConvertibleTo(reflect.TypeOf(m)) {
+			if !t.ConvertibleTo(reflect.TypeFor[map[string]any]()) {
 				mergedPos = append(mergedPos, param)
 				continue
 			}
 
 			named = true
-			m = reflect.ValueOf(param).Convert(reflect.TypeOf(m)).Interface().(map[string]any)
+			m = reflect.ValueOf(param).Convert(reflect.TypeFor[map[string]any]()).Interface().(map[string]any)
 			for k, v := range m {
 				if _, ok := mergedNamed[k]; ok {
 					return nil, false, 0, nil, fmt.Errorf("parameter given more than once: %q", k)
@@ -202,7 +202,7 @@ func prepareParams(params []any) (any, bool, DumpArg, io.Writer, error) {
 
 func typeOfElem(i any) reflect.Type {
 	var t reflect.Type
-	for t = reflect.TypeOf(i); t.Kind() == reflect.Ptr; {
+	for t = reflect.TypeOf(i); t.Kind() == reflect.Pointer; {
 		t = t.Elem()
 	}
 	return t
@@ -293,14 +293,14 @@ func replaceConditionals(query string, params ...any) (string, error) {
 // prepareParams.
 func includeConditional(param any, name string) (include, has bool, err error) {
 	v := reflect.ValueOf(param)
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 
 	// Map
 	var m map[string]any
-	if v.Type().ConvertibleTo(reflect.TypeOf(m)) {
-		m = v.Convert(reflect.TypeOf(m)).Interface().(map[string]any)
+	if v.Type().ConvertibleTo(reflect.TypeFor[map[string]any]()) {
+		m = v.Convert(reflect.TypeFor[map[string]any]()).Interface().(map[string]any)
 	}
 	if m != nil {
 		v, ok := m[name]

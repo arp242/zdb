@@ -289,7 +289,7 @@ func dumpHorizontal(buf io.Writer, rows *Rows, cols []string) error {
 		}
 
 		for i, c := range row {
-			t.Write([]byte(fmt.Sprintf("%v", formatParam(c, false))))
+			t.Write(fmt.Appendf(nil, "%v", formatParam(c, false)))
 			if i < len(row)-1 {
 				t.Write([]byte("\t"))
 			}
@@ -310,7 +310,7 @@ func dumpVertical(buf io.Writer, rows *Rows, cols []string) error {
 		}
 
 		for i, c := range row {
-			t.Write([]byte(fmt.Sprintf("%s\t%v\n", cols[i], formatParam(c, false))))
+			t.Write(fmt.Appendf(nil, "%s\t%v\n", cols[i], formatParam(c, false)))
 		}
 		t.Write([]byte("\n"))
 	}
@@ -551,12 +551,12 @@ func deIndent(in string) string {
 		indent++
 	}
 
-	r := ""
-	for _, line := range strings.Split(in, "\n") {
-		r += strings.Replace(line, "\t", "", indent) + "\n"
+	var r strings.Builder
+	for line := range strings.SplitSeq(in, "\n") {
+		r.WriteString(strings.Replace(line, "\t", "", indent) + "\n")
 	}
 
-	return strings.TrimSpace(r)
+	return strings.TrimSpace(r.String())
 }
 
 // Diff two strings, ignoring whitespace at the start of a line.

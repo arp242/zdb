@@ -23,7 +23,7 @@ func (e ErrMissingField) Error() string {
 func (r *Rows) StructScan(dest any) error {
 	v := reflect.ValueOf(dest)
 
-	if v.Kind() != reflect.Ptr {
+	if v.Kind() != reflect.Pointer {
 		return errors.New("must pass a pointer, not a value, to StructScan destination")
 	}
 
@@ -76,7 +76,7 @@ func (r *Row) scanAny(dest any, structOnly bool) error {
 	defer r.rows.Close()
 
 	v := reflect.ValueOf(dest)
-	if v.Kind() != reflect.Ptr {
+	if v.Kind() != reflect.Pointer {
 		return errors.New("must pass a pointer, not a value, to StructScan destination")
 	}
 	if v.IsNil() {
@@ -204,7 +204,7 @@ type rowsi interface {
 // struct is expected but something else is given
 func structOnlyError(t reflect.Type) error {
 	isStruct := t.Kind() == reflect.Struct
-	isScanner := reflect.PtrTo(t).Implements(_scannerInterface)
+	isScanner := reflect.PointerTo(t).Implements(_scannerInterface)
 	if !isStruct {
 		return fmt.Errorf("expected %s but got %s", reflect.Struct, t.Kind())
 	}
@@ -235,7 +235,7 @@ func scanAll(rows rowsi, dest any, structOnly bool) error {
 	value := reflect.ValueOf(dest)
 
 	// json.Unmarshal returns errors for these
-	if value.Kind() != reflect.Ptr {
+	if value.Kind() != reflect.Pointer {
 		return errors.New("must pass a pointer, not a value, to StructScan destination")
 	}
 	if value.IsNil() {
@@ -248,7 +248,7 @@ func scanAll(rows rowsi, dest any, structOnly bool) error {
 		return err
 	}
 
-	isPtr := slice.Elem().Kind() == reflect.Ptr
+	isPtr := slice.Elem().Kind() == reflect.Pointer
 	base := reflectx.Deref(slice.Elem())
 	scannable := isScannable(base)
 

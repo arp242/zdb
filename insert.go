@@ -55,7 +55,7 @@ func idcol(opts [][]string) (int, error) {
 //
 //	zdb.Insert(ctx, t, "on conflict (id) do update set data = tbl.data || excluded.data")
 func Insert(ctx context.Context, t Tabler, onConflict ...string) error {
-	if reflect.TypeOf(t).Kind() != reflect.Ptr {
+	if reflect.TypeOf(t).Kind() != reflect.Pointer {
 		return errors.New("zdb.Insert: t is not a pointer")
 	}
 
@@ -139,7 +139,7 @@ var UpdateAll = "\x00update\x00all\x00"
 // The Default() and Validator() methods will be called if t satisfies the
 // [Defaulter] or [Validator] interface.
 func Update(ctx context.Context, t Tabler, columns ...string) error {
-	if reflect.TypeOf(t).Kind() != reflect.Ptr {
+	if reflect.TypeOf(t).Kind() != reflect.Pointer {
 		return errors.New("zdb.Update: t is not a pointer")
 	}
 	if len(columns) == 0 {

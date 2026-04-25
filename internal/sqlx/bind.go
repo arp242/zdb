@@ -157,7 +157,7 @@ func In(query string, args ...any) (string, []any, error) {
 	}
 
 	for i, arg := range args {
-		if v := reflect.ValueOf(arg); arg == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
+		if v := reflect.ValueOf(arg); arg == nil || (v.Kind() == reflect.Pointer && v.IsNil()) {
 			continue
 		}
 
@@ -257,7 +257,7 @@ func asSliceForIn(i any) (reflect.Value, bool) {
 	}
 
 	// []byte is a driver.Value type so it should not be expanded
-	if t == reflect.TypeOf([]byte{}) {
+	if t == reflect.TypeFor[[]byte]() {
 		return reflect.Value{}, false
 
 	}
@@ -278,7 +278,7 @@ func appendReflectSlice(args []any, v reflect.Value, vlen int) []any {
 			args = append(args, val[i])
 		}
 	default:
-		for si := 0; si < vlen; si++ {
+		for si := range vlen {
 			args = append(args, v.Index(si).Interface())
 		}
 	}
