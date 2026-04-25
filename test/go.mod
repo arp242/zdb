@@ -1,6 +1,6 @@
 module zgo.at/zdb/test
 
-go 1.25
+go 1.26
 
 replace zgo.at/zdb => ../
 

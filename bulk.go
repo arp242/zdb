@@ -22,6 +22,7 @@ type BulkInsert struct {
 	columns  []string
 	insert   biBuilder
 	errors   []error
+	fatal    bool
 	returned [][]any
 }
 
@@ -112,6 +113,9 @@ func (m *BulkInsert) Returned() [][]any {
 func (m *BulkInsert) Values(values ...any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.fatal {
+		return
+	}
 	if m.rows+1 >= m.Limit {
 		m.doInsert()
 	}
@@ -143,6 +147,9 @@ func (m BulkInsert) Errors() error {
 }
 
 func (m *BulkInsert) doInsert() {
+	if m.fatal {
+		return
+	}
 	query, params, err := m.insert.SQL()
 	if err != nil {
 		m.errors = append(m.errors, err)
@@ -154,6 +161,15 @@ func (m *BulkInsert) doInsert() {
 		err = Exec(m.ctx, query, params...)
 	}
 	if err != nil {
+		if sErr, ok := errors.AsType[interface {
+			Error() string
+			SQLState() string
+		}](err); ok {
+			// Don't repeat tons of "current transaction is aborted, commands
+			// ignored until end of transaction block" errors, but include one
+			// at the most.
+			m.fatal = sErr.SQLState() == "25P02"
+		}
 		m.errors = append(m.errors, err)
 	}
 
