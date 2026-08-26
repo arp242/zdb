@@ -2,6 +2,7 @@ package zdb
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -106,8 +107,7 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 			break
 		}
 
-		if (dialect == DialectUnknown || dialectNames[d.Dialect()] == dialect) &&
-			(driver == "" || d.Name() == driver) {
+		if (dialect == DialectUnknown || dialectNames[d.Dialect()] == dialect) && (driver == "" || d.Name() == driver) {
 			useDriver = d
 			break
 		}
@@ -181,7 +181,7 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 		return nil, fmt.Errorf("zdb.Connect: %w", err)
 	}
 
-	// Create schema.
+	// Create tables.
 	if !exists {
 		if !opt.Create {
 			return nil, &drivers.NotExistError{Driver: dialect.String(), Connect: conn}
@@ -210,6 +210,35 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 		return db, m.Check()
 	}
 	return db, nil
+}
+
+// FromSQLDB creates a [zdb.DB] from a [sql.DB].
+//
+// Unlike Connect, this won't set up tables or run migrations. You will have to
+// do this manually via [Create] or [NewMigrate] if desired.
+func FromSQLDB(sqlDB *sql.DB) (DB, error) {
+	// Map drivers based on the type name so we don't need to import.
+	want := map[string]string{
+		"*pq.Driver":            "pq",
+		"*sqlite3.SQLiteDriver": "go-sqlite3",
+		"*mysql.MySQLDriver":    "mariadb",
+	}[fmt.Sprintf("%T", sqlDB.Driver())]
+
+	var useDriver drivers.Driver
+	for _, d := range drivers.Drivers() {
+		if d.Name() == want {
+			useDriver = d
+			break
+		}
+	}
+	if useDriver == nil {
+		return nil, fmt.Errorf("zdb.Connect: no driver found: import zgo.at/drivers/%s", want)
+	}
+
+	return &zDB{
+		db:      sqlx.NewDb(sqlDB, useDriver.Name()),
+		dialect: dialectNames[useDriver.Dialect()],
+	}, nil
 }
 
 // Create tables based on db/schema.{sql,gotxt}
