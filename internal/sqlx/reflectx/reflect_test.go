@@ -854,8 +854,7 @@ func BenchmarkFieldPosL1(b *testing.B) {
 }
 
 func BenchmarkFieldPosL4(b *testing.B) {
-	e4 := E4{}
-	e4.A = 1
+	e4 := E4{A: 1}
 	for i := 0; i < b.N; i++ {
 		v := reflect.ValueOf(e4)
 		f := v.Field(0)
@@ -869,8 +868,7 @@ func BenchmarkFieldPosL4(b *testing.B) {
 }
 
 func BenchmarkFieldByIndexL4(b *testing.B) {
-	e4 := E4{}
-	e4.A = 1
+	e4 := E4{A: 1}
 	idx := []int{0, 0, 0, 0}
 	for i := 0; i < b.N; i++ {
 		v := reflect.ValueOf(e4)

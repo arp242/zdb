@@ -1,5 +1,5 @@
 module zgo.at/zdb
 
-go 1.26
+go 1.27
 
-require zgo.at/zstd v0.0.0-20260423150213-85e323702691
+require zgo.at/zstd v0.0.0-20260825170826-0bd1746f8b87

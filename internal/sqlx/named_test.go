@@ -315,9 +315,7 @@ func TestNamedStruct(t *testing.T) {
 		t.Errorf("Expected 'Hello', got %s\n", args[1].(string))
 	}
 
-	am3 := tt3{Name: "Hello!"}
-	am3.Field1 = "Hello"
-	am3.Field2 = "World"
+	am3 := tt3{Name: "Hello!", Field1: "Hello", Field2: "World"}
 
 	bq, args, err = bindStruct(PlaceholderQuestion, "INSERT INTO foo (a, b, c) VALUES (:name, :field_1, :field_2)", am3, mapper())
 
