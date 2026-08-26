@@ -40,10 +40,7 @@ type Driver interface {
 	//
 	// If create is true, it should attempt to create the database if it doesn't
 	// exist.
-	//
-	// It may optionally return a driverConn, for example *pgxpool.Pool. This
-	// can be nil.
-	Connect(ctx context.Context, connect string, create bool) (db *sql.DB, driverConn any, err error)
+	Connect(ctx context.Context, connect string, create bool) (db *sql.DB, err error)
 
 	// ErrUnique reports if this error reports a UNIQUE constraint violation.
 	ErrUnique(error) bool
