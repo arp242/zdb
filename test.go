@@ -29,7 +29,31 @@ import (
 // is not always desired.
 var TestDrivers []string
 
-// RunTest runs tests against all registered zdb SQL drivers.
+// StartTest starts a test.
+//
+// This only works if there is exactly one imported zdb driver. Use [RunTest] to
+// run a test against more than one driver.
+func StartTest(t *testing.T, opts ...drivers.TestOptions) context.Context {
+	if len(opts) > 1 {
+		t.Fatal("zdb.StartTest: more than one drivers.TestOptions")
+	}
+	var opt *drivers.TestOptions
+	if len(opts) == 1 {
+		opt = &opts[0]
+	}
+
+	d := drivers.Drivers()
+	if len(d) == 0 {
+		t.Fatal("zdb.StartTest: no registered zdb drivers; you need to import a driver in your test")
+	} else if len(d) > 1 {
+		t.Fatalf(
+			"zdb.StartTest: there are %d registered zdb drivers; you can only import 1 driver with zdb.StartTest(); use zdb.RunTest() to run against multiple drivers",
+			len(d))
+	}
+	return d[0].StartTest(t, opt)
+}
+
+// RunTest runs tests against all registered zdb drivers.
 func RunTest(t *testing.T, f func(*testing.T, context.Context), opts ...drivers.TestOptions) {
 	if len(opts) > 1 {
 		t.Fatal("zdb.RunTest: more than one drivers.TestOptions")
