@@ -502,6 +502,17 @@ func ApplyParams(query string, params ...any) string {
 	return query
 }
 
+var ccReplacer = strings.NewReplacer(
+	"\x00", `\x00`, "\x01", `\x01`, "\x02", `\x02`, "\x03", `\x03`, "\x04", `\x04`, "\x05", `\x05`, "\x06", `\x06`,
+	"\x07", `\x07`, "\x08", `\x08`, "\x09", `\t`, "\x0a", `\n`, "\x0b", `\x0b`, "\x0c", `\x0c`, "\x0d", `\r`,
+	"\x0e", `\x0e`, "\x0f", `\x0f`, "\x10", `\x10`, "\x11", `\x11`, "\x12", `\x12`, "\x13", `\x13`, "\x14", `\x14`,
+	"\x15", `\x15`, "\x16", `\x16`, "\x17", `\x17`, "\x18", `\x18`, "\x19", `\x19`, "\x1a", `\x1a`, "\x1b", `\x1b`,
+	"\x1c", `\x1c`, "\x1d", `\x1d`, "\x1e", `\x1e`, "\x1f", `\x1f`)
+
+func replaceCC(s string) string {
+	return ccReplacer.Replace(s)
+}
+
 // TODO: also look at Value interface; at least when used to dump the query.
 func formatParam(a any, quoted bool) string {
 	if a == nil {
@@ -545,14 +556,14 @@ func formatParam(a any, quoted bool) string {
 		}
 	case string:
 		if quoted {
-			return fmt.Sprintf("'%v'", strings.ReplaceAll(aa, "'", "''"))
+			return fmt.Sprintf("'%v'", strings.ReplaceAll(replaceCC(aa), "'", "''"))
 		}
-		return aa
+		return replaceCC(aa)
 	default:
 		if quoted {
-			return fmt.Sprintf("'%v'", aa)
+			return replaceCC(fmt.Sprintf("'%v'", aa))
 		}
-		return fmt.Sprintf("%v", aa)
+		return replaceCC(fmt.Sprintf("%v", aa))
 	}
 }
 
