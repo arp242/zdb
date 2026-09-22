@@ -15,7 +15,7 @@ func TestFromSQLDB(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db, err := zdb.FromSQLDB(sqlDB)
+	db, err := zdb.FromSQLDB(sqlDB, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

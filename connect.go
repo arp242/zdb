@@ -215,7 +215,7 @@ func Connect(ctx context.Context, opt ConnectOptions) (DB, error) {
 //
 // Unlike Connect, this won't set up tables or run migrations. You will have to
 // do this manually via [Create] or [NewMigrate] if desired.
-func FromSQLDB(sqlDB *sql.DB) (DB, error) {
+func FromSQLDB(sqlDB *sql.DB, fsys fs.FS) (DB, error) {
 	// Map drivers based on the type name so we don't need to import.
 	want := map[string]string{
 		"*pq.Driver":            "pq",
@@ -231,12 +231,21 @@ func FromSQLDB(sqlDB *sql.DB) (DB, error) {
 		}
 	}
 	if useDriver == nil {
-		return nil, fmt.Errorf("zdb.Connect: no driver found: import zgo.at/drivers/%s", want)
+		return nil, fmt.Errorf("zdb.FromSQLDB: no driver found: import zgo.at/drivers/%s", want)
 	}
 
+	if fsys != nil {
+		var err error
+		fsys, err = zfs.SubIfExists(fsys, "db")
+		if err != nil {
+			return nil, fmt.Errorf("zdb.FromSQLDB: %w", err)
+		}
+		fsys, _ = fs.Sub(fsys, "query") // Optional, okay to ignore error.
+	}
 	return &zDB{
 		db:      sqlx.NewDb(sqlDB, useDriver.Name()),
 		dialect: dialectNames[useDriver.Dialect()],
+		queryFS: fsys,
 	}, nil
 }
 
