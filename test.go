@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"zgo.at/zdb/drivers"
-	"zgo.at/zstd/zbyte"
 	"zgo.at/zstd/zdebug"
 	"zgo.at/zstd/ztest"
 	"zgo.at/zstd/ztime"
@@ -549,7 +548,7 @@ func formatParam(a any, quoted bool) string {
 	case int, int64:
 		return fmt.Sprintf("%v", aa)
 	case []byte:
-		if zbyte.Binary(aa) {
+		if unprintable(aa) {
 			return fmt.Sprintf("%x", aa)
 		} else {
 			return formatParam(string(aa), quoted)
@@ -565,6 +564,15 @@ func formatParam(a any, quoted bool) string {
 		}
 		return replaceCC(fmt.Sprintf("%v", aa))
 	}
+}
+
+func unprintable(b []byte) bool {
+	for _, bb := range b {
+		if (bb <= 0x1f && bb != 0x09 && bb != 0x0a && bb != 0x0d) || bb == 0x7f {
+			return true
+		}
+	}
+	return false
 }
 
 func deIndent(in string) string {
