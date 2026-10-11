@@ -16,6 +16,7 @@ import (
 	"text/tabwriter"
 	"text/template"
 	"time"
+	"unicode/utf8"
 
 	"zgo.at/zdb/drivers"
 	"zgo.at/zstd/zdebug"
@@ -548,7 +549,7 @@ func formatParam(a any, quoted bool) string {
 	case int, int64:
 		return fmt.Sprintf("%v", aa)
 	case []byte:
-		if unprintable(aa) {
+		if unprintable(aa) || !utf8.Valid(aa) {
 			return fmt.Sprintf("%x", aa)
 		} else {
 			return formatParam(string(aa), quoted)
