@@ -42,7 +42,8 @@ func idcol(opts [][]string) (int, error) {
 // Insert all struct fields of t.
 //
 // Column names are taken from the db tag. Fields with the db tag set to "-" or
-// with the ",noinsert" option will be skipped.
+// with the ",noinsert" option will be skipped. Fields with ,omitzero will be
+// skipped if they're the zero value.
 //
 // If a field has the ",id" option it will be fetched with a "returning" clause
 // and set.
@@ -71,6 +72,15 @@ func Insert(ctx context.Context, t Tabler, onConflict ...string) error {
 
 	cols, params, opts := zreflect.Fields(t, "db", "noinsert")
 
+	// Remove ,omitzero
+	for i := range slices.Backward(opts) {
+		if slices.Contains(opts[i], "omitzero") {
+			if reflect.ValueOf(params[i]).IsZero() {
+				cols, params = slices.Delete(cols, i, i+1), slices.Delete(params, i, i+1)
+			}
+		}
+	}
+
 	// Get the ID column, if any
 	idCol, err := idcol(opts)
 	if err != nil {
@@ -81,11 +91,20 @@ func Insert(ctx context.Context, t Tabler, onConflict ...string) error {
 		idColName string
 	)
 	if idCol > -1 {
+		// TODO: this doesn't work for embeded structs:
+		//
+		// type (
+		//    A struct {
+		//      ID int `db:"id,id"`
+		//    }
+		//    B struct {
+		//      A
+		//    }
+		// )
 		id := reflect.ValueOf(t).Elem().Field(idCol)
 		if !id.IsZero() {
 			return fmt.Errorf(`zdb.Insert: id field %q is not zero value but "%v"`, cols[idCol], id.Interface())
 		}
-
 		idVal, idColName = id.Addr().Interface(), cols[idCol]
 		params, cols = append(params[:idCol], params[idCol+1:]...), append(cols[:idCol], cols[idCol+1:]...)
 	}
@@ -132,7 +151,8 @@ var UpdateAll = "\x00update\x00all\x00"
 //
 // All columns in the struct wil be updated if [UpdateAll] is used as a column.
 // Fields with the db tag set to "-" or with the ",noinsert" or ",readonly"
-// option will be skipped.
+// option will be skipped. Fields with ,omitzero will be skipped if they're the
+// zero value.
 //
 // t needs to have a db tag with the ,id option set, which is used in the WHERE.
 //
@@ -186,6 +206,9 @@ func Update(ctx context.Context, t Tabler, columns ...string) error {
 			if slices.Contains(columns, cols[i]) {
 				return fmt.Errorf("zdb.Update: column %q has ,noinsert", cols[i])
 			}
+			continue
+		}
+		if slices.Contains(opts[i], "omitzero") && reflect.ValueOf(vals[i]).IsZero() {
 			continue
 		}
 		if updateAll {

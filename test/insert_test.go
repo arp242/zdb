@@ -29,6 +29,7 @@ type insertRow struct {
 	unExport1      string
 	defaultCalled  bool
 	validateCalled bool
+	OmitZero       int `db:"omit_zero,omitzero"`
 }
 
 func (insertRow) Table() string                     { return "tbl" }
@@ -39,7 +40,7 @@ func TestInsert(t *testing.T) {
 	zdb.RunTest(t, func(t *testing.T, ctx context.Context) {
 		testTable(ctx, t)
 
-		row := insertRow{0, "aaa", "bbb", "xxx", "xxx", "xxx", false, false}
+		row := insertRow{0, "aaa", "bbb", "xxx", "xxx", "xxx", false, false, 0}
 
 		{ // Insert should work
 			err := zdb.Insert(ctx, &row)
@@ -97,6 +98,7 @@ type updateRow struct {
 	unExport1      string
 	defaultCalled  bool
 	validateCalled bool
+	OmitZero       int `db:"omit_zero,omitzero"`
 }
 
 func (updateRow) Table() string                     { return "tbl" }
@@ -116,7 +118,7 @@ func TestUpdate(t *testing.T) {
 		testTable(ctx, t)
 
 		{ // ID is zero value
-			row := updateRow{0, "aaa", "bbb", "xxx", "xxx", "xxx", false, false}
+			row := updateRow{0, "aaa", "bbb", "xxx", "xxx", "xxx", false, false, 0}
 			err := zdb.Update(ctx, &row, "str")
 			if !ztest.ErrorContains(err, "zero value") {
 				t.Fatal(err)
@@ -124,14 +126,14 @@ func TestUpdate(t *testing.T) {
 		}
 
 		{ // Fail on non-ptr
-			row := updateRow{0, "aaa", "bbb", "xxx", "xxx", "xxx", false, false}
+			row := updateRow{0, "aaa", "bbb", "xxx", "xxx", "xxx", false, false, 0}
 			err := zdb.Update(ctx, row, "str")
 			if !ztest.ErrorContains(err, "not a pointer") {
 				t.Fatal(err)
 			}
 		}
 
-		row := updateRow{0, "aaa", "bbb", "xxx", "xxx", "xxx", false, false}
+		row := updateRow{0, "aaa", "bbb", "xxx", "xxx", "xxx", false, false, 0}
 		err := zdb.Insert(ctx, &row)
 		if err != nil {
 			t.Fatal(err)
